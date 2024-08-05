@@ -1,0 +1,68 @@
+When working with GitHub Pull Requests (PRs), following best practices can help streamline the code review and collaboration process. Here are some GitHub Pull Request best practices:
+
+Keep PRs Small and Focused: It is recommended to keep each PR focused on a specific feature, bug fix, or improvement. This allows for easier review and ensures that changes can be understood and tested more effectively.
+
+Write Clear and Concise Descriptions: Provide a clear and informative description for your PR. Explain the problem it addresses, the changes made, and any relevant context. This helps reviewers and other team members understand the purpose and impact of the PR.
+
+Regularly Sync with the Base Branch: Keep your PR up-to-date with the latest changes from the base branch to avoid conflicts. Regularly merge or rebase the base branch into your PR branch to incorporate any changes made by other team members.
+
+Test the Changes: Before submitting a PR, test your changes thoroughly to ensure they work as expected and do not introduce new issues. Include relevant tests and consider using continuous integration (CI) to automatically run tests against your changes.
+
+Request Reviews: Assign reviewers to your PR and request their feedback. Our PR template will automatically bring reviewers who are knowledgeable in the codebase and can provide valuable insights. Assigning multiple reviewers can help gather different perspectives.
+
+Actively Participate in the Review Process: Respond promptly to reviewer comments, address concerns, and make necessary updates to your code or documentation. Engage in discussions, provide clarifications, and be open to feedback and suggestions.
+
+Use Code Reviews for Learning: Treat code reviews as an opportunity for learning and improvement. Embrace feedback and consider it as a means to enhance your skills and the quality of the codebase.
+
+Keep Discussions and Feedback Respectful: Maintain a respectful and constructive tone during code reviews. Focus on discussing the code and its impact rather than personal opinions. Be mindful of the language used and maintain a positive and collaborative environment.
+
+Merge with Caution: Before merging a PR, ensure that it has been approved and all discussions have been addressed. Follow the project's merge process, such as squashing commits or using merge commits, as per the team's conventions.
+
+GitHub feature branch and PR Naming convention (Sprint development):
+
+Title of the PR: <JIRA ticket>-<Short description of the changes desired>. (e.g. CD-59224 - Corrected layout of floating price basket)
+
+Feature branches should be created from develop (except in some cases when its taken from master e.g. dip-lib-core-ui ).
+
+Feature branches should be named as <feature or defect>/<JIRA ticket>/<short description in few words>. (For e.g. defect/CD-59224/strikethrough-css-fixes)
+
+Once the feature branch is tested locally and ready to be reviewed, Raise a draft PR. The benefit of raising a draft PR over an actual one is that the AWS code builds and Sonar is initiated but code owners and reviewers are not yet informed to review the PR and we can continue with setting up the description of the PR with screenshots. This will avoid scenarios where a PR is approved but then AWS code build / Sonar returns back errors/warnings/code smells, etc which would require a re-review after fixing.
+
+Complete the description of the PR in accordance with the provided PR template  (with screenshots if applicable).
+
+Squash commits to a single one using git rebase -i HEAD~<number of commits>. The benefit of squashing can be realized at a later point in time when a particular commit needs to be reverted/cherry-picked. It’s always easier to deal with a single commit.
+
+Rebase your code with the develop branch using git fetch && git rebase origin/develop and fix merge conflicts if any.
+
+Once the above steps have been completed, and there are no issues identified by Sonar / AWS CodeBuild / Merge conflicts, mark the PR as “Ready for Review“. This will inform the code owners that a PR has been raised and requires review.  
+
+Lastly, please allocate min. 24 hours for review.
+
+Hotfix branch (Bug fix)
+
+The hotfix branch follows a similar branching strategy as feature branches but is specifically used for time-sensitive fixes. Using a hotfix branch helps isolate urgent fixes from ongoing development work, allowing for a controlled and focused approach to resolving critical issues in a production environment. It ensures that urgent fixes can be addressed promptly without affecting the stability of the main branch or interrupting the regular development workflow.
+
+The process of using a hotfix branch typically involves the following steps:
+
+Identify the critical issue: Identify a critical issue or bug that requires an urgent fix in the production environment.
+
+Create a new hotfix branch: Create a new branch specifically for the hotfix. The branch name convention often includes the term "hotfix" or "fix" to indicate its purpose. For example:
+
+
+
+git checkout -b hotfix/your-hotfix-branch-name
+Make the necessary changes: Switch to the hotfix branch and apply the necessary changes to address the identified issue. Focus only on the specific fix and avoid introducing unrelated changes to keep the scope of the hotfix minimal.
+
+Commit and push the changes: Commit the changes made in the hotfix branch with a descriptive message to explain the purpose and details of the fix. Then, push the hotfix branch to the remote repository:
+
+
+
+git commit -m "Fix critical issue: describe the issue and fix"
+git push origin hotfix/your-hotfix-branch-name
+Create a pull request: On the GitHub repository, navigate to the hotfix branch and create a pull request (PR) to merge the hotfix branch into the main branch (or another appropriate target branch).
+
+Review and approval: Assign reviewers to the PR, paste the link in FE Channel with hotfix and it will get priority. Team will review the changes made in the hotfix branch. The review process for a hotfix is typically expedited due to its urgent nature. Reviewers focus on validating the fix, ensuring it effectively addresses the critical issue.
+
+Merge the hotfix: Once the PR is approved, merge the hotfix branch into the target branch. This will incorporate the fix into the main branch, making it available in the production environment.
+
+Deploy the fix: Deploy the updated code with the hotfix to the production environment, ensuring that the critical issue is resolved.
