@@ -1,25 +1,36 @@
-[TestMethod]
-        public void Start_Should_Log_Error_If_Exception_Occurs()
-        {
-            // Arrange
-            var callback = new Action(() => throw new InvalidOperationException("Test exception"));
-            var dueTime = TimeSpan.FromMilliseconds(10);
-            var period = TimeSpan.FromMilliseconds(10);
+using Microsoft.Data.SqlClient;
+using Dapper;
+using Engage.DataSelection.Service.POC.Interfaces;
+namespace Engage.DataSelection.Service.POC.Services
+{
+    public class DatabaseService: IDatabaseService
+    {
+        private readonly ILogger<DatabaseService> _logger;
+        private readonly POCConfig _config;
 
-            // Act
+        public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+        }
+
+        public void ExecuteQueries()
+        {
             try
             {
-                _timerService.Start(callback, dueTime, period);
+                using var connection = new SqlConnection(_config.ConnectionString);
+                foreach (var sqlCommandText in _config.DMQueries)
+                {
+                    _logger.LogInformation($"Running query {sqlCommandText}");
+                    var rows = connection.Query<dynamic>(sqlCommandText);
+                    _logger.LogInformation($"Returned {rows.Count()} rows");
+                }
             }
-            catch (InvalidOperationException)
+            catch (Exception ex)
             {
-                // Expected exception
+                _logger.LogError(ex, "An error occurred while executing queries.");
+                throw;
             }
-
-            // Assert
-            _mockLogger.Verify(
-                logger => logger.LogError(
-                    It.Is<Exception>(ex => ex is InvalidOperationException && ex.Message == "Test exception"),
-                    It.IsAny<string>()),
-                Times.Once);
         }
+    }
+}
