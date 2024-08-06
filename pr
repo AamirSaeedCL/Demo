@@ -1,4 +1,9 @@
-Install-Package MSTest.TestFramework
-Install-Package MSTest.TestAdapter
-Install-Package Moq
-Install-Package Microsoft.Extensions.Logging.Abstractions
+namespace Engage.DataSelection.Service.POC.Interfaces
+{
+    public interface ITimerService
+    {
+        void Start(Action callback, TimeSpan dueTime, TimeSpan period);
+        void Stop();
+        void Dispose();
+    }
+}
