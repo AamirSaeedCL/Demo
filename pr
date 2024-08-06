@@ -111,4 +111,20 @@ namespace Engage.DataSelection.Service.POC.Tests
         }
 
         [TestMethod]
-       
+        public void TimerService_Dispose_Exception_LogsErrorAndThrows()
+        {
+            // Arrange
+            var mockTimer = new Mock<Timer>(null, null, Timeout.Infinite, Timeout.Infinite);
+            _timerService = new TimerService(_mockLogger.Object);
+            var exception = new Exception("Test exception");
+            mockTimer.Setup(t => t.Dispose()).Throws(exception);
+
+            // Act and Assert
+            var ex = Assert.ThrowsException<Exception>(() => _timerService.Dispose());
+            Assert.AreEqual("Test exception", ex.Message);
+            _mockLogger.Verify(
+                x => x.LogError(It.IsAny<Exception>(), It.Is<string>(s => s.Contains("An error occurred while disposing the timer."))),
+                Times.Once);
+        }
+    }
+}
