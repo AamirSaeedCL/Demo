@@ -1,18 +1,176 @@
-Refactor the existing "Engage.Dataselection.Service.POC" worker service to enhance its robustness and maintainability. The refactoring should include the following features and improvements:
+using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Dapper;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-Exception Handling:
+public class Worker : IHostedService, IDisposable
+{
+    private readonly ILogger<Worker> _logger;
+    private readonly IDatabaseService _databaseService;
+    private readonly ITimerService _timerService;
 
-Implement comprehensive exception handling across all service methods to ensure errors are properly logged and managed without disrupting the service workflow. This includes catching and logging specific exceptions where necessary and ensuring that the service can recover or fail gracefully.
-Configurable Interval:
+    public Worker(ILogger<Worker> logger, IDatabaseService databaseService, ITimerService timerService)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
+        _timerService = timerService ?? throw new ArgumentNullException(nameof(timerService));
+    }
 
-Move the 2-minute interval configuration to an external configuration file. This allows for greater flexibility and easier adjustments without the need to modify the codebase. Ensure that the interval value is read from the configuration file at runtime and used to control the timer for periodic tasks.
-Codebase Refactoring:
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _timerService.Start(DoWork, TimeSpan.Zero, TimeSpan.FromMinutes(2));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while starting the worker.");
+            throw;
+        }
 
-Refactor the existing codebase to improve its structure, readability, and adherence to modern C# best practices, including:
-Adopting SOLID Principles: Ensure the code follows SOLID principles (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion) to enhance maintainability and scalability.
-Async/Await Best Practices: Ensure that all asynchronous operations utilize async/await for better performance and responsiveness.
-Dependency Injection: Make sure that all dependencies are injected through constructors, promoting testability and decoupling.
-Utilizing .NET 8 Features: Leverage the latest features and enhancements provided by .NET 8, such as IAsyncDisposable for async resource management and PeriodicTimer for periodic tasks.
-Logging: Enhance logging to provide detailed and actionable insights into the service's operation, making it easier to diagnose and troubleshoot issues.
-Configuration Management: Use the built-in configuration system of .NET to manage application settings, ensuring that configuration values are easy to manage and override in different environments.
-These changes aim to improve the overall quality, performance, and maintainability of the "Engage.Dataselection.Service.POC" worker service, 
+        return Task.CompletedTask;
+    }
+
+    private void DoWork()
+    {
+        try
+        {
+            _databaseService.ExecuteQueries();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while executing queries.");
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _timerService.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while stopping the worker.");
+            throw;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            _timerService.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while disposing the timer service.");
+            throw;
+        }
+    }
+}
+
+public interface IDatabaseService
+{
+    void ExecuteQueries();
+}
+
+public class DatabaseService : IDatabaseService
+{
+    private readonly ILogger<DatabaseService> _logger;
+    private readonly POCConfig _config;
+
+    public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+    }
+
+    public void ExecuteQueries()
+    {
+        try
+        {
+            using var connection = new SqlConnection(_config.ConnectionString);
+            foreach (var sqlCommandText in _config.DMQueries)
+            {
+                _logger.LogInformation($"Running query {sqlCommandText}");
+                var rows = connection.Query<dynamic>(sqlCommandText);
+                _logger.LogInformation($"Returned {rows.Count()} rows");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while executing queries.");
+            throw;
+        }
+    }
+}
+
+public interface ITimerService : IDisposable
+{
+    void Start(Action callback, TimeSpan dueTime, TimeSpan period);
+    void Stop();
+}
+
+public class TimerService : ITimerService
+{
+    private readonly ILogger<TimerService> _logger;
+    private Timer? _timer;
+
+    public TimerService(ILogger<TimerService> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public void Start(Action callback, TimeSpan dueTime, TimeSpan period)
+    {
+        try
+        {
+            _timer = new Timer(_ => callback(), null, dueTime, period);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while starting the timer.");
+            throw;
+        }
+    }
+
+    public void Stop()
+    {
+        try
+        {
+            _timer?.Change(Timeout.Infinite, 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while stopping the timer.");
+            throw;
+        }
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            _timer?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while disposing the timer.");
+            throw;
+        }
+    }
+}
+
+public class POCConfig
+{
+    public string ConnectionString { get; set; }
+    public List<string> DMQueries { get; set; }
+}
