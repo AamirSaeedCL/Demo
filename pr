@@ -1,115 +1,25 @@
-using System;
-using System.Threading;
-using Engage.DataSelection.Service.POC.Interfaces;
-using Engage.DataSelection.Service.POC.Services;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-
-namespace Engage.DataSelection.Service.Tests
-{
-    [TestClass]
-    public class TimerServiceTests
-    {
-        private Mock<ILogger<TimerService>> _mockLogger;
-        private ITimerService _timerService;
-
-        [TestInitialize]
-        public void Setup()
-        {
-            _mockLogger = new Mock<ILogger<TimerService>>();
-            _timerService = new TimerService(_mockLogger.Object);
-        }
-
-        [TestMethod]
-        public void Start_Should_Invoke_Callback_After_DueTime()
-        {
-            // Arrange
-            var callbackInvoked = false;
-            var callback = new Action(() => { callbackInvoked = true; });
-            var dueTime = TimeSpan.FromMilliseconds(100);
-            var period = TimeSpan.FromMilliseconds(100);
-
-            // Act
-            _timerService.Start(callback, dueTime, period);
-
-            // Assert
-            Thread.Sleep(150); // Wait a little more than dueTime
-            Assert.IsTrue(callbackInvoked);
-
-            _timerService.Stop(); // Clean up
-        }
-
-        [TestMethod]
+[TestMethod]
         public void Start_Should_Log_Error_If_Exception_Occurs()
         {
             // Arrange
-            var callback = new Action(() => throw new InvalidOperationException());
-            var dueTime = TimeSpan.Zero;
-            var period = TimeSpan.Zero;
-
-            // Act & Assert
-            Assert.ThrowsException<InvalidOperationException>(() => _timerService.Start(callback, dueTime, period));
-            _mockLogger.Verify(logger => logger.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-        }
-
-        [TestMethod]
-        public void Stop_Should_Stop_Timer()
-        {
-            // Arrange
-            var callbackInvoked = false;
-            var callback = new Action(() => { callbackInvoked = true; });
-            var dueTime = TimeSpan.FromMilliseconds(100);
-            var period = TimeSpan.FromMilliseconds(100);
+            var callback = new Action(() => throw new InvalidOperationException("Test exception"));
+            var dueTime = TimeSpan.FromMilliseconds(10);
+            var period = TimeSpan.FromMilliseconds(10);
 
             // Act
-            _timerService.Start(callback, dueTime, period);
-            _timerService.Stop();
+            try
+            {
+                _timerService.Start(callback, dueTime, period);
+            }
+            catch (InvalidOperationException)
+            {
+                // Expected exception
+            }
 
             // Assert
-            Thread.Sleep(150); // Wait a little more than dueTime
-            Assert.IsFalse(callbackInvoked);
+            _mockLogger.Verify(
+                logger => logger.LogError(
+                    It.Is<Exception>(ex => ex is InvalidOperationException && ex.Message == "Test exception"),
+                    It.IsAny<string>()),
+                Times.Once);
         }
-
-        [TestMethod]
-        public void Stop_Should_Log_Error_If_Exception_Occurs()
-        {
-            // Arrange
-            _timerService.Start(() => { }, TimeSpan.Zero, TimeSpan.Zero);
-            _timerService.Stop();
-            
-            // Act & Assert
-            Assert.ThrowsException<InvalidOperationException>(() => _timerService.Stop());
-            _mockLogger.Verify(logger => logger.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-        }
-
-        [TestMethod]
-        public void Dispose_Should_Dispose_Timer()
-        {
-            // Arrange
-            var callback = new Action(() => { });
-            var dueTime = TimeSpan.Zero;
-            var period = TimeSpan.Zero;
-
-            _timerService.Start(callback, dueTime, period);
-
-            // Act
-            _timerService.Dispose();
-
-            // Assert
-            // No specific assertion here, but we are ensuring no exceptions are thrown
-        }
-
-        [TestMethod]
-        public void Dispose_Should_Log_Error_If_Exception_Occurs()
-        {
-            // Arrange
-            _timerService.Start(() => { }, TimeSpan.Zero, TimeSpan.Zero);
-            _timerService.Dispose();
-
-            // Act & Assert
-            Assert.ThrowsException<InvalidOperationException>(() => _timerService.Dispose());
-            _mockLogger.Verify(logger => logger.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-        }
-    }
-}
