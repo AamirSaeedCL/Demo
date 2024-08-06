@@ -1,36 +1,40 @@
-using Microsoft.Data.SqlClient;
-using Dapper;
-using Engage.DataSelection.Service.POC.Interfaces;
-namespace Engage.DataSelection.Service.POC.Services
-{
-    public class DatabaseService: IDatabaseService
-    {
-        private readonly ILogger<DatabaseService> _logger;
-        private readonly POCConfig _config;
+### Azure Ticket Reference
 
-        public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _config = config ?? throw new ArgumentNullException(nameof(config));
-        }
+Kindly provide the Azure ticket reference associated with this change.
 
-        public void ExecuteQueries()
-        {
-            try
-            {
-                using var connection = new SqlConnection(_config.ConnectionString);
-                foreach (var sqlCommandText in _config.DMQueries)
-                {
-                    _logger.LogInformation($"Running query {sqlCommandText}");
-                    var rows = connection.Query<dynamic>(sqlCommandText);
-                    _logger.LogInformation($"Returned {rows.Count()} rows");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while executing queries.");
-                throw;
-            }
-        }
-    }
-}
+### Description
+
+Please include a comprehensive summary of the issue or change related to this task. Clearly describe the specific issue or bug that is being addressed, and provide any relevant background information and context. This should include the steps to reproduce the issue, the impact it has on the system or users, and any relevant logs or screenshots. Additionally, outline the expected behavior after the change is implemented. Furthermore, please list any dependencies required for implementing this change. This should encompass any specific service, libraries, or configurations needed to successfully deploy the fix or enhancement. Include details on version requirements, compatibility considerations, and any external systems or APIs that need to be integrated. Providing this information will ensure a smooth implementation process and help avoid potential conflicts or issues.
+
+### Type of Change
+
+Please delete options that are not applicable.
+
+- [ ] Bug fix (a non-breaking change that resolves an issue).
+- [ ] New feature (a non-breaking change that adds functionality).
+- [ ] Breaking change (a modification that could affect existing functionality).
+- [ ] This change requires an update to the documentation.
+
+### How Has This Been Tested?
+
+Please describe the tests you conducted to verify your changes. Provide detailed instructions for reproducing these tests, including any relevant details about the test environment, configuration settings, and data used. Additionally, specify any tools or frameworks utilized during the testing process and any known limitations or consideration
+
+- [ ] Test A
+- [ ] Test B
+
+### Checklist:
+
+- [ ] My code adheres to the style guidelines, as outlined in our development guidelines, ensuring consistency and readability.
+- [ ] I have conducted a thorough self-review of my code to identify and rectify any potential issues before submitting it for peer review.
+- [ ] I have added detailed comments to my code, particularly in areas that may be complex or not immediately clear to others.
+- [ ] I have updated the relevant documentation to reflect the changes and additions made in the code.
+- [ ] I have written and added tests to demonstrate the effectiveness and correctness of the fix or feature I have implemented.
+- [ ] I have verified that all new and existing unit tests pass locally, ensuring that my changes do not introduce any regressions.
+- [ ] I have included a comprehensive test coverage report, showing that the code achieves at least 90% coverage.
+- [ ] I have ensured that all dependent changes have been merged and published in downstream modules, maintaining integration and compatibility across the project.
+
+### Screenshots
+
+**Original**                  |    **Updated**
+:----------------------------:|:----------------------------
+_Original screenshot_         |   _Updated screenshots_
