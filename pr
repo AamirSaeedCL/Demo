@@ -1,52 +1,18 @@
-When working with GitHub Pull Requests (PRs), adhering to best practices can significantly streamline the code review and collaboration process. Here are some recommended GitHub Pull Request best practices:
-Keep PRs Small and Focused
-It is advisable to keep each PR centered on a specific feature, bug fix, or improvement. This allows for easier review and ensures that changes can be understood and tested more effectively.
-Write Clear and Concise Descriptions
-Provide a clear and informative description of your PR. Explain the problem it addresses, the changes made, and any relevant context. This helps reviewers and other team members understand the purpose and impact of the PR.
-Regularly Sync with the Base Branch
-Keep your PR up-to-date with the latest changes from the base branch to avoid conflicts. Regularly merge or rebase the base branch into your PR branch to incorporate any changes made by other team members.
-Test the Changes
-Before submitting a PR, thoroughly test your changes to ensure they work as expected and do not introduce new issues. Include relevant tests and consider using continuous integration (CI) to automatically run tests against your changes.
-Request Reviews
-Assign reviewers to your PR and request their feedback. Our PR template will automatically suggest reviewers who are knowledgeable about the codebase and can provide valuable insights. Assigning multiple reviewers can help gather different perspectives.
-Actively Participate in the Review Process
-Respond promptly to reviewer comments, address concerns, and make necessary updates to your code or documentation. Engage in discussions, provide clarifications, and be open to feedback and suggestions.
-Use Code Reviews for Learning
-Treat code reviews as an opportunity for learning and improvement. Embrace feedback and consider it a means to enhance your skills and the quality of the codebase.
-Keep Discussions and Feedback Respectful
-Maintain a respectful and constructive tone during code reviews. Focus on discussing the code and its impact rather than personal opinions. Be mindful of the language used and maintain a positive and collaborative environment.
-Merge with Caution
-Before merging a PR, ensure it has been approved and all discussions have been addressed. Follow the project's merge process, such as squashing commits or using merge commits, as per the team's conventions.
-GitHub Feature Branch and PR Naming Convention (Sprint Development)
-Title of the PR
-Format the title of the PR as <Ticket>-<Short description of the changes desired> (e.g., CD-59224 - Corrected layout of floating price basket).
-Feature Branches
-Feature branches should be created from the develop branch (except in some cases where they are taken from master).
-Naming Convention for Feature Branches
-Name feature branches as <feature or defect>/<Ticket>/<short description in a few words> (e.g., defect/CD-59224/strikethrough-css-fixes).
-Draft PRs
-Once the feature branch is tested locally and ready for review, raise a draft PR. The benefit of raising a draft PR over an actual one is that Azure code builds and Sonar analysis are initiated, but code owners and reviewers are not yet informed to review the PR. This allows you to set up the description of the PR with screenshots, avoiding scenarios where a PR is approved but then Azure code build or Sonar returns errors/warnings/code smells, requiring a re-review after fixing.
-PR Description
-Complete the description of the PR by the provided PR template, including screenshots if applicable.
-Squash Commits
-Squash commits to a single one using git rebase -i HEAD~<number of commits>. The benefit of squashing is realized when a particular commit needs to be reverted or cherry-picked, as it is always easier to deal with a single commit.
-Rebase Your Code When working with GitHub Pull Requests (PRs)
-Rebase your code with the develop branch using git fetch && git rebase origin/develop and fix merge conflicts if any.
-Mark PR as Ready for Review
-Once the above steps are completed, and there are no issues identified by Sonar, Azure CodeBuild, or merge conflicts, mark the PR as "Ready for Review". This will inform the code owners that a PR has been raised and requires review.
-Review Time Allocation
-Allocate a minimum of 48 hours for review.
-Hotfix Branch (Bug Fix)
-The hotfix branch follows a similar branching strategy as feature branches but is specifically used for time-sensitive fixes. Using a hotfix branch helps isolate urgent fixes from ongoing development work, allowing for a controlled and focused approach to resolving critical issues in a production environment. It ensures that urgent fixes can be addressed promptly without affecting the stability of the main branch or interrupting the regular development workflow.
-Process for Using a Hotfix Branch
-1.	Identify the Critical Issue Identify a critical issue or bug that requires an urgent fix in the production environment.
-2.	Create a New Hotfix Branch Create a new branch specifically for the hotfix. The branch name convention often includes the term "hotfix" or "fix" to indicate its purpose, for example:
-git checkout -b hotfix/your-hotfix-branch-name
-3.	Make the Necessary Changes Switch to the hotfix branch and apply the necessary changes to address the identified issue. Focus only on the specific fix and avoid introducing unrelated changes to keep the scope of the hotfix minimal.
-4.	Commit and Push the Changes Commit the changes made in the hotfix branch with a descriptive message to explain the purpose and details of the fix. Then, push the hotfix branch to the remote repository:
-git commit -m "Fix critical issue: describe the issue and fix"
-git push origin hotfix/your-hotfix-branch-name
-5.	Create a Pull Request On the GitHub repository, navigate to the hotfix branch, and create a pull request (PR) to merge the hotfix branch into the main branch (or another appropriate target branch).
-6.	Review and Approval Assign reviewers to the PR and paste the link in the FE Channel with the "hotfix" label to give it priority. The team will review the changes made in the hotfix branch. The review process for a hotfix is typically expedited due to its urgent nature. Reviewers focus on validating the fix, ensuring it effectively addresses the critical issue.
-7.	Merge the Hotfix Once the PR is approved, merge the hotfix branch into the target branch. This will incorporate the fix into the main branch, making it available in the production environment.
-8.	Deploy the Fix Deploy the updated code with the hotfix to the production environment. 
+Refactor the existing "Engage.Dataselection.Service.POC" worker service to enhance its robustness and maintainability. The refactoring should include the following features and improvements:
+
+Exception Handling:
+
+Implement comprehensive exception handling across all service methods to ensure errors are properly logged and managed without disrupting the service workflow. This includes catching and logging specific exceptions where necessary and ensuring that the service can recover or fail gracefully.
+Configurable Interval:
+
+Move the 2-minute interval configuration to an external configuration file. This allows for greater flexibility and easier adjustments without the need to modify the codebase. Ensure that the interval value is read from the configuration file at runtime and used to control the timer for periodic tasks.
+Codebase Refactoring:
+
+Refactor the existing codebase to improve its structure, readability, and adherence to modern C# best practices, including:
+Adopting SOLID Principles: Ensure the code follows SOLID principles (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion) to enhance maintainability and scalability.
+Async/Await Best Practices: Ensure that all asynchronous operations utilize async/await for better performance and responsiveness.
+Dependency Injection: Make sure that all dependencies are injected through constructors, promoting testability and decoupling.
+Utilizing .NET 8 Features: Leverage the latest features and enhancements provided by .NET 8, such as IAsyncDisposable for async resource management and PeriodicTimer for periodic tasks.
+Logging: Enhance logging to provide detailed and actionable insights into the service's operation, making it easier to diagnose and troubleshoot issues.
+Configuration Management: Use the built-in configuration system of .NET to manage application settings, ensuring that configuration values are easy to manage and override in different environments.
+These changes aim to improve the overall quality, performance, and maintainability of the "Engage.Dataselection.Service.POC" worker service, 
