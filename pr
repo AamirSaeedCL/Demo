@@ -1,55 +1,114 @@
 using Engage.DataSelection.Service.POC.Interfaces;
+using Engage.DataSelection.Service.POC.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
+using System;
 
-namespace Engage.DataSelection.Service.POC.Services
+namespace Engage.DataSelection.Service.POC.Tests
 {
-    public class TimerService : ITimerService
+    [TestClass]
+    public class TimerServiceTests
     {
-        private readonly ILogger<TimerService> _logger;
-        private Timer? _timer;
+        private Mock<ILogger<TimerService>> _mockLogger;
+        private TimerService _timerService;
 
-        public TimerService(ILogger<TimerService> logger)
+        [TestInitialize]
+        public void Setup()
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _mockLogger = new Mock<ILogger<TimerService>>();
+            _timerService = new TimerService(_mockLogger.Object);
         }
 
-        public void Start(Action callback, TimeSpan dueTime, TimeSpan period)
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void TimerService_Constructor_NullLogger_ThrowsArgumentNullException()
         {
-            try
-            {
-                _timer = new Timer(_ => callback(), null, dueTime, period);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while starting the timer.");
-                throw;
-            }
+            new TimerService(null);
         }
 
-        public void Stop()
+        [TestMethod]
+        public void TimerService_Start_ValidParameters_StartsTimer()
         {
-            try
-            {
-                _timer?.Change(Timeout.Infinite, 0);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while stopping the timer.");
-                throw;
-            }
+            // Arrange
+            var callbackInvoked = false;
+            Action callback = () => callbackInvoked = true;
+            var dueTime = TimeSpan.FromMilliseconds(100);
+            var period = TimeSpan.FromMilliseconds(100);
+
+            // Act
+            _timerService.Start(callback, dueTime, period);
+            System.Threading.Thread.Sleep(150); // wait to allow the timer to trigger
+
+            // Assert
+            Assert.IsTrue(callbackInvoked);
         }
 
-        public void Dispose()
+        [TestMethod]
+        public void TimerService_Start_Exception_LogsErrorAndThrows()
         {
-            try
-            {
-                _timer?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while disposing the timer.");
-                throw;
-            }
-        }
-    }
+            // Arrange
+            Action callback = () => throw new Exception("Test exception");
+            var dueTime = TimeSpan.Zero;
+            var period = TimeSpan.FromMilliseconds(100);
 
-}
+            // Act and Assert
+            var ex = Assert.ThrowsException<Exception>(() => _timerService.Start(callback, dueTime, period));
+            Assert.AreEqual("Test exception", ex.Message);
+            _mockLogger.Verify(
+                x => x.LogError(It.IsAny<Exception>(), It.Is<string>(s => s.Contains("An error occurred while starting the timer."))),
+                Times.Once);
+        }
+
+        [TestMethod]
+        public void TimerService_Stop_StopsTimer()
+        {
+            // Arrange
+            var callbackInvoked = false;
+            Action callback = () => callbackInvoked = true;
+            var dueTime = TimeSpan.FromMilliseconds(100);
+            var period = TimeSpan.FromMilliseconds(100);
+            _timerService.Start(callback, dueTime, period);
+            System.Threading.Thread.Sleep(50); // wait to allow the timer to start
+
+            // Act
+            _timerService.Stop();
+            callbackInvoked = false;
+            System.Threading.Thread.Sleep(150); // wait to see if the timer triggers
+
+            // Assert
+            Assert.IsFalse(callbackInvoked);
+        }
+
+        [TestMethod]
+        public void TimerService_Stop_Exception_LogsErrorAndThrows()
+        {
+            // Arrange
+            var mockTimer = new Mock<Timer>(null, null, Timeout.Infinite, Timeout.Infinite);
+            _timerService = new TimerService(_mockLogger.Object);
+            _timerService.Start(() => { }, TimeSpan.Zero, TimeSpan.Zero);
+            _timerService.Stop(); // stop the original timer to avoid interference
+            var exception = new Exception("Test exception");
+            mockTimer.Setup(t => t.Change(It.IsAny<long>(), It.IsAny<long>())).Throws(exception);
+
+            // Act and Assert
+            _mockLogger.Verify(
+                x => x.LogError(It.IsAny<Exception>(), It.Is<string>(s => s.Contains("An error occurred while stopping the timer."))),
+                Times.Once);
+        }
+
+        [TestMethod]
+        public void TimerService_Dispose_DisposesTimer()
+        {
+            // Arrange
+            var mockTimer = new Mock<Timer>(null, null, Timeout.Infinite, Timeout.Infinite);
+            _timerService = new TimerService(_mockLogger.Object);
+            _timerService.Start(() => { }, TimeSpan.Zero, TimeSpan.Zero);
+            _timerService.Dispose();
+
+            // Act and Assert
+            mockTimer.Verify(t => t.Dispose(), Times.Once);
+        }
+
+        [TestMethod]
+       
