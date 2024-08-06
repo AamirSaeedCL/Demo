@@ -1,2 +1,55 @@
-Pull Request Description
-I have a quick suggestion regarding our agile process. Today, I worked on ticket #14508, which involved refactoring the POC worker service, and I have raised a pull request for it. I have also updated the ticket status accordingly. However, I noticed that our agile board does not include a "Review" session between the "In Progress" and "Development" stages. Typically, after development, we conduct a review session before proceeding to testing. Should we consider adding this review stage to our workflow to ensure thorough code evaluation and maintain consistency in our process?
+using Engage.DataSelection.Service.POC.Interfaces;
+
+namespace Engage.DataSelection.Service.POC.Services
+{
+    public class TimerService : ITimerService
+    {
+        private readonly ILogger<TimerService> _logger;
+        private Timer? _timer;
+
+        public TimerService(ILogger<TimerService> logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        public void Start(Action callback, TimeSpan dueTime, TimeSpan period)
+        {
+            try
+            {
+                _timer = new Timer(_ => callback(), null, dueTime, period);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while starting the timer.");
+                throw;
+            }
+        }
+
+        public void Stop()
+        {
+            try
+            {
+                _timer?.Change(Timeout.Infinite, 0);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while stopping the timer.");
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                _timer?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while disposing the timer.");
+                throw;
+            }
+        }
+    }
+
+}
