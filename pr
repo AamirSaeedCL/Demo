@@ -1,5 +1,1 @@
-Firstly, I apologize for not being able to share this on the MS Teams channel, as it appears my OneDrive has not been set up yet.
 
-Please find attached the Azure Data Factory (ADF) architecture diagram files for your reference. I am providing both the source file and the PDF version. I used https://app.diagrams.net to create the diagram.
-
-At a high level, the diagram encompasses several key components, including data sources, data ingestion methods, data storage, data processing, and data movement. Most of the elements are self-explanatory.
