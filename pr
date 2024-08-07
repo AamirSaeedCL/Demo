@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Engage.DataSelection.Service.POC.Interfaces;
 using Engage.DataSelection.Service.POC.Services;
 using System;
-using Dapper;
 using System.Data;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,7 +33,7 @@ namespace Engage.DataSelection.Service.POC.Tests
             _databaseService = new DatabaseService(_mockLogger.Object, _config);
 
             // Setup Dapper Query method to return a mocked result
-            _mockDbConnection.SetupDapper(x => x.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
+            _mockDbConnection.Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
                 .Returns(new List<dynamic> { new { Id = 1 }, new { Id = 2 } });
         }
 
@@ -48,8 +47,8 @@ namespace Engage.DataSelection.Service.POC.Tests
             _databaseService.ExecuteQueries();
 
             // Assert
-            _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))), Times.Exactly(_config.DMQueries.Count));
-            _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))), Times.Exactly(_config.DMQueries.Count));
+            _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))), Times.Exactly(_config.DMQueries.Count()));
+            _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))), Times.Exactly(_config.DMQueries.Count()));
         }
 
         [TestMethod]
@@ -57,7 +56,7 @@ namespace Engage.DataSelection.Service.POC.Tests
         public void ExecuteQueries_ThrowsException_LogsError()
         {
             // Arrange
-            _mockDbConnection.SetupDapper(x => x.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
+            _mockDbConnection.Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
                 .Throws(new Exception("Test exception"));
 
             SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
@@ -94,16 +93,5 @@ namespace Engage.DataSelection.Service.POC.Tests
     {
         public string ConnectionString { get; set; }
         public IEnumerable<string> DMQueries { get; set; }
-    }
-}
-
-// Extension method for Moq to support Dapper
-public static class DapperMockExtensions
-{
-    public static IReturnsResult<IDbConnection> SetupDapper<T>(
-        this Mock<IDbConnection> mock,
-        Expression<Func<IDbConnection, IEnumerable<T>>> expression)
-    {
-        return mock.Setup(expression);
     }
 }
