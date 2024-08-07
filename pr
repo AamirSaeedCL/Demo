@@ -1,2 +1,36 @@
+using Microsoft.Data.SqlClient;
+using Dapper;
+using Engage.DataSelection.Service.POC.Interfaces;
+namespace Engage.DataSelection.Service.POC.Services
+{
+    public class DatabaseService: IDatabaseService
+    {
+        private readonly ILogger<DatabaseService> _logger;
+        private readonly POCConfig _config;
 
-All the SQL queries remain unchanged as I have not made any modifications to them. We will replace and execute these queries sequentially once we have a clearer understanding of the requirements and the specific data we need to process.
+        public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+        }
+
+        public void ExecuteQueries()
+        {
+            try
+            {
+                using var connection = new SqlConnection(_config.ConnectionString);
+                foreach (var sqlCommandText in _config.DMQueries)
+                {
+                    _logger.LogInformation($"Running query {sqlCommandText}");
+                    var rows = connection.Query<dynamic>(sqlCommandText);
+                    _logger.LogInformation($"Returned {rows.Count()} rows");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while executing queries.");
+                throw;
+            }
+        }
+    }
+}
