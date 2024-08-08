@@ -3,6 +3,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using Engage.DataSelection.Service.POC.Services;
 using Engage.DataSelection.Service.POC.Interfaces;
+using System;
 using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using Dapper;
@@ -30,11 +31,23 @@ namespace Engage.DataSelection.Service.POC.Tests
                 IntervalInMinutes = 10
             };
 
-            // Set up the connection factory
-            SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
-
-            // Initialize the service
             _databaseService = new DatabaseService(_mockLogger.Object, _config);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void Constructor_NullLogger_ThrowsArgumentNullException()
+        {
+            // Act
+            var service = new DatabaseService(null, _config);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void Constructor_NullConfig_ThrowsArgumentNullException()
+        {
+            // Act
+            var service = new DatabaseService(_mockLogger.Object, null);
         }
 
         [TestMethod]
@@ -47,6 +60,9 @@ namespace Engage.DataSelection.Service.POC.Tests
             _mockDbConnection
                 .Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
                 .Returns(mockQueryResult);
+
+            // Mock the SqlConnectionFactory to return the mock connection
+            SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
 
             // Act
             _databaseService.ExecuteQueries();
@@ -70,6 +86,9 @@ namespace Engage.DataSelection.Service.POC.Tests
                 .Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
                 .Throws(exception);
 
+            // Mock the SqlConnectionFactory to return the mock connection
+            SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
+
             // Act & Assert
             Assert.ThrowsException<SqlException>(() => _databaseService.ExecuteQueries());
 
@@ -77,5 +96,34 @@ namespace Engage.DataSelection.Service.POC.Tests
                 x => x.LogError(exception, "An error occurred while executing queries."),
                 Times.Once);
         }
+    }
+
+    // Supporting Classes and Interfaces for Test
+    
+    public interface IDatabaseService
+    {
+        void ExecuteQueries();
+    }
+
+    public class SqlConnectionFactory
+    {
+        private static Func<IDbConnection> _connectionFactory;
+
+        public static void SetConnectionFactory(Func<IDbConnection> factory)
+        {
+            _connectionFactory = factory;
+        }
+
+        public static IDbConnection GetConnection()
+        {
+            return _connectionFactory();
+        }
+    }
+
+    public class POCConfig
+    {
+        public required string ConnectionString { get; set; }
+        public required List<string> DMQueries { get; set; }
+        public required int IntervalInMinutes { get; set; }
     }
 }
