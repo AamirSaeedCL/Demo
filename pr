@@ -1,363 +1,80 @@
-using System.Data;
-using Engage.DataSelection.Service.POC.Services;
-using Microsoft.Extensions.Logging;
-using Moq;
+This pull request introduces unit tests for the DatabaseService, TimerService, and Worker classes in the worker service POC project. The tests cover various scenarios including construction validation, method behavior, and logging for these classes. Key updates include:
 
-namespace Engage.DataSelection.Service.POC.Tests
-{
-    [TestClass]
-    public class DatabaseServiceTests
-    {
-        private Mock<ILogger<DatabaseService>> _mockLogger;
-        private Mock<IDbConnection> _mockDbConnection;
-        private POCConfig _config;
-        private DatabaseService _databaseService;
-
-        [TestInitialize]
-        public void Setup()
-        {
-            _mockLogger = new Mock<ILogger<DatabaseService>>();
-            _mockDbConnection = new Mock<IDbConnection>();
-            _config = new POCConfig
-            {
-                ConnectionString = "data source=SS2-DMT-D-01;initial catalog=crs5_oltp;integrated security=false;User Id=itsolutionsdev;Password=Cabot123!;MultipleActiveResultSets=True;App=CCM.Engage.DataSelection.POC;TrustServerCertificate=true",
-                DMQueries = new List<string> { "SELECT TOP 1 [cnsmr_id] FROM [crs5_oltp].[dbo].[cnsmr_accnt_ar_log] AS CAR INNER JOIN [crs5_oltp].[dbo].[actn_Cd] AC ON AC.actn_Cd = CAR.actn_cd INNER JOIN [crs5_oltp].[dbo].[rslt_Cd] RC ON RC.rslt_Cd = CAR.rslt_Cd WHERE CAR.[upsrt_dttm] >= DATEADD(minute, {interval}, GETDATE())" },
-                IntervalInMinutes = 2
-            };
-
-            _databaseService = new DatabaseService(_mockLogger.Object, _config);
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullLogger_ThrowsArgumentNullException()
-        {
-            // Act
-            var service = new DatabaseService(null, _config);
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullConfig_ThrowsArgumentNullException()
-        {
-            // Act
-            var service = new DatabaseService(_mockLogger.Object, null);
-        }
-
-        [TestMethod]
-        public void ExecuteQueries_SuccessfulExecution_LogsInformation()
-        {
-            // Arrange
-            var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
-            var mockDatabaseClient = new Mock<IDatabaseClient>();
-
-            mockDatabaseClient
-                .Setup(client => client.Query(It.IsAny<string>(), null))
-                .Returns(mockQueryResult);
-
-            var testLogger = new TestLogger();
-            _config = new POCConfig
-            {
-                ConnectionString = "data source=SS2-DMT-D-01;initial catalog=crs5_oltp;integrated security=false;User Id=itsolutionsdev;Password=Cabot123!;MultipleActiveResultSets=True;App=CCM.Engage.DataSelection.POC;TrustServerCertificate=true",
-                DMQueries = new List<string> { "SELECT TOP 1 [cnsmr_id] FROM [crs5_oltp].[dbo].[cnsmr_accnt_ar_log] AS CAR INNER JOIN [crs5_oltp].[dbo].[actn_Cd] AC ON AC.actn_Cd = CAR.actn_cd INNER JOIN [crs5_oltp].[dbo].[rslt_Cd] RC ON RC.rslt_Cd = CAR.rslt_Cd WHERE CAR.[upsrt_dttm] >= DATEADD(minute, {interval}, GETDATE())" },
-                IntervalInMinutes = 2
-            };
-            _databaseService = new DatabaseService(testLogger, _config);
-
-            // Act
-            _databaseService.ExecuteQueries();
-
-            // Assert
-            Assert.IsTrue(testLogger.LogMessages.Any(m => m.StartsWith("Running query")));
-            Assert.IsTrue(testLogger.LogMessages.Any(m => m.StartsWith("Returned")));
-        }
-
-        [TestMethod]
-        public void ExecuteQueries_ThrowsException_LogsError()
-        {
-            // Arrange
-            var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
-            var mockDatabaseClient = new Mock<IDatabaseClient>();
-
-            mockDatabaseClient
-                .Setup(client => client.Query(It.IsAny<string>(), null))
-                .Returns(mockQueryResult);
-
-            var testLogger = new TestLogger();
-
-            // Provide the in-correct query (Invalid table name etc)
-            _config = new POCConfig
-            {
-                ConnectionString = "data source=SS2-DMT-D-01;initial catalog=crs5_oltp;integrated security=false;User Id=itsolutionsdev;Password=Cabot123!;MultipleActiveResultSets=True;App=CCM.Engage.DataSelection.POC;TrustServerCertificate=true",
-                DMQueries = new List<string> { "SELECT TOP 1 [cnsmr_id] FROM TABLE1 WHERE [upsrt_dttm] >= DATEADD(minute, {interval}, GETDATE())" },
-                IntervalInMinutes = 2
-            };
-            _databaseService = new DatabaseService(testLogger, _config);
-
-            try
-            { 
-                // Act
-                _databaseService.ExecuteQueries();
-            }
-            catch (Exception)
-            {
-                // Assert
-                Assert.IsTrue(testLogger.LogMessages.Any(m => m.StartsWith("Running query")));
-                Assert.IsTrue(testLogger.LogMessages.Any(m => m.StartsWith("An error occurred while executing queries.")));
-            }
-        }
-    }
-
-    public interface IDatabaseClient
-    {
-        IEnumerable<dynamic> Query(string sql, object param = null);
-    }
-
-    public class TestLogger : ILogger<DatabaseService>
-    {
-        public List<string> LogMessages { get; } = new List<string>();
-
-        public IDisposable BeginScope<TState>(TState state) => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
-        {
-            LogMessages.Add(formatter(state, exception));
-        }
-    }
-}
+DatabaseServiceTests: Tests for DatabaseService focusing on constructor validation, query execution, and error handling.
+TimerServiceTests: Tests for TimerService covering start, stop, and dispose functionalities, along with error logging.
+WorkerTests: Tests for Worker that validate construction, asynchronous operations, and disposal, including error handling.
 
 
 
-using Engage.DataSelection.Service.POC.Interfaces;
-using Engage.DataSelection.Service.POC.Services;
-using Microsoft.Extensions.Logging;
-using Moq;
-
-namespace Engage.DataSelection.Service.Tests
-{
-    [TestClass]
-    public class TimerServiceTests
-    {
-        private Mock<ILogger<TimerService>> _mockLogger;
-        private ITimerService _timerService;
-
-        [TestInitialize]
-        public void Setup()
-        {
-            _mockLogger = new Mock<ILogger<TimerService>>();
-            _timerService = new TimerService(_mockLogger.Object);
-        }
-
-        [TestMethod]
-        public void Start_Should_Invoke_Callback_After_DueTime()
-        {
-            // Arrange
-            var callbackInvoked = false;
-            var callback = new Action(() => { callbackInvoked = true; });
-            var dueTime = TimeSpan.FromMilliseconds(100);
-            var period = TimeSpan.FromMilliseconds(100);
-
-            // Act
-            _timerService.Start(callback, dueTime, period);
-
-            // Assert
-            Thread.Sleep(150); // Wait a little more than dueTime
-            Assert.IsTrue(callbackInvoked);
-
-            _timerService.Stop(); // Clean up
-        }
-
-        [TestMethod]
-        public void Start_Should_Log_Error_If_Exception_Occurs()
-        {
-            // Arrange
-            var callback = new Action(() =>
-            {
-                try
-                {
-                    throw new InvalidOperationException("Test exception");
-                }
-                catch (InvalidOperationException)
-                {
-                    // Expected exception
-                    // Assert
-                    _mockLogger.Verify(
-                        logger => logger.LogError(
-                            It.Is<Exception>(ex => ex is InvalidOperationException && ex.Message == "Test exception"),
-                            It.IsAny<string>()),
-                        Times.Once);
-                }
-            });
-            var dueTime = TimeSpan.FromMilliseconds(10);
-            var period = TimeSpan.FromMilliseconds(10);
-
-            // Act
-            _timerService.Start(callback, dueTime, period);
-        }
-
-        [TestMethod]
-        public void Stop_Should_Stop_Timer()
-        {
-            // Arrange
-            var callbackInvoked = false;
-            var callback = new Action(() => { callbackInvoked = true; });
-            var dueTime = TimeSpan.FromMilliseconds(100);
-            var period = TimeSpan.FromMilliseconds(100);
-
-            // Act
-            _timerService.Start(callback, dueTime, period);
-            _timerService.Stop();
-
-            // Assert
-            Thread.Sleep(150); // Wait a little more than dueTime
-            Assert.IsFalse(callbackInvoked);
-        }
-
-        [TestMethod]
-        public void Dispose_Should_Dispose_Timer()
-        {
-            // Arrange
-            var callback = new Action(() => { });
-            var dueTime = TimeSpan.Zero;
-            var period = TimeSpan.Zero;
-
-            _timerService.Start(callback, dueTime, period);
-
-            // Act
-            _timerService.Dispose();
-
-            // Assert
-            // No specific assertion here, but we are ensuring no exceptions are thrown
-        }
-
-    }
-}
+=============
 
 
-using Engage.DataSelection.Service.POC.Interfaces;
-using Microsoft.Extensions.Logging;
-using Moq;
 
-namespace Engage.DataSelection.Service.POC.Test
-{
-    [TestClass]
-    public class WorkerTests
-    {
-        private Mock<ILogger<Worker>> _loggerMock;
-        private Mock<IDatabaseService> _databaseServiceMock;
-        private Mock<ITimerService> _timerServiceMock;
-        private POCConfig _config;
-        private Worker _worker;
 
-        [TestInitialize]
-        public void TestInitialize()
-        {
-            _loggerMock = new Mock<ILogger<Worker>>();
-            _databaseServiceMock = new Mock<IDatabaseService>();
-            _timerServiceMock = new Mock<ITimerService>();
-            _config = new POCConfig {ConnectionString="", DMQueries=[], IntervalInMinutes = 5 };
+Summary:
+Create unit tests for the DatabaseService class to ensure it behaves correctly under various conditions.
 
-            _worker = new Worker(_loggerMock.Object, _databaseServiceMock.Object, _timerServiceMock.Object, _config);
-        }
+Description:
+Implement the following unit tests for the DatabaseService class:
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullLogger_ThrowsArgumentNullException()
-        {
-            // Act
-            var worker = new Worker(null, _databaseServiceMock.Object, _timerServiceMock.Object, _config);
-        }
+Constructor with Null Logger: Verify that the DatabaseService constructor throws an ArgumentNullException when a null logger is provided.
+Constructor with Null Config: Verify that the DatabaseService constructor throws an ArgumentNullException when a null configuration is provided.
+ExecuteQueries with Successful Execution: Test that ExecuteQueries method logs the correct information when the execution is successful.
+ExecuteQueries with Exception: Ensure that ExecuteQueries method logs an error message when an exception is thrown during query execution.
+Acceptance Criteria:
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullDatabaseService_ThrowsArgumentNullException()
-        {
-            // Act
-            var worker = new Worker(_loggerMock.Object, null, _timerServiceMock.Object, _config);
-        }
+All test cases must be successfully passing.
+The logging behavior must be verified using a custom TestLogger to capture and assert log messages.
+Details:
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullTimerService_ThrowsArgumentNullException()
-        {
-            // Act
-            var worker = new Worker(_loggerMock.Object, _databaseServiceMock.Object, null, _config);
-        }
+Use the TestLogger class to capture log messages.
+Mock IDatabaseClient to simulate query execution.
+Dependencies:
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullConfig_ThrowsArgumentNullException()
-        {
-            // Act
-            var worker = new Worker(_loggerMock.Object, _databaseServiceMock.Object, _timerServiceMock.Object, null);
-        }
+Ensure the DatabaseService class is properly integrated with logging and database client interfaces.
+Task 2: Implement Unit Tests for TimerService
+Summary:
+Develop unit tests for the TimerService class to validate its timer functionalities and error handling.
 
-        [TestMethod]
-        public async Task StartAsync_ValidConfig_StartsTimerService()
-        {
-            // Act
-            await _worker.StartAsync(CancellationToken.None);
+Description:
+Implement the following unit tests for the TimerService class:
 
-            // Assert
-            _timerServiceMock.Verify(t => t.Start(It.IsAny<Action>(), TimeSpan.Zero, TimeSpan.FromMinutes(5)), Times.Once);
-        }
+Start with Callback Invocation: Test that the Start method invokes the callback after the specified due time.
+Start with Error Logging: Verify that the Start method logs an error when the callback throws an exception.
+Stop Timer: Ensure that the Stop method halts the timer, preventing callback invocations.
+Dispose Timer: Confirm that the Dispose method properly disposes of the timer without exceptions.
+Acceptance Criteria:
 
-        [TestMethod]
-        public void DoWork_DatabaseServiceExecutesSuccessfully()
-        {
-            // Act
-            var doWorkMethod = typeof(Worker).GetMethod("DoWork", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            doWorkMethod.Invoke(_worker, null);
+All tests must pass successfully.
+The Start method should correctly handle callbacks and log errors as expected.
+Details:
 
-            // Assert
-            _databaseServiceMock.Verify(d => d.ExecuteQueries(), Times.Once);
-        }
+Use Mock to verify that the logger logs the correct error messages.
+Ensure timer callbacks and disposal are tested within appropriate time constraints.
+Dependencies:
 
-        [TestMethod]
-        public async Task StopAsync_StopsTimerService()
-        {
-            // Act
-            await _worker.StopAsync(CancellationToken.None);
+Verify the TimerService implementation and its interaction with the logging framework.
+Task 3: Implement Unit Tests for Worker
+Summary:
+Create unit tests for the Worker class to ensure it properly integrates with the DatabaseService and TimerService, and handles its lifecycle methods.
 
-            // Assert
-            _timerServiceMock.Verify(t => t.Stop(), Times.Once);
-        }
+Description:
+Implement the following unit tests for the Worker class:
 
-        [TestMethod]
-        public void Dispose_DisposesTimerService()
-        {
-            // Act
-            _worker.Dispose();
+Constructor with Null Parameters: Verify that the Worker constructor throws an ArgumentNullException when any of its parameters (logger, database service, timer service, config) are null.
+StartAsync Method: Ensure the StartAsync method starts the timer service with the correct interval.
+DoWork Method: Test that the DoWork method calls the ExecuteQueries method on DatabaseService.
+StopAsync Method: Verify that StopAsync stops the timer service correctly.
+Dispose Method: Ensure that Dispose disposes of the timer service and handles any exceptions by logging an error.
+Acceptance Criteria:
 
-            // Assert
-            _timerServiceMock.Verify(t => t.Dispose(), Times.Once);
-        }
+All tests must be successfully passing.
+The Worker class should correctly start, stop, and dispose of its services.
+Exceptions during disposal should be logged properly.
+Details:
 
-        [TestMethod]
-        public void Dispose_TimerServiceThrowsException_LogsErrorAndThrows()
-        {
-            // Arrange
-            _timerServiceMock.Setup(t => t.Dispose()).Throws(new InvalidOperationException());
+Use Mock to verify interactions with IDatabaseService and ITimerService.
+Implement Verify statements to check that method calls and logging are occurring as expected.
+Dependencies:
 
-            try
-            {
-                // Act
-                _worker.Dispose();
-            }
-            catch (InvalidOperationException ex)
-            {
-                // Assert - Ensure the logger logs the error
-                _loggerMock.Verify(
-                    logger => logger.Log(
-                        LogLevel.Error,
-                        It.IsAny<EventId>(),
-                        It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("An error occurred while disposing the timer service.")),
-                        ex, // Verify that the correct exception was logged
-                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                    Times.Once);
-            }
-        }
-    }
-}
+Ensure that Worker class implementation is properly aligned with its dependencies.
