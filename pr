@@ -1,28 +1,27 @@
- Test method Engage.DataSelection.Service.POC.Test.WorkerTests.Dispose_TimerServiceThrowsException_LogsErrorAndThrows threw exception: 
-Moq.MockException: 
-Expected invocation on the mock once, but was 0 times: logger => logger.Log<It.IsAnyType>(LogLevel.Error, It.IsAny<EventId>(), It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("InvalidOperationException")), It.IsAny<Exception>(), It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => True))
+[TestMethod]
+public void Dispose_TimerServiceThrowsException_LogsErrorAndThrows()
+{
+    // Arrange
+    _timerServiceMock.Setup(t => t.Dispose()).Throws(new InvalidOperationException());
 
-Performed invocations:
+    try
+    {
+        // Act
+        _worker.Dispose();
+    }
+    catch (InvalidOperationException ex)
+    {
+        // Assert - Ensure the logger logs the error
+        _loggerMock.Verify(
+            logger => logger.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("An error occurred while disposing the timer service.")),
+                ex, // Verify that the correct exception was logged
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()), 
+            Times.Once);
 
-   Mock<ILogger<Worker>:1> (logger):
-
-      ILogger.Log<FormattedLogValues>(LogLevel.Error, 0, An error occurred while disposing the timer service., System.InvalidOperationException: Operation is not valid due to the current state of the object.
-   at Moq.Behaviors.ThrowException.Execute(Invocation invocation) in /_/src/Moq/Behaviors/ThrowException.cs:line 64
-   at Moq.MethodCall.ExecuteCore(Invocation invocation) in /_/src/Moq/MethodCall.cs:line 230
-   at Moq.Setup.Execute(Invocation invocation) in /_/src/Moq/Setup.cs:line 144
-   at Moq.FindAndExecuteMatchingSetup.Handle(Invocation invocation, Mock mock) in /_/src/Moq/Interception/InterceptionAspects.cs:line 263
-   at Moq.Mock.Moq.IInterceptor.Intercept(Invocation invocation) in /_/src/Moq/Interception/Mock.cs:line 17
-   at Moq.CastleProxyFactory.Interceptor.Intercept(IInvocation underlying) in /_/src/Moq/Interception/CastleProxyFactory.cs:line 218
-   at Castle.DynamicProxy.AbstractInvocation.Proceed()
-   at Castle.Proxies.ITimerServiceProxy.Dispose()
-   at Worker.Dispose() in C:\Projects\Engage.POC\src\Engage.DataSelection.POC\Engage.DataSelection.Service.POC\Worker.cs:line 67
-   at Engage.DataSelection.Service.POC.Test.WorkerTests.Dispose_TimerServiceThrowsException_LogsErrorAndThrows() in C:\Projects\Engage.POC\src\Engage.DataSelection.POC\Engage.DataSelection.Service.POC.Test\Worker.Test.cs:line 114, Func<FormattedLogValues, Exception, string>)
-
-
-  Stack Trace: 
-Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage) line 331
-Mock`1.Verify(Expression`1 expression, Times times) line 920
-Mock`1.Verify(Expression`1 expression, Func`1 times) line 934
-WorkerTests.Dispose_TimerServiceThrowsException_LogsErrorAndThrows() line 119
-RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)
-MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+        // Re-throw the exception to ensure the test fails as expected
+        throw;
+    }
+}
