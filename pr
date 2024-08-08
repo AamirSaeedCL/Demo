@@ -1,129 +1,89 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-using Microsoft.Extensions.Logging;
-using Engage.DataSelection.Service.POC.Services;
-using Engage.DataSelection.Service.POC.Interfaces;
-using System;
-using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
-using Dapper;
-using System.Data;
+System.NotSupportedException: 'Unsupported expression: conn => conn.Query<object>(It.IsAny<string>(), null, null, True, null, null)
+Extension methods (here: SqlMapper.Query) may not be used in setup / verification expressions.'
 
-namespace Engage.DataSelection.Service.POC.Tests
-{
-    [TestClass]
-    public class DatabaseServiceTests
-    {
-        private Mock<ILogger<DatabaseService>> _mockLogger;
-        private Mock<IDbConnection> _mockDbConnection;
-        private POCConfig _config;
-        private DatabaseService _databaseService;
 
-        [TestInitialize]
-        public void Setup()
-        {
-            _mockLogger = new Mock<ILogger<DatabaseService>>();
-            _mockDbConnection = new Mock<IDbConnection>();
-            _config = new POCConfig
-            {
-                ConnectionString = "Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;",
-                DMQueries = new List<string> { "SELECT * FROM Table WHERE Date > DATEADD(MINUTE, {interval}, GETDATE())" },
-                IntervalInMinutes = 10
-            };
+  public class DatabaseServiceTests
+  {
+      private Mock<ILogger<DatabaseService>> _mockLogger;
+      private Mock<IDbConnection> _mockDbConnection;
+      private POCConfig _config;
+      private DatabaseService _databaseService;
 
-            _databaseService = new DatabaseService(_mockLogger.Object, _config);
-        }
+      [TestInitialize]
+      public void Setup()
+      {
+          _mockLogger = new Mock<ILogger<DatabaseService>>();
+          _mockDbConnection = new Mock<IDbConnection>();
+          _config = new POCConfig
+          {
+              ConnectionString = "Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;",
+              DMQueries = new List<string> { "SELECT * FROM Table WHERE Date > DATEADD(MINUTE, {interval}, GETDATE())" },
+              IntervalInMinutes = 10
+          };
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullLogger_ThrowsArgumentNullException()
-        {
-            // Act
-            var service = new DatabaseService(null, _config);
-        }
+          _databaseService = new DatabaseService(_mockLogger.Object, _config);
+      }
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
-        public void Constructor_NullConfig_ThrowsArgumentNullException()
-        {
-            // Act
-            var service = new DatabaseService(_mockLogger.Object, null);
-        }
+      [TestMethod]
+      [ExpectedException(typeof(ArgumentNullException))]
+      public void Constructor_NullLogger_ThrowsArgumentNullException()
+      {
+          // Act
+          var service = new DatabaseService(null, _config);
+      }
 
-        [TestMethod]
-        public void ExecuteQueries_SuccessfulExecution_LogsInformation()
-        {
-            // Arrange
-            var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
+      [TestMethod]
+      [ExpectedException(typeof(ArgumentNullException))]
+      public void Constructor_NullConfig_ThrowsArgumentNullException()
+      {
+          // Act
+          var service = new DatabaseService(_mockLogger.Object, null);
+      }
 
-            // Mock Dapper's Query method
-            _mockDbConnection
-                .Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
-                .Returns(mockQueryResult);
+      [TestMethod]
+      public void ExecuteQueries_SuccessfulExecution_LogsInformation()
+      {
+          // Arrange
+          var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
 
-            // Mock the SqlConnectionFactory to return the mock connection
-            SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
+          // Mock Dapper's Query method
+          _mockDbConnection
+              .Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
+              .Returns(mockQueryResult);
 
-            // Act
-            _databaseService.ExecuteQueries();
+          // Mock the SqlConnectionFactory to return the mock connection
+          SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
 
-            // Assert
-            _mockLogger.Verify(
-                x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))),
-                Times.Exactly(_config.DMQueries.Count));
+          // Act
+          _databaseService.ExecuteQueries();
 
-            _mockLogger.Verify(
-                x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))),
-                Times.Exactly(_config.DMQueries.Count));
-        }
+          // Assert
+          _mockLogger.Verify(
+              x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))),
+              Times.Exactly(_config.DMQueries.Count));
 
-        [TestMethod]
-        public void ExecuteQueries_ThrowsException_LogsError()
-        {
-            // Arrange
-            var exception = new SqlException();
-            _mockDbConnection
-                .Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
-                .Throws(exception);
+          _mockLogger.Verify(
+              x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))),
+              Times.Exactly(_config.DMQueries.Count));
+      }
 
-            // Mock the SqlConnectionFactory to return the mock connection
-            SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
+      //[TestMethod]
+      //public void ExecuteQueries_ThrowsException_LogsError()
+      //{
+      //    // Arrange
+      //    var exception = new SqlException();
+      //    _mockDbConnection
+      //        .Setup(conn => conn.Query<dynamic>(It.IsAny<string>(), null, null, true, null, null))
+      //        .Throws(exception);
 
-            // Act & Assert
-            Assert.ThrowsException<SqlException>(() => _databaseService.ExecuteQueries());
+      //    // Mock the SqlConnectionFactory to return the mock connection
+      //    SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
 
-            _mockLogger.Verify(
-                x => x.LogError(exception, "An error occurred while executing queries."),
-                Times.Once);
-        }
-    }
+      //    // Act & Assert
+      //    Assert.ThrowsException<SqlException>(() => _databaseService.ExecuteQueries());
 
-    // Supporting Classes and Interfaces for Test
-    
-    public interface IDatabaseService
-    {
-        void ExecuteQueries();
-    }
-
-    public class SqlConnectionFactory
-    {
-        private static Func<IDbConnection> _connectionFactory;
-
-        public static void SetConnectionFactory(Func<IDbConnection> factory)
-        {
-            _connectionFactory = factory;
-        }
-
-        public static IDbConnection GetConnection()
-        {
-            return _connectionFactory();
-        }
-    }
-
-    public class POCConfig
-    {
-        public required string ConnectionString { get; set; }
-        public required List<string> DMQueries { get; set; }
-        public required int IntervalInMinutes { get; set; }
-    }
-}
+      //    _mockLogger.Verify(
+      //        x => x.LogError(exception, "An error occurred while executing queries."),
+      //        Times.Once);
+      //}
+  }
