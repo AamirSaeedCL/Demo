@@ -12,14 +12,17 @@ public void Dispose_TimerServiceThrowsException_LogsErrorAndThrows()
     catch (InvalidOperationException ex)
     {
         // Assert - Ensure the logger logs the error
-         _loggerMock.Verify(
-       logger => logger.LogError(
-           It.Is<Exception>(ex => ex is InvalidOperationException),
-           It.IsAny<string>()),
-       Times.Once);
+        _loggerMock.Verify(
+            logger => logger.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("InvalidOperationException")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)), 
+            Times.Once);
+
+        // Re-throw the exception to ensure the test fails as expected
+        throw;
     }
 }
 
-
-System.NotSupportedException: 'Unsupported expression: logger => logger.LogError(It.Is<Exception>(ex => ex is InvalidOperationException), It.IsAny<string>(), new[] {  })
-Extension methods (here: LoggerExtensions.LogError) may not be used in setup / verification expressions.'
