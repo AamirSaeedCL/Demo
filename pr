@@ -1,41 +1,45 @@
-// Wrapper around Dapper's Query method
-public interface IDatabaseService
+using Microsoft.Data.SqlClient;
+using Dapper;
+using Engage.DataSelection.Service.POC.Interfaces;
+namespace Engage.DataSelection.Service.POC.Services
 {
-    IEnumerable<T> Query<T>(string sql, object param = null);
-}
-
-public class DatabaseService : IDatabaseService
-{
-    private readonly IDbConnection _connection;
-
-    public DatabaseService(IDbConnection connection)
+    public class DatabaseService: IDatabaseService
     {
-        _connection = connection;
-    }
+        private readonly ILogger<DatabaseService> _logger;
+        private readonly POCConfig _config;
 
-    public IEnumerable<T> Query<T>(string sql, object param = null)
-    {
-        return _connection.Query<T>(sql, param);
+        public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+        }
+
+        public void ExecuteQueries()
+        {
+            try
+            {
+                using var connection = new SqlConnection(_config.ConnectionString);
+                foreach (var DMQuery in _config.DMQueries)
+                {
+                    var sqlCommandText = DMQuery.Replace("{interval}", (_config.IntervalInMinutes * -1).ToString());
+                    _logger.LogInformation($"Running query {sqlCommandText}");
+                    var rows = connection.Query<dynamic>(sqlCommandText);
+                    _logger.LogInformation($"Returned {rows.Count()} rows");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while executing queries.");
+                throw;
+            }
+        }
     }
 }
 
-// Then, in your test:
-[TestMethod]
-public void ExecuteQueries_SuccessfulExecution_LogsInformation()
-{
-    // Arrange
-    var mockDatabaseService = new Mock<IDatabaseService>();
-    mockDatabaseService
-        .Setup(db => db.Query<object>(It.IsAny<string>(), null))
-        .Returns(new List<object>()); // Mock your expected return
 
-    SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
-    _databaseService = new DatabaseService(_mockDbConnection.Object);
-
-    // Act
-    _databaseService.ExecuteQueries();
-
-    // Assert
-    _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))), Times.Exactly(_config.DMQueries.Count()));
-    _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))), Times.Exactly(_config.DMQueries.Count()));
-}
+  public class POCConfig
+  {
+      public required string ConnectionString { get; set; }
+      public required List<string> DMQueries { get; set; }
+      public required int IntervalInMinutes { get;set; }
+  }
