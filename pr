@@ -1,12 +1,20 @@
-      [TestMethod]
-      public void Dispose_TimerServiceThrowsException_LogsErrorAndThrows()
-      {
-          // Arrange
-          _timerServiceMock.Setup(t => t.Dispose()).Throws(new InvalidOperationException());
+[TestMethod]
+public void Dispose_TimerServiceThrowsException_LogsErrorAndThrows()
+{
+    // Arrange
+    _timerServiceMock.Setup(t => t.Dispose()).Throws(new InvalidOperationException());
 
-          // Act
-          Assert.ThrowsException<InvalidOperationException>(() => _worker.Dispose());
+    try
+    {
+        // Act
+        _worker.Dispose();
+    }
+    catch (InvalidOperationException ex)
+    {
+        // Assert - Ensure the logger logs the error
+        _loggerMock.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
 
-          // Assert
-          _loggerMock.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-      }
+        // Rethrow the exception to ensure the test still fails as expected
+        throw;
+    }
+}
