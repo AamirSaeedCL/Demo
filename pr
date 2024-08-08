@@ -1,1 +1,75 @@
+using Engage.DataSelection.Service.POC;
+using Engage.DataSelection.Service.POC.Interfaces;
 
+public class Worker : IHostedService, IDisposable
+{
+    private readonly ILogger<Worker> _logger;
+    private readonly IDatabaseService _databaseService;
+    private readonly ITimerService _timerService;
+    private readonly POCConfig _config;
+    public Worker(ILogger<Worker> logger, IDatabaseService databaseService, ITimerService timerService,POCConfig config)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
+        _timerService = timerService ?? throw new ArgumentNullException(nameof(timerService));
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (Int32.TryParse(_config.IntervalInMinutes.ToString(), out int interval))
+            {
+                _timerService.Start(DoWork, TimeSpan.Zero, TimeSpan.FromMinutes(interval));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while starting the worker.");
+            throw;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void DoWork()
+    {
+        try
+        {
+            _databaseService.ExecuteQueries();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while executing queries.");
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _timerService.Stop();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while stopping the worker.");
+            throw;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            _timerService.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while disposing the timer service.");
+            throw;
+        }
+    }
+}
