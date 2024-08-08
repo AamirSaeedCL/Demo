@@ -1,2 +1,1 @@
-
-⁠What about our existing SSIS/ETL packages then? Are we going to move them to Azure ADF as well? Or this change is only for new Engage project
+Could you please clarify the plan for our existing SSIS/ETL packages? Will these be migrated to Azure ADF as part of this transition, or is this change specifically intended for the new Engage project only?
