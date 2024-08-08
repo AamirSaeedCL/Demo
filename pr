@@ -1,31 +1,41 @@
+// Wrapper around Dapper's Query method
+public interface IDatabaseService
+{
+    IEnumerable<T> Query<T>(string sql, object param = null);
+}
 
-       [TestMethod]
-       public void ExecuteQueries_SuccessfulExecution_LogsInformation()
-       {
-           // Arrange
-           SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
+public class DatabaseService : IDatabaseService
+{
+    private readonly IDbConnection _connection;
 
-           // Act
-           _databaseService.ExecuteQueries();
+    public DatabaseService(IDbConnection connection)
+    {
+        _connection = connection;
+    }
 
-           // Assert
-           _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))), Times.Exactly(_config.DMQueries.Count()));
-           _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))), Times.Exactly(_config.DMQueries.Count()));
-       }
+    public IEnumerable<T> Query<T>(string sql, object param = null)
+    {
+        return _connection.Query<T>(sql, param);
+    }
+}
 
+// Then, in your test:
+[TestMethod]
+public void ExecuteQueries_SuccessfulExecution_LogsInformation()
+{
+    // Arrange
+    var mockDatabaseService = new Mock<IDatabaseService>();
+    mockDatabaseService
+        .Setup(db => db.Query<object>(It.IsAny<string>(), null))
+        .Returns(new List<object>()); // Mock your expected return
 
- Message: 
-Initialization method Engage.DataSelection.Service.POC.Tests.DatabaseServiceTests.Setup threw exception. System.NotSupportedException: Unsupported expression: conn => conn.Query<object>(It.IsAny<string>(), null, null, True, null, null)
-Extension methods (here: SqlMapper.Query) may not be used in setup / verification expressions..
+    SqlConnectionFactory.SetConnectionFactory(() => _mockDbConnection.Object);
+    _databaseService = new DatabaseService(_mockDbConnection.Object);
 
-  Stack Trace: 
-Guard.IsOverridable(MethodInfo method, Expression expression) line 87
-MethodExpectation.ctor(LambdaExpression expression, MethodInfo method, IReadOnlyList`1 arguments, Boolean exactGenericTypeArguments, Boolean skipMatcherInitialization, Boolean allowNonOverridable) line 236
-ExpressionExtensions.<Split>g__Split|5_0(Expression e, Expression& r, MethodExpectation& p, Boolean assignment, Boolean allowNonOverridableLastProperty) line 256
-ExpressionExtensions.Split(LambdaExpression expression, Boolean allowNonOverridableLastProperty) line 170
-Mock.SetupRecursive[TSetup](Mock mock, LambdaExpression expression, Func`4 setupLast, Boolean allowNonOverridableLastProperty) line 728
-Mock.Setup(Mock mock, LambdaExpression expression, Condition condition) line 562
-Mock`1.Setup[TResult](Expression`1 expression) line 645
-DatabaseServiceTests.Setup() line 33
-InvokeStub_DatabaseServiceTests.Setup(Object, Object, IntPtr*)
-MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+    // Act
+    _databaseService.ExecuteQueries();
+
+    // Assert
+    _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))), Times.Exactly(_config.DMQueries.Count()));
+    _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))), Times.Exactly(_config.DMQueries.Count()));
+}
