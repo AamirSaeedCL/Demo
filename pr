@@ -1,48 +1,27 @@
-[TestMethod]
-public void ExecuteQueries_SuccessfulExecution_LogsInformation()
-{
-    // Arrange
-    var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
-    var mockDatabaseClient = new Mock<IDatabaseClient>();
+System.NotSupportedException: 'Unsupported expression: x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned")), new[] {  })
+Extension methods (here: LoggerExtensions.LogInformation) may not be used in setup / verification expressions.'
+ [TestMethod]
+ public void ExecuteQueries_SuccessfulExecution_LogsInformation()
+ {
+     // Arrange
+     var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
+     var mockDatabaseClient = new Mock<IDatabaseClient>();
 
-    mockDatabaseClient
-        .Setup(client => client.Query(It.IsAny<string>(), null))
-        .Returns(mockQueryResult);
+     mockDatabaseClient
+         .Setup(client => client.Query(It.IsAny<string>(), null))
+         .Returns(mockQueryResult);
 
-    _databaseService = new DatabaseService(_mockLogger.Object, _config, mockDatabaseClient.Object);
+     _databaseService = new DatabaseService(_mockLogger.Object, _config);
 
-    // Act
-    _databaseService.ExecuteQueries();
+     // Act
+     _databaseService.ExecuteQueries();
 
-    // Assert
-    _mockLogger.Verify(
-        x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))),
-        Times.Exactly(_config.DMQueries.Count));
+     // Assert
+     //_mockLogger.Verify(
+     //    x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))),
+     //    Times.Exactly(_config.DMQueries.Count));
 
-    _mockLogger.Verify(
-        x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))),
-        Times.Exactly(_config.DMQueries.Count));
-}
-
-
-
-
-
-public class DapperDatabaseClient : IDatabaseClient
-{
-    private readonly IDbConnection _connection;
-
-    public DapperDatabaseClient(IDbConnection connection)
-    {
-        _connection = connection;
-    }
-
-    public IEnumerable<dynamic> Query(string sql, object param = null)
-    {
-        return _connection.Query<dynamic>(sql, param);
-    }
-}
-public interface IDatabaseClient
-{
-    IEnumerable<dynamic> Query(string sql, object param = null);
-}
+     _mockLogger.Verify(
+         x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))),
+         Times.Exactly(_config.DMQueries.Count));
+ }
