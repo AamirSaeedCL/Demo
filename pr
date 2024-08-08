@@ -1,75 +1,143 @@
-using Engage.DataSelection.Service.POC;
-using Engage.DataSelection.Service.POC.Interfaces;
-
-public class Worker : IHostedService, IDisposable
-{
-    private readonly ILogger<Worker> _logger;
-    private readonly IDatabaseService _databaseService;
-    private readonly ITimerService _timerService;
-    private readonly POCConfig _config;
-    public Worker(ILogger<Worker> logger, IDatabaseService databaseService, ITimerService timerService,POCConfig config)
+ [TestClass]
+    public class WorkerTests
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _databaseService = databaseService ?? throw new ArgumentNullException(nameof(databaseService));
-        _timerService = timerService ?? throw new ArgumentNullException(nameof(timerService));
-        _config = config ?? throw new ArgumentNullException(nameof(config));
+        private Mock<ILogger<Worker>> _loggerMock;
+        private Mock<IDatabaseService> _databaseServiceMock;
+        private Mock<ITimerService> _timerServiceMock;
+        private POCConfig _config;
+        private Worker _worker;
+
+        [TestInitialize]
+        public void TestInitialize()
+        {
+            _loggerMock = new Mock<ILogger<Worker>>();
+            _databaseServiceMock = new Mock<IDatabaseService>();
+            _timerServiceMock = new Mock<ITimerService>();
+            _config = new POCConfig { IntervalInMinutes = 5 };
+
+            _worker = new Worker(_loggerMock.Object, _databaseServiceMock.Object, _timerServiceMock.Object, _config);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void Constructor_NullLogger_ThrowsArgumentNullException()
+        {
+            // Act
+            var worker = new Worker(null, _databaseServiceMock.Object, _timerServiceMock.Object, _config);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void Constructor_NullDatabaseService_ThrowsArgumentNullException()
+        {
+            // Act
+            var worker = new Worker(_loggerMock.Object, null, _timerServiceMock.Object, _config);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void Constructor_NullTimerService_ThrowsArgumentNullException()
+        {
+            // Act
+            var worker = new Worker(_loggerMock.Object, _databaseServiceMock.Object, null, _config);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentNullException))]
+        public void Constructor_NullConfig_ThrowsArgumentNullException()
+        {
+            // Act
+            var worker = new Worker(_loggerMock.Object, _databaseServiceMock.Object, _timerServiceMock.Object, null);
+        }
+
+        [TestMethod]
+        public async Task StartAsync_ValidConfig_StartsTimerService()
+        {
+            // Act
+            await _worker.StartAsync(CancellationToken.None);
+
+            // Assert
+            _timerServiceMock.Verify(t => t.Start(It.IsAny<Action>(), TimeSpan.Zero, TimeSpan.FromMinutes(5)), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task StartAsync_TimerServiceThrowsException_LogsErrorAndThrows()
+        {
+            // Arrange
+            _timerServiceMock.Setup(t => t.Start(It.IsAny<Action>(), It.IsAny<TimeSpan>(), It.IsAny<TimeSpan>()))
+                             .Throws(new InvalidOperationException());
+
+            // Act & Assert
+            await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => _worker.StartAsync(CancellationToken.None));
+            _loggerMock.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [TestMethod]
+        public void DoWork_DatabaseServiceExecutesSuccessfully()
+        {
+            // Act
+            var doWorkMethod = typeof(Worker).GetMethod("DoWork", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            doWorkMethod.Invoke(_worker, null);
+
+            // Assert
+            _databaseServiceMock.Verify(d => d.ExecuteQueries(), Times.Once);
+        }
+
+        [TestMethod]
+        public void DoWork_DatabaseServiceThrowsException_LogsError()
+        {
+            // Arrange
+            _databaseServiceMock.Setup(d => d.ExecuteQueries()).Throws(new InvalidOperationException());
+
+            // Act
+            var doWorkMethod = typeof(Worker).GetMethod("DoWork", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            doWorkMethod.Invoke(_worker, null);
+
+            // Assert
+            _loggerMock.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task StopAsync_StopsTimerService()
+        {
+            // Act
+            await _worker.StopAsync(CancellationToken.None);
+
+            // Assert
+            _timerServiceMock.Verify(t => t.Stop(), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task StopAsync_TimerServiceThrowsException_LogsErrorAndThrows()
+        {
+            // Arrange
+            _timerServiceMock.Setup(t => t.Stop()).Throws(new InvalidOperationException());
+
+            // Act & Assert
+            await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => _worker.StopAsync(CancellationToken.None));
+            _loggerMock.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [TestMethod]
+        public void Dispose_DisposesTimerService()
+        {
+            // Act
+            _worker.Dispose();
+
+            // Assert
+            _timerServiceMock.Verify(t => t.Dispose(), Times.Once);
+        }
+
+        [TestMethod]
+        public void Dispose_TimerServiceThrowsException_LogsErrorAndThrows()
+        {
+            // Arrange
+            _timerServiceMock.Setup(t => t.Dispose()).Throws(new InvalidOperationException());
+
+            // Act
+            Assert.ThrowsException<InvalidOperationException>(() => _worker.Dispose());
+
+            // Assert
+            _loggerMock.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
+        }
     }
-
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (Int32.TryParse(_config.IntervalInMinutes.ToString(), out int interval))
-            {
-                _timerService.Start(DoWork, TimeSpan.Zero, TimeSpan.FromMinutes(interval));
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while starting the worker.");
-            throw;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private void DoWork()
-    {
-        try
-        {
-            _databaseService.ExecuteQueries();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while executing queries.");
-        }
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            _timerService.Stop();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while stopping the worker.");
-            throw;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public void Dispose()
-    {
-        try
-        {
-            _timerService.Dispose();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while disposing the timer service.");
-            throw;
-        }
-    }
-}
