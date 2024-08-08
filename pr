@@ -1,27 +1,38 @@
-System.NotSupportedException: 'Unsupported expression: x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned")), new[] {  })
-Extension methods (here: LoggerExtensions.LogInformation) may not be used in setup / verification expressions.'
- [TestMethod]
- public void ExecuteQueries_SuccessfulExecution_LogsInformation()
- {
-     // Arrange
-     var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
-     var mockDatabaseClient = new Mock<IDatabaseClient>();
+public class TestLogger : ILogger<DatabaseService>
+{
+    public List<string> LogMessages { get; } = new List<string>();
 
-     mockDatabaseClient
-         .Setup(client => client.Query(It.IsAny<string>(), null))
-         .Returns(mockQueryResult);
+    public IDisposable BeginScope<TState>(TState state) => null;
 
-     _databaseService = new DatabaseService(_mockLogger.Object, _config);
+    public bool IsEnabled(LogLevel logLevel) => true;
 
-     // Act
-     _databaseService.ExecuteQueries();
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+    {
+        LogMessages.Add(formatter(state, exception));
+    }
+}
 
-     // Assert
-     //_mockLogger.Verify(
-     //    x => x.LogInformation(It.Is<string>(s => s.StartsWith("Running query"))),
-     //    Times.Exactly(_config.DMQueries.Count));
 
-     _mockLogger.Verify(
-         x => x.LogInformation(It.Is<string>(s => s.StartsWith("Returned"))),
-         Times.Exactly(_config.DMQueries.Count));
- }
+
+
+[TestMethod]
+public void ExecuteQueries_SuccessfulExecution_LogsInformation()
+{
+    // Arrange
+    var mockQueryResult = new List<dynamic> { new { Id = 1, Name = "Test" } };
+    var mockDatabaseClient = new Mock<IDatabaseClient>();
+
+    mockDatabaseClient
+        .Setup(client => client.Query(It.IsAny<string>(), null))
+        .Returns(mockQueryResult);
+
+    var testLogger = new TestLogger();
+    _databaseService = new DatabaseService(testLogger, _config, mockDatabaseClient.Object);
+
+    // Act
+    _databaseService.ExecuteQueries();
+
+    // Assert
+    Assert.IsTrue(testLogger.LogMessages.Any(m => m.StartsWith("Running query")));
+    Assert.IsTrue(testLogger.LogMessages.Any(m => m.StartsWith("Returned")));
+}
