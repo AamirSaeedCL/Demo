@@ -1,1 +1,13 @@
-validating the JSON schema for all the files using the tool available at https://jsonformatter.org/.
+
+
+Update the entire schema for the entire structure from the data mart. The json file structure should be aliogned with Data mart. Moreover, create a few variations of each file.
+file should be below
+
+
+customer
+customer-account
+customer-account-tag
+customer-interaction
+customer-phone
+customer-sfinteraction
+customer-tag
