@@ -1,16 +1,1 @@
-Title: Update and Align Data Mart Schema with JSON File Structures
-
-Description:
-
-We need to perform a comprehensive update of the schema for the entire structure of the Data Mart. The objective is to ensure that the JSON file structures are fully aligned with the Data Mart schema. Additionally, several variations of each file will need to be created to accommodate potential use cases or scenarios.
-
-The files that require alignment and variation creation include:
-
-customer
-customer-account
-customer-account-tag
-customer-interaction
-customer-phone
-customer-sfinteraction
-customer-tag
-Please ensure that the updated JSON schemas are consistent with the current Data Mart structure and maintain the integrity of the data relationships.
+hh
