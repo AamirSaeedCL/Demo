@@ -1,162 +1,65 @@
-try
+using Microsoft.Data.SqlClient;
+using Dapper;
+using Engage.DataSelection.Service.POC.Interfaces;
+using System.Data;
+namespace Engage.DataSelection.Service.POC.Services
 {
-    using var connection = new SqlConnection(_config.ConnectionString);
-    
-    connection.Open();
-    
-    foreach (var DMQuery in _config.DMQueries)
+    public class DatabaseService: IDatabaseService
     {
-        var sqlCommandText = DMQuery
-            .Replace("{interval}", (_config.IntervalInMinutes * -1).ToString())
-            .Replace("{errorSeverity}", _config.errorSeverity.ToString())
-            .Replace("{errorState}", _config.errorState.ToString());
+        private readonly ILogger<DatabaseService> _logger;
+        private readonly POCConfig _config;
 
-        _logger.LogInformation($"Running query: {sqlCommandText}");
-
-        try
+        public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
         {
-            var rows = connection.Query<dynamic>(sqlCommandText);
-            _logger.LogInformation($"Query returned {rows.Count()} rows");
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
         }
-        catch (Exception ex)
+
+        public void ExecuteQueries()
         {
-            _logger.LogError(ex, $"An error occurred while executing the query: {sqlCommandText}");
-            // Handle specific query failure without breaking the loop for other queries
+            using var connection = new SqlConnection(_config.ConnectionString);
+            try
+            {
+                connection.Open();
+
+                foreach (var DMQuery in _config.DMQueries)
+                {
+                    var sqlCommandText = DMQuery
+                        .Replace("{interval}", (_config.IntervalInMinutes * -1).ToString())
+                        .Replace("{errorSeverity}", _config.errorSeverity.ToString())
+                        .Replace("{errorState}", _config.errorState.ToString());
+
+                    _logger.LogInformation($"Running query: {sqlCommandText}");
+
+                    try
+                    {
+                        var rows = connection.Query<dynamic>(sqlCommandText);
+                        _logger.LogInformation($"Returned {rows.Count()} rows");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"An error occurred while executing the query: {ex.Message}");
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "A database error occurred while trying to connect.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred.");
+                throw;
+            }
+            finally
+            {
+                if (connection.State == ConnectionState.Open)
+                {
+                    connection.Close();
+                    _logger.LogInformation("Database connection closed.");
+                }
+            }
         }
-    }
-}
-catch (SqlException ex)
-{
-    _logger.LogError(ex, "A database error occurred while trying to connect or execute a query.");
-    throw;
-}
-catch (Exception ex)
-{
-    _logger.LogError(ex, "An unexpected error occurred.");
-    throw;
-}
-finally
-{
-    if (connection.State == ConnectionState.Open)
-    {
-        connection.Close();
-        _logger.LogInformation("Database connection closed.");
-    }
-}
-
-
-
-==============
-
-[TestClass]
-public class ExecuteQueriesTests
-{
-    private Mock<IConfiguration> _mockConfig;
-    private Mock<ILogger> _mockLogger;
-    private Mock<IDbConnection> _mockConnection;
-    private Mock<IDbCommand> _mockCommand;
-    private YourClass _yourClass;
-
-    [TestInitialize]
-    public void Setup()
-    {
-        _mockConfig = new Mock<IConfiguration>();
-        _mockLogger = new Mock<ILogger>();
-        _mockConnection = new Mock<IDbConnection>();
-        _mockCommand = new Mock<IDbCommand>();
-
-        // Setup mocks
-        _mockConfig.SetupGet(c => c.ConnectionString).Returns("TestConnectionString");
-        _mockConfig.SetupGet(c => c.DMQueries).Returns(new List<string> { "SELECT * FROM Table WHERE Interval = {interval}", "SELECT * FROM Logs WHERE Severity = {errorSeverity}" });
-        _mockConfig.SetupGet(c => c.IntervalInMinutes).Returns(10);
-        _mockConfig.SetupGet(c => c.errorSeverity).Returns(2);
-        _mockConfig.SetupGet(c => c.errorState).Returns(1);
-
-        // Mocking connection behavior
-        _mockConnection.Setup(c => c.State).Returns(ConnectionState.Closed);
-        _mockConnection.Setup(c => c.Open()).Callback(() => _mockConnection.Setup(c => c.State).Returns(ConnectionState.Open));
-        _mockConnection.Setup(c => c.Close()).Callback(() => _mockConnection.Setup(c => c.State).Returns(ConnectionState.Closed));
-
-        // Mocking command execution
-        _mockCommand.Setup(c => c.ExecuteScalar()).Returns(1);
-        _mockCommand.Setup(c => c.ExecuteReader()).Returns(Mock.Of<IDataReader>());
-
-        // Initialize your class with mocks
-        _yourClass = new YourClass(_mockConfig.Object, _mockLogger.Object);
-    }
-
-    [TestMethod]
-    public void ExecuteQueries_SuccessfulExecution()
-    {
-        // Arrange
-        _mockConnection.Setup(c => c.Query<dynamic>(It.IsAny<string>())).Returns(new List<dynamic> { new { Id = 1 } });
-        
-        // Act
-        _yourClass.ExecuteQueries();
-        
-        // Assert
-        _mockConnection.Verify(c => c.Open(), Times.Once);
-        _mockConnection.Verify(c => c.Close(), Times.Once);
-        _mockLogger.Verify(l => l.LogInformation(It.IsAny<string>()), Times.AtLeastOnce);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(SqlException))]
-    public void ExecuteQueries_SqlExceptionThrown()
-    {
-        // Arrange
-        _mockConnection.Setup(c => c.Open()).Throws(new SqlException());
-
-        // Act
-        _yourClass.ExecuteQueries();
-
-        // Assert
-        _mockLogger.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(Exception))]
-    public void ExecuteQueries_GeneralExceptionThrown()
-    {
-        // Arrange
-        _mockConnection.Setup(c => c.Query<dynamic>(It.IsAny<string>())).Throws(new Exception());
-
-        // Act
-        _yourClass.ExecuteQueries();
-
-        // Assert
-        _mockLogger.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-    }
-
-    [TestMethod]
-    public void ExecuteQueries_QueryExecutionFailsForOneQuery()
-    {
-        // Arrange
-        _mockConnection.SetupSequence(c => c.Query<dynamic>(It.IsAny<string>()))
-            .Throws(new Exception())
-            .Returns(new List<dynamic> { new { Id = 1 } });
-
-        // Act
-        _yourClass.ExecuteQueries();
-
-        // Assert
-        _mockLogger.Verify(l => l.LogError(It.IsAny<Exception>(), It.IsAny<string>()), Times.Once);
-        _mockLogger.Verify(l => l.LogInformation(It.IsAny<string>()), Times.AtLeastOnce);
-        _mockConnection.Verify(c => c.Close(), Times.Once);
-    }
-
-    [TestMethod]
-    public void ExecuteQueries_ConnectionIsAlreadyOpen()
-    {
-        // Arrange
-        _mockConnection.Setup(c => c.State).Returns(ConnectionState.Open);
-
-        // Act
-        _yourClass.ExecuteQueries();
-
-        // Assert
-        _mockConnection.Verify(c => c.Open(), Times.Never);
-        _mockConnection.Verify(c => c.Close(), Times.Once);
-        _mockLogger.Verify(l => l.LogInformation(It.IsAny<string>()), Times.AtLeastOnce);
     }
 }
