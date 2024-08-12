@@ -1,65 +1,33 @@
-using Microsoft.Data.SqlClient;
-using Dapper;
-using Engage.DataSelection.Service.POC.Interfaces;
-using System.Data;
-namespace Engage.DataSelection.Service.POC.Services
-{
-    public class DatabaseService: IDatabaseService
-    {
-        private readonly ILogger<DatabaseService> _logger;
-        private readonly POCConfig _config;
-
-        public DatabaseService(ILogger<DatabaseService> logger, POCConfig config)
+ [TestMethod]
+        [ExpectedException(typeof(SqlException))]
+        public void ExecuteQueries_SqlExceptionThrown()
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _config = config ?? throw new ArgumentNullException(nameof(config));
+            // Arrange
+            var mockConnection = new Mock<IDbConnection>();
+            mockConnection.Setup(c => c.Open()).Throws(new SqlException());
+
+            SqlConnectionFactory.SetConnection(mockConnection.Object);
+
+            // Act
+            _databaseService.ExecuteQueries();
+
+            // Assert
+            _mockLogger.Verify(l => l.LogError(It.IsAny<Exception>(), "A database error occurred while trying to connect."), Times.Once);
         }
 
-        public void ExecuteQueries()
+        [TestMethod]
+        [ExpectedException(typeof(Exception))]
+        public void ExecuteQueries_GeneralExceptionThrown()
         {
-            using var connection = new SqlConnection(_config.ConnectionString);
-            try
-            {
-                connection.Open();
+            // Arrange
+            var mockConnection = new Mock<IDbConnection>();
+            mockConnection.Setup(c => c.Query<dynamic>(It.IsAny<string>())).Throws(new Exception("Test Exception"));
 
-                foreach (var DMQuery in _config.DMQueries)
-                {
-                    var sqlCommandText = DMQuery
-                        .Replace("{interval}", (_config.IntervalInMinutes * -1).ToString())
-                        .Replace("{errorSeverity}", _config.errorSeverity.ToString())
-                        .Replace("{errorState}", _config.errorState.ToString());
+            SqlConnectionFactory.SetConnection(mockConnection.Object);
 
-                    _logger.LogInformation($"Running query: {sqlCommandText}");
+            // Act
+            _databaseService.ExecuteQueries();
 
-                    try
-                    {
-                        var rows = connection.Query<dynamic>(sqlCommandText);
-                        _logger.LogInformation($"Returned {rows.Count()} rows");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"An error occurred while executing the query: {ex.Message}");
-                    }
-                }
-            }
-            catch (SqlException ex)
-            {
-                _logger.LogError(ex, "A database error occurred while trying to connect.");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An unexpected error occurred.");
-                throw;
-            }
-            finally
-            {
-                if (connection.State == ConnectionState.Open)
-                {
-                    connection.Close();
-                    _logger.LogInformation("Database connection closed.");
-                }
-            }
+            // Assert
+            _mockLogger.Verify(l => l.LogError(It.IsAny<Exception>(), "An unexpected error occurred."), Times.Once);
         }
-    }
-}
