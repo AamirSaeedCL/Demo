@@ -1,1 +1,27 @@
-hh
+try
+{
+    using var connection = new SqlConnection(_config.ConnectionString);
+    foreach (var DMQuery in _config.DMQueries)
+    {
+        var sqlCommandText = DMQuery.Replace("{interval}", (_config.IntervalInMinutes * -1).ToString());
+        sqlCommandText = sqlCommandText.Replace("{errorSeverity}", (_config.errorSeverity).ToString());
+        sqlCommandText = sqlCommandText.Replace("{errorState}", (_config.errorState).ToString());
+        _logger.LogInformation($"Running query {sqlCommandText}");
+        connection.Open();
+        try
+        {
+            var rows = connection.Query<dynamic>(sqlCommandText);
+            _logger.LogInformation($"Returned {rows.Count()} rows");
+            connection.Close();
+        }
+        catch (Exception ex) {
+            connection.Close();
+            _logger.LogError(ex.Message);
+        }
+    }
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "An error occurred while trying to connect to database server.");
+    throw;
+}
