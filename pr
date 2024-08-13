@@ -1,7 +1,5 @@
-Scaffold-DbContext : The term 'Scaffold-DbContext' is not recognized as the name of a cmdlet, function, script file, or operable program. 
-Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
-At line:1 char:1
-+ Scaffold-DbContext "data source=SS2-DMT-D-01;initial catalog=crs5_dat ...
-+ ~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (Scaffold-DbContext:String) [], CommandNotFoundException
-    + FullyQualifiedErrorId : CommandNotFoundException
+I have initiated a new project for the Pega Data Mart and included all the necessary Entity Framework (EF) NuGet packages. As a starting point, I used the "AddressTypes" table as an example. You will notice that EF has generated a Models folder and created the corresponding model within it.
+
+Since we are following a backend-first approach, I have set up a new database named CRS5_Data_Mart, which should be used for our development purposes moving forward.
+
+Additionally, I have created a new pull request (PR), which is now ready for your review.
