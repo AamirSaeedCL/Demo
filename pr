@@ -1,1 +1,1 @@
-I apologize for the oversight in the original implementation. We should indeed include a finally block to ensure the SQL connection to the database is properly closed, and it is important to first check the connection state before closing it. I have refactored the code to address this issue and incorporated a conditional check to confirm the connection state before closing it. The updated code is now ready for your review.
+
