@@ -1,5 +1,1 @@
-I have initiated a new project for the Pega Data Mart and included all the necessary Entity Framework (EF) NuGet packages. As a starting point, I used the "AddressTypes" table as an example. You will notice that EF has generated a Models folder and created the corresponding model within it.
 
-Since we are following a backend-first approach, I have set up a new database named CRS5_Data_Mart, which should be used for our development purposes moving forward.
-
-Additionally, I have created a new pull request (PR), which is now ready for your review.
