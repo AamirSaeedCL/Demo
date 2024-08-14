@@ -1,4 +1,1 @@
-  // Determine the path to the DACPAC file
-        string exePath = AppDomain.CurrentDomain.BaseDirectory;
-        string dacPacRelativePath = @"..\..\..\YourDatabaseProject\bin\Debug\net7.0\YourDatabase.dacpac";
-        string dacPacPath = Path.GetFullPath(Path.Combine(exePath, dacPacRelativePath));
+FileNotFoundException: Could not load file or assembly 'Microsoft.SqlServer.TransactSql.ScriptDom, Version=12.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91'. The system cannot find the file specified.
