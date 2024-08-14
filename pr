@@ -1,1 +1,1 @@
-System.ComponentModel.Win32Exception: 'An error occurred trying to start process 'SqlPackage.exe' with working directory 'C:\Projects\Engage.DataMart.DacPac\src\Engage.DataMart.DacPac\Engage.DataMart.Database.Core\bin\Debug\net8.0'. The system cannot find the file specified.'
+process.StartInfo.FileName = @"C:\Program Files (x86)\Microsoft SQL Server\150\DAC\bin\SqlPackage.exe";
