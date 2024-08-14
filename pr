@@ -1,1 +1,33 @@
+Azure - ADB2C (centralized auth server, auth user), jwt token, 
 
+ADb2b  (busienss to business)
+
+App insihgt (ten applications genrating logs , resouces check log, fail, success),
+log ---> KQL language  (Eidtor in Portal, Dashboard )
+
+App services  (IIS -- App server, genreate URL)
+
+
+, App configuration (resouces - get it there), 
+
+key Volut   = Securet keys, API Keys (security point of view), link with app configuration, and then C# application
+read app configuration.
+
+============
+API's behinds, APM level
+APIM (Application management services), policy, thresholds set, 100 calls
+Azure front door (read it, same as APIM but for region based, divide the traffic, MS last bug, less downtime)
+
+
+============
+C#, WEBAPI, MVC, Old webform, 
+App.settings =====> 
+Azure DevOps === Git integrate, 
+SonarCube, 
+
+==========
+Power BI
+============
+fullter mobile app
+
+Myprodcts ===> members app
