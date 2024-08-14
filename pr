@@ -1,1 +1,18 @@
-TypeLoadException: Could not load type 'System.Diagnostics.Eventing.EventDescriptor' from assembly 'System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.
+using System.Diagnostics;
+
+public void DeployDacPacUsingSqlPackage(string dacPacPath, string connectionString)
+{
+    var process = new Process();
+    process.StartInfo.FileName = "SqlPackage.exe";
+    process.StartInfo.Arguments = $"/Action:Publish /SourceFile:\"{dacPacPath}\" /TargetConnectionString:\"{connectionString}\"";
+    process.StartInfo.RedirectStandardOutput = true;
+    process.StartInfo.UseShellExecute = false;
+    process.StartInfo.CreateNoWindow = true;
+
+    process.Start();
+
+    string result = process.StandardOutput.ReadToEnd();
+    process.WaitForExit();
+
+    Console.WriteLine(result);
+}
