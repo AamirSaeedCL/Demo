@@ -1,18 +1,1 @@
-using System.Diagnostics;
-
-public void DeployDacPacUsingSqlPackage(string dacPacPath, string connectionString)
-{
-    var process = new Process();
-    process.StartInfo.FileName = "SqlPackage.exe";
-    process.StartInfo.Arguments = $"/Action:Publish /SourceFile:\"{dacPacPath}\" /TargetConnectionString:\"{connectionString}\"";
-    process.StartInfo.RedirectStandardOutput = true;
-    process.StartInfo.UseShellExecute = false;
-    process.StartInfo.CreateNoWindow = true;
-
-    process.Start();
-
-    string result = process.StandardOutput.ReadToEnd();
-    process.WaitForExit();
-
-    Console.WriteLine(result);
-}
+System.ComponentModel.Win32Exception: 'An error occurred trying to start process 'SqlPackage.exe' with working directory 'C:\Projects\Engage.DataMart.DacPac\src\Engage.DataMart.DacPac\Engage.DataMart.Database.Core\bin\Debug\net8.0'. The system cannot find the file specified.'
