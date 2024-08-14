@@ -1,1 +1,22 @@
-process.StartInfo.FileName = @"C:\Program Files (x86)\Microsoft SQL Server\150\DAC\bin\SqlPackage.exe";
+     var outputBuilder = new StringBuilder();
+
+            // Event handler for messages
+            dacServices.Message += (sender, e) =>
+            {
+                outputBuilder.AppendLine($"[{e.MessageType}] {e.Message}");
+            };
+
+            // Event handler for progress
+            dacServices.ProgressChanged += (sender, e) =>
+            {
+                outputBuilder.AppendLine($"Progress: {e.Status} - {e.Message}");
+            };
+
+            // Deploy the DACPAC
+            DacPackage dacpac = DacPackage.Load(dacPacPath);
+            dacServices.Deploy(dacpac, databaseName, upgradeExisting: true);
+
+            // Get the output as a string and write to the console
+            string output = outputBuilder.ToString();
+            Console.WriteLine("Deployment Output:");
+            Console.WriteLine(output);
