@@ -1,1 +1,3 @@
-FileNotFoundException: Could not load file or assembly 'Microsoft.SqlServer.TransactSql.ScriptDom, Version=12.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91'. The system cannot find the file specified.
+Microsoft.SqlServer.TransactSql.ScriptDom
+
+ Microsoft.SqlServer.Dac
