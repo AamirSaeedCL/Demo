@@ -1,1 +1,8 @@
-Add DACPAC EF Core
+ public DacServiceWrapper(string connectionString)
+    {
+        _dacServices = new DacServices(connectionString);
+
+        // Hook the DacServices events to the wrapper's events
+        _dacServices.ProgressChanged += (sender, e) => ProgressChanged?.Invoke(this, e);
+        _dacServices.Message += (sender, e) => Message?.Invoke(this, e);
+    }
