@@ -1,8 +1,11 @@
- public DacServiceWrapper(string connectionString)
-    {
-        _dacServices = new DacServices(connectionString);
+   // Implement the ProgressChanged and Message events
+    public event EventHandler<DacProgressEventArgs> ProgressChanged;
+    public event EventHandler<DacMessageEventArgs> Message;
 
-        // Hook the DacServices events to the wrapper's events
-        _dacServices.ProgressChanged += (sender, e) => ProgressChanged?.Invoke(this, e);
-        _dacServices.Message += (sender, e) => Message?.Invoke(this, e);
-    }
+
+
+
+
+
+    event EventHandler<DacProgressEventArgs> ProgressChanged;
+    event EventHandler<DacMessageEventArgs> Message;
