@@ -1,1 +1,52 @@
 
+{
+    "Logging": {
+        "LogLevel": {
+            "Default": "Information",
+            "Microsoft.Hosting.Lifetime": "Information"
+        }
+    },
+    "Serilog": {
+        "Using": [ "Serilog.Exceptions", "Serilog", "Serilog.Sinks.Console", "Serilog.Sinks.File" ],
+        "MinimumLevel": {
+            "Default": "Debug",
+            "Override": {
+                "System": "Error",
+                "Microsoft": "Error",
+                "Microsoft.EntityFrameworkCore": "Error"
+            }
+        },
+        "WriteTo": [
+            {
+                "Name": "File",
+                "Args": {
+                    "path": "logs//log.txt",
+                    "rollingInterval": "Day"
+                }
+            },
+            {
+                "Name": "Console"
+            },
+            {
+                "Name": "Async",
+                "Args": {
+                    "configure": [
+                        {
+                            "Name": "Console",
+                            "Args": {
+                                "restrictedToMinimumLevel": "Debug"
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "Enrich": [ "FromLogContext", "WithExceptionDetails", "WithEnvironmentUserName", "WithMachineName", "WithProcessId" ],
+        "Properties": {
+            "Environment": "LocalDev"
+        }
+    },
+    "connectionStrings": {
+        "defaultConnection": "data source=SS2-DMT-D-01;initial catalog=crs5_data_mart;integrated security=false;User Id=itsolutionsdev;Password=Cabot123!;MultipleActiveResultSets=True;App=CCM.Engage.DataSelection.POC;TrustServerCertificate=true"
+    }
+}
