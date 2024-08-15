@@ -1,70 +1,98 @@
-using Engage.DataMart.Database.EF;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Engage.DataMart.Database.EF.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-public class Worker : IHostedService
+
+namespace Engage.WorkerService
 {
-    private readonly ILogger<Worker> _logger;
-    private readonly DatamartConfig _config;
-    private readonly IDacServiceWrapper _dacServiceWrapper;
-
-    public Worker(ILogger<Worker> logger, DatamartConfig config, IDacServiceWrapper dacServiceWrapper)
+    public class Worker : IHostedService
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _config = config ?? throw new ArgumentNullException(nameof(config));
-        _dacServiceWrapper = dacServiceWrapper ?? throw new ArgumentNullException(nameof(dacServiceWrapper));
-    }
+        private readonly ILogger<Worker> _logger;
+        private readonly IDacDeploymentService _dacDeploymentService;
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        try
-        {              
-            // Another way to deploy DACPAC through SQLPackage
-            //var process = new Process();
-            //process.StartInfo.FileName =_config.sqlPackagePath.ToString();
-            //process.StartInfo.Arguments = $"/Action:Publish /SourceFile:\"{dacPacPath}\" /TargetConnectionString:\"{_config.ConnectionString.ToString()}\"";
-            //process.StartInfo.RedirectStandardOutput = true;
-            //process.StartInfo.UseShellExecute = false;
-            //process.StartInfo.CreateNoWindow = true;
-            //process.Start();
-            //string result = process.StandardOutput.ReadToEnd();
-            //process.WaitForExit();
-            // Console.WriteLine(result);
-
-            //DacServices dacServices = new DacServices(_config.ConnectionString);
-
-            Console.WriteLine("Deployment Output:");
-
-            // Event handler for messages
-            _dacServiceWrapper.Message += (sender, e ) =>
-            {
-                Console.WriteLine($"{e.Message.MessageType} - {e.Message}");
-            };
-
-            // Event handler for progress
-            _dacServiceWrapper.ProgressChanged += (sender, e) =>
-            {
-                Console.WriteLine($"Progress: {e.Status} - {e.Message}");
-            };
-
-            // Deploy the DACPAC
-            _dacServiceWrapper.DeployDacPac(_config.DacPacFilePath, _config.databaseName, upgradeExisting: true);
-
-            Console.WriteLine("Deployment Completed.");
-
-        }
-        catch (Exception ex)
+        public Worker(ILogger<Worker> logger, IDacDeploymentService dacDeploymentService)
         {
-            _logger.LogError(ex, "An error occurred while starting the worker.");
-            throw;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _dacDeploymentService = dacDeploymentService ?? throw new ArgumentNullException(nameof(dacDeploymentService));
         }
 
-        return Task.CompletedTask;
-    }
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogInformation("Worker starting DACPAC deployment.");
+                
+                await _dacDeploymentService.DeployAsync(cancellationToken);
+                
+                _logger.LogInformation("DACPAC deployment completed.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while starting the worker.");
+                throw;
+            }
+        }
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Worker stopping.");
+            return Task.CompletedTask;
+        }
     }
 }
-    
+
+namespace Engage.DataMart.Database.EF.Interfaces
+{
+    public interface IDacDeploymentService
+    {
+        Task DeployAsync(CancellationToken cancellationToken);
+    }
+}
+
+namespace Engage.DataMart.Database.EF.Services
+{
+    public class DacDeploymentService : IDacDeploymentService
+    {
+        private readonly ILogger<DacDeploymentService> _logger;
+        private readonly DatamartConfig _config;
+        private readonly IDacServiceWrapper _dacServiceWrapper;
+
+        public DacDeploymentService(ILogger<DacDeploymentService> logger, DatamartConfig config, IDacServiceWrapper dacServiceWrapper)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _dacServiceWrapper = dacServiceWrapper ?? throw new ArgumentNullException(nameof(dacServiceWrapper));
+        }
+
+        public async Task DeployAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                Console.WriteLine("Deployment Output:");
+
+                _dacServiceWrapper.Message += (sender, e) =>
+                {
+                    Console.WriteLine($"{e.Message.MessageType} - {e.Message}");
+                };
+
+                _dacServiceWrapper.ProgressChanged += (sender, e) =>
+                {
+                    Console.WriteLine($"Progress: {e.Status} - {e.Message}");
+                };
+
+                _dacServiceWrapper.DeployDacPac(_config.DacPacFilePath, _config.DatabaseName, upgradeExisting: true);
+
+                Console.WriteLine("Deployment Completed.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred during DACPAC deployment.");
+                throw;
+            }
+
+            await Task.CompletedTask;
+        }
+    }
+}
