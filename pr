@@ -1,2 +1,1 @@
-  _dacServices.ProgressChanged += (sender, e) => ProgressChanged?.Invoke(this, e);
-        _dacServices.Message += (sender, e) => Message?.Invoke(this, e);
+Add DACPAC EF Core
