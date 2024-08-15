@@ -1,2 +1,2 @@
-   public event EventHandler<DacProgressEventArgs> ProgressChanged;
-   public event EventHandler<DacMessageEventArgs> Message;
+  _dacServices.ProgressChanged += (sender, e) => ProgressChanged?.Invoke(this, e);
+        _dacServices.Message += (sender, e) => Message?.Invoke(this, e);
