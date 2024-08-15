@@ -1,22 +1,70 @@
-     var outputBuilder = new StringBuilder();
+public interface IDacService
+{
+    void DeployDacPac(string dacPacPath, string databaseName, bool upgradeExisting);
+}
 
-            // Event handler for messages
-            dacServices.Message += (sender, e) =>
+public class DacServiceWrapper : IDacService
+{
+    private readonly DacServices _dacServices;
+
+    public DacServiceWrapper(string connectionString)
+    {
+        _dacServices = new DacServices(connectionString);
+    }
+
+    public void DeployDacPac(string dacPacPath, string databaseName, bool upgradeExisting)
+    {
+        var dacpac = DacPackage.Load(dacPacPath);
+        _dacServices.Deploy(dacpac, databaseName, upgradeExisting);
+    }
+}
+
+
+
+
+
+public class MyService
+{
+    private readonly IDacService _dacService;
+
+    public MyService(IDacService dacService)
+    {
+        _dacService = dacService;
+    }
+
+    public void DeployDatabase()
+    {
+        string dacPacPath = @"path\to\your.dacpac";
+        string databaseName = "YourDatabaseName";
+        _dacService.DeployDacPac(dacPacPath, databaseName, upgradeExisting: true);
+    }
+}
+
+
+
+
+
+using Microsoft.Extensions.DependencyInjection;
+
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        // Setup Dependency Injection
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton<IDacService>(provider =>
             {
-                outputBuilder.AppendLine($"[{e.MessageType}] {e.Message}");
-            };
+                var connectionString = "YourConnectionStringHere";
+                return new DacServiceWrapper(connectionString);
+            })
+            .AddTransient<MyService>() // Register MyService with DI
+            .BuildServiceProvider();
 
-            // Event handler for progress
-            dacServices.ProgressChanged += (sender, e) =>
-            {
-                outputBuilder.AppendLine($"Progress: {e.Status} - {e.Message}");
-            };
+        // Resolve MyService and use it
+        var myService = serviceProvider.GetRequiredService<MyService>();
+        myService.DeployDatabase();
 
-            // Deploy the DACPAC
-            DacPackage dacpac = DacPackage.Load(dacPacPath);
-            dacServices.Deploy(dacpac, databaseName, upgradeExisting: true);
+        Console.WriteLine("Database deployed successfully.");
+    }
+}
 
-            // Get the output as a string and write to the console
-            string output = outputBuilder.ToString();
-            Console.WriteLine("Deployment Output:");
-            Console.WriteLine(output);
