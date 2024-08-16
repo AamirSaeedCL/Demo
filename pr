@@ -1,1 +1,9 @@
+please can you ensure you add in a build pipeline, based on
+Mist.Core-Build - Azure DevOps Services (visualstudio.com), Link = https://cabotcm.visualstudio.com/Shared%20Services/_apps/hub/ms.vss-ciworkflow.build-ci-hub?_a=edit-build-definition&id=517
+- to create a nuget package for use in the Azure Functions.
 
+
+can you add in a build pipeline based on
+https://cabotcm.visualstudio.com/Cabot%20Api/_apps/hub/ms.vss-ciworkflow.build-ci-hub?_a=edit-build-definition&id=305
+.  The artefact then needs adding to the following release pipeline, re enabling the deploy dacpac step.  
+https://cabotcm.visualstudio.com/Shared%20Services/_release?_a=releases&view=all&definitionId=105
