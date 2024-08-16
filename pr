@@ -1,1 +1,6 @@
 
+ the following repo needs to be responsible for reading from the azure sql tables when triggered by the azure function sql trigger (your need to enable change tracking via the dacpacp im sure)  We will then look to publish the json object to a service bus queue.  
+https://cabotcm.visualstudio.com/Shared%20Services/_git/Engage.AzureFunctions.Publisher
+.  Keep in mind what files we need to create based on the ERD and Json files here.  
+MLP1 : https://cabotcm.sharepoint.com/:f:/s/msteams_91d5ad_294672/EiL_OL3QtCpEuRAPPadPH_sBInP0REWHJbX5i3gaYKYQQQ?e=TlQs11
+
