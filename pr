@@ -1,6 +1,26 @@
+Implement Azure Function to Read from Azure SQL Tables and Publish JSON to Service Bus Queue
 
- the following repo needs to be responsible for reading from the azure sql tables when triggered by the azure function sql trigger (your need to enable change tracking via the dacpacp im sure)  We will then look to publish the json object to a service bus queue.  
-https://cabotcm.visualstudio.com/Shared%20Services/_git/Engage.AzureFunctions.Publisher
-.  Keep in mind what files we need to create based on the ERD and Json files here.  
-MLP1 : https://cabotcm.sharepoint.com/:f:/s/msteams_91d5ad_294672/EiL_OL3QtCpEuRAPPadPH_sBInP0REWHJbX5i3gaYKYQQQ?e=TlQs11
+Jira Ticket Description:
+Objective:
+We need to enhance the repository Engage.AzureFunctions.Publisher to handle reading data from Azure SQL tables upon activation by an Azure Function SQL trigger. The processed data should then be formatted as JSON and published to an Azure Service Bus queue.
 
+Requirements:
+
+Azure Function Configuration:
+
+The Azure Function should be triggered by changes in the Azure SQL tables. Ensure that change tracking is enabled on the database via the DACPAC deployment.
+Data Handling:
+
+Implement functionality to read the updated data from the specified SQL tables.
+Convert the data into a JSON format.
+Publish the JSON object to the designated Azure Service Bus queue.
+File and Schema Considerations:
+
+Refer to the Entity-Relationship Diagram (ERD) and JSON files to determine the necessary files and structure for implementation.
+ERD and related JSON files are available at MLP1 SharePoint.
+Acceptance Criteria:
+
+Azure SQL change tracking is enabled and functioning.
+Azure Function is triggered by changes in the SQL tables.
+Data is accurately read from SQL tables, converted to JSON, and published to the Service Bus queue.
+Code and configuration align with the provided ERD and JSON schemas.
