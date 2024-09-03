@@ -1,36 +1,33 @@
-I have gone through the Engage MLP1 data ingestion diagram and data sources excel sheet. First of all, below are my findings, please correct me, if I'm wrong. in order to start work on data factory (ingest) we need to know the connection string info of all the data sources.
+I have reviewed the Engage MLP1 data ingestion diagram and the accompanying data sources spreadsheet. Below are my observations. Please let me know if any corrections are needed. Before we can begin working on the Data Factory and develop the ingestion pipelines for the initial data load, it is essential to obtain the connection string information for all data sources.
 
-1) SCV: That datasource only update the customer data.
-Info needed: Connection string for dev environemnt and database name.
+SCV: This data source exclusively updates customer data.
 
-2) Sales force: That datasource only update the sfinteraction data.
-Info needed: Connection string for dev environemnt database name and column names along with mapping etc.
+Required Information: Connection string for the development environment and the database name.
+Salesforce: This data source solely updates the sfinteraction data.
 
-3) Blaze: That datasource only update the customer data.
-Info needed: Connection string for dev environemnt database name and column names along with mapping etc. Moreover, why it has express route tag?
+Required Information: Connection string for the development environment, database name, column names, and mapping details.
+Blaze: This data source is responsible for updating customer data.
 
-4) C&R Software: It seems to be the main data source for us and it updates most of the data in the tables.
-Info needed: Connection string for dev environemnt database name and column names along with mapping etc. Moreover, why it has express route tag?
+Required Information: Connection string for the development environment, database name, column names, and mapping details. Additionally, could you clarify the reason for the "Express Route" tag associated with this source?
+C&R Software: This appears to be the primary data source, updating most of the data in the tables.
 
-5) WH: That data source only update the modelledNdi data.
-Info needed: Connection string for dev environemnt database name and column names along with mapping etc. Moreover, why it has express route tag?
+Required Information: Connection string for the development environment, database name, column names, and mapping details. Also, please explain the presence of the "Express Route" tag for this source.
+WH: This data source updates only the modelledNdi data.
 
-6) SFS: That datasource only update the sfs data.
-Info needed: Connection string for dev environemnt database name, table name and column names along with mapping etc.
+Required Information: Connection string for the development environment, database name, column names, and mapping details. Again, clarification on the "Express Route" tag is requested.
+SFS: This data source exclusively updates the sfs data.
 
-7) Digital: That datasource only update the customer and digital data.
-Info needed: Connection string for dev environemnt database name and column names along with mapping etc.  
+Required Information: Connection string for the development environment, database name, table name, column names, and mapping details.
+Digital: This data source updates both customer and digital data.
 
-8) Bureau: That datasource only update the bureau data.
-Info needed: Connection string for dev environemnt and database name.
+Required Information: Connection string for the development environment, database name, column names, and mapping details.
+Bureau: This data source only updates the bureau data.
 
-8) Eden: That datasource only update the score data.
-Info needed: Connection string for dev environemnt and database name.
+Required Information: Connection string for the development environment and database name.
+Eden: This data source is used solely for updating score data.
 
-General queries: 
+Required Information: Connection string for the development environment and database name.
+General Queries:
 
-Could you please tell us what is the full form of SCV, C&R, WH, and SFS. 
-What is the purpose of express route?
-
-
-
+Could you please provide the full forms of the abbreviations SCV, C&R, WH, and SFS?
+Could you clarify the purpose and functionality of the "Express Route" in the context of the above data sources?
