@@ -1,45 +1,36 @@
- public class Worker : IHostedService, IDisposable
- {
-     private readonly ILogger<Worker> _logger;
-     private readonly POCConfig _config;
-     private Timer? _timer = null;
-     public Worker(ILogger<Worker> logger, POCConfig config)
-     {
-         _logger = logger;
-         _config = config;
-     }
+I have gone through the Engage MLP1 data ingestion diagram and data sources excel sheet. First of all, below are my findings, please correct me, if I'm wrong. in order to start work on data factory (ingest) we need to know the connection string info of all the data sources.
 
-     private void DoWork(object? state)
-     {
-         _logger.LogInformation($"Connecting to DB {_config.ConnectionString}");
-         var connection = new SqlConnection(_config.ConnectionString);
-         foreach (var sqlCommandText in _config.DMQueries)
-         {
-             _logger.LogInformation($"Running query {sqlCommandText}");
-             IEnumerable<dynamic> rows = connection.Query<dynamic>(sqlCommandText);
-             _logger.LogInformation($"Returned {rows.Count()} rows");
-         }
+1) SCV: That datasource only update the customer data.
+Info needed: Connection string for dev environemnt and database name.
+
+2) Sales force: That datasource only update the sfinteraction data.
+Info needed: Connection string for dev environemnt database name and column names along with mapping etc.
+
+3) Blaze: That datasource only update the customer data.
+Info needed: Connection string for dev environemnt database name and column names along with mapping etc. Moreover, why it has express route tag?
+
+4) C&R Software: It seems to be the main data source for us and it updates most of the data in the tables.
+Info needed: Connection string for dev environemnt database name and column names along with mapping etc. Moreover, why it has express route tag?
+
+5) WH: That data source only update the modelledNdi data.
+Info needed: Connection string for dev environemnt database name and column names along with mapping etc. Moreover, why it has express route tag?
+
+6) SFS: That datasource only update the sfs data.
+Info needed: Connection string for dev environemnt database name, table name and column names along with mapping etc.
+
+7) Digital: That datasource only update the customer and digital data.
+Info needed: Connection string for dev environemnt database name and column names along with mapping etc.  
+
+8) Bureau: That datasource only update the bureau data.
+Info needed: Connection string for dev environemnt and database name.
+
+8) Eden: That datasource only update the score data.
+Info needed: Connection string for dev environemnt and database name.
+
+General queries: 
+
+Could you please tell us what is the full form of SCV, C&R, WH, and SFS. 
+What is the purpose of express route?
 
 
-     }
 
-
-     public Task StartAsync(CancellationToken cancellationToken)
-     {
-         _timer = new Timer(DoWork, null, TimeSpan.Zero,
-         TimeSpan.FromMinutes(2));
-         return Task.CompletedTask;
-     }
-
-     public  void Dispose()
-     {
-         _timer?.Dispose();
-     }
-
-     public Task StopAsync(CancellationToken cancellationToken)
-     { 
-         _timer?.Change(Timeout.Infinite, 0);
-
-         return Task.CompletedTask;
-     }
- }
