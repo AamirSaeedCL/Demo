@@ -1,19 +1,49 @@
+CREATE PROCEDURE [dbo].[usp_UpsertDataFactoryPipeline]
+    @PipelineName NVARCHAR(500),
+    @IsAlreadyRunning BIT,
+    @LastRunDateTime DATETIME2(7),
+    @PipelineId SMALLINT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-CREATE TABLE [dbo].[DataFactoryPipeline](
-	[PipelineId] [smallint] IDENTITY(1,1) NOT NULL,
-	[PipelineName] [nvarchar](500) NOT NULL,
-	[IsAlreadyRunning] [bit] NOT NULL,
-	[LastRunDateTime] [datetime2](7) NOT NULL
-) ON [PRIMARY]
+        -- Check if the pipeline already exists
+        IF EXISTS (SELECT 1 FROM [dbo].[DataFactoryPipeline] WHERE [PipelineName] = @PipelineName)
+        BEGIN
+            -- Update the existing pipeline record
+            UPDATE [dbo].[DataFactoryPipeline]
+            SET 
+                [IsAlreadyRunning] = @IsAlreadyRunning,
+                [LastRunDateTime] = @LastRunDateTime
+            WHERE 
+                [PipelineName] = @PipelineName;
+
+            -- Set output PipelineId
+            SELECT @PipelineId = [PipelineId] 
+            FROM [dbo].[DataFactoryPipeline] 
+            WHERE [PipelineName] = @PipelineName;
+        END
+        ELSE
+        BEGIN
+            -- Insert new pipeline record
+            INSERT INTO [dbo].[DataFactoryPipeline] ([PipelineName], [IsAlreadyRunning], [LastRunDateTime])
+            VALUES (@PipelineName, @IsAlreadyRunning, @LastRunDateTime);
+
+            -- Set the PipelineId to the new inserted value
+            SET @PipelineId = SCOPE_IDENTITY();
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- Rollback the transaction if any error occurs
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        -- Throw the error back to the caller
+        THROW;
+    END CATCH
+END
 GO
-
-
-CREATE TABLE [dbo].[DataFactoryPipelineLog](
-	[LogId] [bigint] IDENTITY(1,1) NOT NULL,
-	[PipelineId] [smallint] NOT NULL,
-	[PipelineRunId] [bigint] NOT NULL,
-	[Status] [nvarchar](50) NULL,
-	[ErrorDescription] [nvarchar](max) NULL,
-	[StartDateTime] [datetime2](7) NOT NULL,
-	[EndDateTime] [datetime2](7) NULL
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
