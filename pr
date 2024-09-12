@@ -47,3 +47,122 @@ BEGIN
     END CATCH
 END
 GO
+=========
+DECLARE @PipelineId SMALLINT; -- Declare a variable to capture the output
+
+EXEC [dbo].[usp_UpsertDataFactoryPipeline]
+    @PipelineName = 'ExamplePipeline',      -- Provide the pipeline name
+    @IsAlreadyRunning = 0,                  -- Set whether it's running (0 for false, 1 for true)
+    @LastRunDateTime = '2024-09-12 10:00:00', -- Provide the last run date and time
+    @PipelineId = @PipelineId OUTPUT;       -- Capture the PipelineId output
+
+-- Output the PipelineId to check what was returned
+SELECT @PipelineId AS PipelineId;
+
+
+
+
+
+=================================
+CREATE PROCEDURE dbo.usp_ManagePipelineLog
+    @LogId BIGINT = NULL, -- Used for updates; NULL for insert
+    @PipelineId SMALLINT,
+    @PipelineRunId BIGINT,
+    @Status NVARCHAR(50) = NULL,
+    @ErrorDescription NVARCHAR(MAX) = NULL,
+    @StartDateTime DATETIME2(7),
+    @EndDateTime DATETIME2(7) = NULL
+AS
+BEGIN
+    -- Declare variables for error handling
+    DECLARE @ErrorMsg NVARCHAR(4000), @ErrorSeverity INT, @ErrorState INT;
+    
+    -- Start transaction
+    BEGIN TRANSACTION;
+    
+    BEGIN TRY
+        -- Check if LogId is provided for an update
+        IF @LogId IS NOT NULL
+        BEGIN
+            -- Update the existing log entry if LogId exists
+            UPDATE dbo.DataFactoryPipelineLog
+            SET
+                PipelineId = @PipelineId,
+                PipelineRunId = @PipelineRunId,
+                Status = @Status,
+                ErrorDescription = @ErrorDescription,
+                StartDateTime = @StartDateTime,
+                EndDateTime = @EndDateTime
+            WHERE LogId = @LogId;
+
+            -- Check if any rows were affected (i.e., LogId exists)
+            IF @@ROWCOUNT = 0
+            BEGIN
+                RAISERROR('LogId not found for update.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+        END
+        ELSE
+        BEGIN
+            -- Insert new log entry
+            INSERT INTO dbo.DataFactoryPipelineLog
+            (
+                PipelineId,
+                PipelineRunId,
+                Status,
+                ErrorDescription,
+                StartDateTime,
+                EndDateTime
+            )
+            VALUES
+            (
+                @PipelineId,
+                @PipelineRunId,
+                @Status,
+                @ErrorDescription,
+                @StartDateTime,
+                @EndDateTime
+            );
+        END
+
+        -- Commit transaction if no errors
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- Rollback transaction in case of error
+        IF @@TRANCOUNT > 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
+
+        -- Capture the error information
+        SELECT
+            @ErrorMsg = ERROR_MESSAGE(),
+            @ErrorSeverity = ERROR_SEVERITY(),
+            @ErrorState = ERROR_STATE();
+
+        -- Rethrow the error to the caller
+        RAISERROR(@ErrorMsg, @ErrorSeverity, @ErrorState);
+    END CATCH
+END;
+GO
+
+===============
+
+EXEC dbo.usp_ManagePipelineLog
+    @PipelineId = 1,
+    @PipelineRunId = 12345,
+    @Status = 'InProgress',
+    @ErrorDescription = NULL,
+    @StartDateTime = GETUTCDATE();
+
+EXEC dbo.usp_ManagePipelineLog
+    @LogId = 10, -- The LogId of the existing record to update
+    @PipelineId = 1,
+    @PipelineRunId = 12345,
+    @Status = 'Completed',
+    @ErrorDescription = 'No errors.',
+    @StartDateTime = '2024-09-12 10:00:00',
+    @EndDateTime = GETUTCDATE();
+
