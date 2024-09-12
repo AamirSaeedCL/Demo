@@ -1,1 +1,19 @@
 
+CREATE TABLE [dbo].[DataFactoryPipeline](
+	[PipelineId] [smallint] IDENTITY(1,1) NOT NULL,
+	[PipelineName] [nvarchar](500) NOT NULL,
+	[IsAlreadyRunning] [bit] NOT NULL,
+	[LastRunDateTime] [datetime2](7) NOT NULL
+) ON [PRIMARY]
+GO
+
+
+CREATE TABLE [dbo].[DataFactoryPipelineLog](
+	[LogId] [bigint] IDENTITY(1,1) NOT NULL,
+	[PipelineId] [smallint] NOT NULL,
+	[PipelineRunId] [bigint] NOT NULL,
+	[Status] [nvarchar](50) NULL,
+	[ErrorDescription] [nvarchar](max) NULL,
+	[StartDateTime] [datetime2](7) NOT NULL,
+	[EndDateTime] [datetime2](7) NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
