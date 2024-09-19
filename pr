@@ -1,1 +1,6 @@
 
+UPDATE c
+SET c.CustomerId = cg.CustomerId
+FROM PegaDataMart.dbo.Customers c
+JOIN SingleCustomerView.dbo.ConsumerGroup cg
+  ON c.GroupId = cg.GroupId;
