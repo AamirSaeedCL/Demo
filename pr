@@ -1,6 +1,10 @@
-
-UPDATE c
-SET c.CustomerId = cg.CustomerId
-FROM PegaDataMart.dbo.Customers c
-JOIN SingleCustomerView.dbo.ConsumerGroup cg
-  ON c.GroupId = cg.GroupId;
+CREATE PROCEDURE UpdateCustomerTable
+AS
+BEGIN
+    -- Update CustomerId based on GroupId
+    UPDATE C
+    SET C.CustomerId = CG.CustomerId
+    FROM PegaDataMart.dbo.Customers C
+    INNER JOIN SingleCustomerView.dbo.ConsumerGroup CG
+        ON C.GroupId = CG.GroupId;
+END
