@@ -1,12 +1,1 @@
-As discussed during today’s standup meeting, in our Azure Data Factory pipeline, we need to update the CustomerGroupId column, which resides in the ConsumerGroup table within the SingleCustomerView database. To accomplish this update, we have identified three potential approaches:
 
-Using a Stored Procedure (SP) with Update Statements Based on Table Joins:
-This approach would involve utilizing a stored procedure to perform the update via a join between the necessary tables. This method is highly efficient and fast, as both databases are hosted on the same Azure server. However, cross-database querying is currently disabled in our environment. Therefore, enabling this functionality would be required before proceeding with this option.
-
-Azure Data Factory Data Flow:
-We also considered performing the update using a Data Flow within Azure Data Factory. However, in testing, we found that this method is relatively slow, taking approximately four minutes to process a sample data set. Additionally, I will need to enable debugging to continue working on and optimizing this approach.
-
-Importing the Table into the PegaDataMart Database and Performing the Update Locally:
-The third option would be to import the ConsumerGroup table into the PegaDataMart database and perform the update from within that database. While this method would avoid the need for cross-database querying, it introduces additional complexity, such as managing the data import process and ensuring ongoing synchronization between the two databases.
-
-Each of these approaches has its own advantages and disadvantages. We will evaluate and discuss these options further to determine the most suitable approach moving forward.
