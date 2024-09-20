@@ -1,1 +1,4 @@
 
+As discussed, we are looking to query the data in PegaDataMart and SingleCustomerView databases so could you please enable the cross database query feature?
+
+Mark has dopped me below link and that could be handy. Get started with cross-database queries - Azure SQL Database | Microsoft Learn
