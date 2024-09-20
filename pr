@@ -1,3 +1,1 @@
-As per our discussion, we are aiming to query data across both the PegaDataMart and SingleCustomerView databases. To facilitate this, could you kindly enable the cross-database query feature?
 
-Additionally, Mark has shared the link below, which may prove useful in implementing this functionality.
