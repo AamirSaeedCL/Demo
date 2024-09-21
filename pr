@@ -1,5 +1,5 @@
-
-UPDATE dbo.Customer c
-   set c.customergroupid = cg.groupId
-   FROM ConsumerGroup cg
-     where c.customerid = cg.consumerid
+UPDATE c
+SET c.customergroupid = cg.groupId
+FROM dbo.Customer c
+INNER JOIN ConsumerGroup cg
+    ON c.customerid = cg.consumerid;
