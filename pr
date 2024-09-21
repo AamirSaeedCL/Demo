@@ -1,1 +1,16 @@
 
+SELECT
+    ISNULL(
+        (
+            SELECT
+                TOP 1 [StartDateTime]
+            FROM
+                [dbo].[DataFactoryPipelineLog]
+            WHERE
+                PipelineId = '@{variables('PipelineId')}'
+                AND ErrorDescription IS NULL
+            ORDER BY
+                LogId DESC
+        ),
+        '1900-01-01'
+    ) AS LastRunDateTime
