@@ -1,16 +1,16 @@
-
-SELECT
-    ISNULL(
-        (
-            SELECT
-                TOP 1 [StartDateTime]
-            FROM
-                [dbo].[DataFactoryPipelineLog]
-            WHERE
-                PipelineId = '@{variables('PipelineId')}'
-                AND ErrorDescription IS NULL
-            ORDER BY
-                LogId DESC
-        ),
-        '1900-01-01'
-    ) AS LastRunDateTime
+SELECT COALESCE(
+    LastRunDateTime, 
+    '1900-01-01'
+) AS LastRunDateTime
+FROM
+(
+    SELECT TOP 1 
+        [StartDateTime] AS LastRunDateTime
+    FROM
+        [dbo].[DataFactoryPipelineLog]
+    WHERE
+        PipelineId = @PipelineId  -- Use a parameter for dynamic input
+        AND ErrorDescription IS NULL
+    ORDER BY
+        LogId DESC
+) AS Subquery;
