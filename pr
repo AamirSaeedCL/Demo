@@ -1,11 +1,8 @@
-CREATE EXTERNAL TABLE [dbo].[ConsumerGroup](
-    [ConsumerID] [bigint] NOT NULL,
-      NULL,
-    [GroupID] [uniqueidentifier] NOT NULL,
-    [Confirmed] [bit] NOT NULL,
-    [DateModified] [datetime] NOT NULL
-)
-WITH
-(
-    DATA_SOURCE = DevPegaElasticDBQueryDataSrc
-);
+UPDATE c
+SET c.customergroupid = cg.groupId
+FROM dbo.Customer c
+INNER JOIN ConsumerGroup cg
+    ON c.customerid = cg.consumerid;
+
+
+The UPDATE statement conflicted with the FOREIGN KEY constraint "FK_Customer_CustomerGroupId_CustomerGroup_CustomerGroupId". The conflict occurred in database "PegaDataMart", table "dbo.CustomerGroup", column 'CustomerGroupId'.
