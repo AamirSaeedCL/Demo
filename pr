@@ -1,18 +1,16 @@
-
 CREATE PROCEDURE GetLastRunDateTime
-    @PipelineId NVARCHAR(50),  -- Input parameter for PipelineId
-    @LastRunDateTime DATETIME OUTPUT  -- Output parameter for returning the result
+    @PipelineId NVARCHAR(50)  -- Input parameter for PipelineId
 AS
 BEGIN
     -- Declare the default date variable
     DECLARE @DefaultDate DATETIME = '1900-01-01';
 
     BEGIN TRY
-        -- Select the LastRunDateTime using COALESCE for default value handling
-        SELECT @LastRunDateTime = COALESCE(
+        -- Return the LastRunDateTime using COALESCE for default value handling
+        SELECT COALESCE(
             LastRunDateTime, 
             @DefaultDate  -- Use the declared variable for default date
-        )
+        ) AS LastRunDateTime
         FROM
         (
             -- Subquery to fetch the latest StartDateTime for the given PipelineId
@@ -29,9 +27,7 @@ BEGIN
 
     END TRY
     BEGIN CATCH
-        -- Handle any potential errors
-        SET @LastRunDateTime = NULL;  -- Set output to NULL on error
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        PRINT 'Error occurred: ' + @ErrorMessage;
+        -- Return default date in case of an error
+        SELECT @DefaultDate AS LastRunDateTime;  -- Return the default date if an error occurs
     END CATCH;
 END;
