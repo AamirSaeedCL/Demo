@@ -1,5 +1,13 @@
-UPDATE c
-SET c.customergroupid = cg.groupId
-FROM dbo.Customer c
-INNER JOIN ConsumerGroup cg
-    ON c.customerid = cg.consumerid;
+CREATE EXTERNAL TABLE [dbo].[ConsumerGroup](
+	[ConsumerID] [bigint] NOT NULL,
+	[LegacyID] [nvarchar](20) NULL,
+	[GroupID] [uniqueidentifier] NOT NULL,
+	[Confirmed] [bit] NOT NULL,
+	[DateModified] [datetime] NOT NULL,
+	CONSTRAINT [PK_ConsumerGroup_PK] PRIMARY KEY CLUSTERED 
+(
+	[ConsumerID] ASC
+)WITH (STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+WITH
+( DATA_SOURCE = DevPegaElasticDBQueryDataSrc)
