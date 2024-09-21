@@ -1,1 +1,37 @@
 
+CREATE PROCEDURE GetLastRunDateTime
+    @PipelineId NVARCHAR(50),  -- Input parameter for PipelineId
+    @LastRunDateTime DATETIME OUTPUT  -- Output parameter for returning the result
+AS
+BEGIN
+    -- Declare the default date variable
+    DECLARE @DefaultDate DATETIME = '1900-01-01';
+
+    BEGIN TRY
+        -- Select the LastRunDateTime using COALESCE for default value handling
+        SELECT @LastRunDateTime = COALESCE(
+            LastRunDateTime, 
+            @DefaultDate  -- Use the declared variable for default date
+        )
+        FROM
+        (
+            -- Subquery to fetch the latest StartDateTime for the given PipelineId
+            SELECT TOP 1 
+                [StartDateTime] AS LastRunDateTime
+            FROM
+                [dbo].[DataFactoryPipelineLog]
+            WHERE
+                PipelineId = @PipelineId  -- Parameterized for dynamic input
+                AND ErrorDescription IS NULL
+            ORDER BY
+                LogId DESC  -- Order by descending to get the most recent log
+        ) AS Subquery;
+
+    END TRY
+    BEGIN CATCH
+        -- Handle any potential errors
+        SET @LastRunDateTime = NULL;  -- Set output to NULL on error
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        PRINT 'Error occurred: ' + @ErrorMessage;
+    END CATCH;
+END;
