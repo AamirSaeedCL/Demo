@@ -1,8 +1,31 @@
-UPDATE c
-SET c.customergroupid = cg.groupId
-FROM dbo.Customer c
-INNER JOIN ConsumerGroup cg
-    ON c.customerid = cg.consumerid;
+CREATE PROCEDURE UpdateCustomerGroupId
+AS
+BEGIN
+    -- Start the transaction
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
+        -- Update statement
+        UPDATE c
+        SET c.customergroupid = cg.groupId
+        FROM dbo.Customer c
+        INNER JOIN ConsumerGroup cg
+            ON c.customerid = cg.consumerid;
 
-The UPDATE statement conflicted with the FOREIGN KEY constraint "FK_Customer_CustomerGroupId_CustomerGroup_CustomerGroupId". The conflict occurred in database "PegaDataMart", table "dbo.CustomerGroup", column 'CustomerGroupId'.
+        -- Commit the transaction
+        COMMIT TRANSACTION;
+
+        PRINT 'Update successful.';
+
+    END TRY
+    BEGIN CATCH
+        -- If an error occurs, roll back the transaction
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        -- Print error message
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        SET @ErrorMessage = ERROR_MESSAGE();
+        PRINT 'Error occurred: ' + @ErrorMessage;
+    END CATCH;
+END;
