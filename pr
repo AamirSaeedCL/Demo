@@ -1,1 +1,8 @@
 
+  SELECT
+    PipelineId
+FROM
+    dbo.DataFactoryPipeline
+WHERE
+    PipelineName = '@{pipeline().Pipeline}'
+    AND IsAlreadyRunning = 0
