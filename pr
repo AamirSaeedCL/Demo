@@ -1,8 +1,21 @@
+CREATE PROCEDURE dbo.usp_GetPipelineId
+    @PipelineName NVARCHAR(255)
+AS
+BEGIN
+    -- Set NOCOUNT ON to avoid extra result sets
+    SET NOCOUNT ON;
 
-  SELECT
-    PipelineId
-FROM
-    dbo.DataFactoryPipeline
-WHERE
-    PipelineName = '@{pipeline().Pipeline}'
-    AND IsAlreadyRunning = 0
+    -- Handle potential null input
+    IF @PipelineName IS NULL
+    BEGIN
+        RAISERROR ('PipelineName cannot be null', 16, 1);
+        RETURN;
+    END
+
+    -- Query execution
+    SELECT PipelineId
+    FROM dbo.DataFactoryPipeline WITH (NOLOCK)
+    WHERE PipelineName = @PipelineName
+      AND IsAlreadyRunning = 0;
+END
+GO
