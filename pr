@@ -1,1 +1,12 @@
 
+SELECT TOP 10 cnsmr_id, 
+		cnsmr_addrss_ln_1_txt,
+cnsmr_addrss_ln_2_txt,
+cnsmr_addrss_ln_3_txt,
+		cnsmr_addrss_city_txt,
+		cnsmr_addrss_cnty_txt,
+		cnsmr_addrss_pstl_cd_txt,
+		cnsmr_addrss_src_cd,
+		cnsmr_addrss_stts_cd,
+		upsrt_dttm
+		FROM [dbo].[cnsmr_addrss]
