@@ -1,1 +1,35 @@
 
+ public class CustomerAccountTagServiceBusManager : IServiceBusRepository
+    {
+        private readonly string _serviceBusConnection;
+        private readonly string _serviceBusTopic;
+        public CustomerAccountTagServiceBusManager(string serviceBusConn, string serviceBusTopic)
+        {
+            _serviceBusConnection = serviceBusConn;
+            _serviceBusTopic = serviceBusTopic ;
+        }
+        public async Task<bool> SendObjToServiceBus<T>(T entity, int retryCount = 0)
+        {
+            try
+            {
+                var client = new ServiceBusClient(_serviceBusConnection);
+                var sender = client.CreateSender(_serviceBusTopic);
+                var messageBody = JsonConvert.SerializeObject(entity);
+                var message = new ServiceBusMessage(Encoding.UTF8.GetBytes(messageBody))
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    ContentType = "application/json"
+                };
+                if (retryCount != 0)
+                {
+                    message.ScheduledEnqueueTime = DateTime.Now.AddSeconds(Math.Pow(2, retryCount + 1));
+                }
+                await sender.SendMessageAsync(message);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
