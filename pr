@@ -1,9 +1,63 @@
-Pass the ServiceBusClient as a dependency. Instead of creating a new ServiceBusClient in the method, inject it through the constructor.
-
-Both ServiceBusClient and ServiceBusSender are disposable. Use await using to ensure proper disposal, especially in an async method i-e
-await using var sender = _serviceBusClient.CreateSender(_serviceBusTopic);
-
-Added specific exception handling for ServiceBusException and JsonSerializationException i-e catch (JsonSerializationException jsonEx)
-
-Removed the Task<bool> to let exceptions be handled externally. i-e public async Task SendObjToServiceBusAsync<T>(T entity, int retryCount = 0)
-
+public class AccountFunction
+    {
+    private ILogger<Account> Logger { get; }
+    private IConfiguration Configuration { get; }
+    private IServiceBusHelper ServiceBusHelper { get; }
+    private IEngagePublisherAppHelper EngagePublisherAppHelper { get; }
+    private readonly CustomerAccountServiceBusManager _customerAccountServiceBusManager;
+    private IJsonFileWriterHelper JsonFileWriterHelper { get; }
+    private readonly DataMartDbContext _DataMartDbContext;
+    private bool CustomerFunctionEnabled => Convert.ToBoolean(this.Configuration.GetSection("Functions:Customer")["Enabled"]);
+    private bool WriteLocalJsons => Convert.ToBoolean(this.Configuration.GetSection("WriteLocalJsons")["Enabled"]);
+    public AccountFunction(
+        ILogger<Account> logger,
+        IConfiguration configuration,
+        CustomerAccountServiceBusManager customerAccountServiceBusManager,
+        IServiceBusHelper serviceBusHelper,
+        IEngagePublisherAppHelper engagePublisherAppHelper,
+        IJsonFileWriterHelper jsonFileWriterHelper,
+        DataMartDbContext dataMartDbContext
+        )
+    {
+        this.Logger = logger;
+        this.Configuration = configuration;
+        this._customerAccountServiceBusManager = customerAccountServiceBusManager;
+        this.ServiceBusHelper = serviceBusHelper;
+        this.EngagePublisherAppHelper = engagePublisherAppHelper;
+        this.JsonFileWriterHelper = jsonFileWriterHelper;
+        this._DataMartDbContext = dataMartDbContext;
+    }
+    [Function("AccountFunction")]
+    public async Task Run(
+        [SqlTrigger("[dbo].[Account]", "ConnectionStrings:PegaDataMartDB")] IReadOnlyList<SqlChange<Account>> changes,
+            FunctionContext context)
+    {
+        if (this.CustomerFunctionEnabled)
+        {
+                int batchsize = this.Configuration.GetValue<int?>("Functions:Account:BatchSize") ?? 100;
+                var batches = this.EngagePublisherAppHelper.SplitIntoBatches(changes.ToList(), batchsize);
+                foreach (var batch in batches)
+                {
+                    var customerAccountDtos = await this.EngagePublisherAppHelper.PrepareCustomerAccountData(batch);
+                    bool success = await this._customerAccountServiceBusManager.SendObjToServiceBus(batch);
+                    if (success)
+                    {
+                        Console.WriteLine("Message successfuly sent to Service Bus Queue");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Failed to send Message to Service Bus Queue");
+                    }
+                    if (WriteLocalJsons)
+                    {
+                        string path = Path.Combine(@"C:\temp\", @"RAW_JsonData\CustomerAccount.json");
+                        await this.JsonFileWriterHelper.WriteToJsonFile(customerAccountDtos, path);
+                    }
+                }               
+        }
+        else
+        {
+            Logger.LogInformation("Customer function is not enabled - skipped");
+        }
+    }
+  }
