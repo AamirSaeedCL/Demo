@@ -1,63 +1,24 @@
-public class AccountFunction
-    {
-    private ILogger<Account> Logger { get; }
-    private IConfiguration Configuration { get; }
-    private IServiceBusHelper ServiceBusHelper { get; }
-    private IEngagePublisherAppHelper EngagePublisherAppHelper { get; }
-    private readonly CustomerAccountServiceBusManager _customerAccountServiceBusManager;
-    private IJsonFileWriterHelper JsonFileWriterHelper { get; }
-    private readonly DataMartDbContext _DataMartDbContext;
-    private bool CustomerFunctionEnabled => Convert.ToBoolean(this.Configuration.GetSection("Functions:Customer")["Enabled"]);
-    private bool WriteLocalJsons => Convert.ToBoolean(this.Configuration.GetSection("WriteLocalJsons")["Enabled"]);
-    public AccountFunction(
+Naming conventions: C# uses PascalCase for private fields and properties, and camelCase for local variables.
+
+private readonly ILogger<Account> _logger;
+private readonly IConfiguration _configuration;
+
+public AccountFunction(
         ILogger<Account> logger,
         IConfiguration configuration,
-        CustomerAccountServiceBusManager customerAccountServiceBusManager,
-        IServiceBusHelper serviceBusHelper,
-        IEngagePublisherAppHelper engagePublisherAppHelper,
-        IJsonFileWriterHelper jsonFileWriterHelper,
-        DataMartDbContext dataMartDbContext
-        )
+        etc
+       
     {
-        this.Logger = logger;
-        this.Configuration = configuration;
-        this._customerAccountServiceBusManager = customerAccountServiceBusManager;
-        this.ServiceBusHelper = serviceBusHelper;
-        this.EngagePublisherAppHelper = engagePublisherAppHelper;
-        this.JsonFileWriterHelper = jsonFileWriterHelper;
-        this._DataMartDbContext = dataMartDbContext;
+        _logger = logger;
+        _configuration = configuration;
+        etc.
     }
-    [Function("AccountFunction")]
-    public async Task Run(
-        [SqlTrigger("[dbo].[Account]", "ConnectionStrings:PegaDataMartDB")] IReadOnlyList<SqlChange<Account>> changes,
-            FunctionContext context)
-    {
-        if (this.CustomerFunctionEnabled)
-        {
-                int batchsize = this.Configuration.GetValue<int?>("Functions:Account:BatchSize") ?? 100;
-                var batches = this.EngagePublisherAppHelper.SplitIntoBatches(changes.ToList(), batchsize);
-                foreach (var batch in batches)
-                {
-                    var customerAccountDtos = await this.EngagePublisherAppHelper.PrepareCustomerAccountData(batch);
-                    bool success = await this._customerAccountServiceBusManager.SendObjToServiceBus(batch);
-                    if (success)
-                    {
-                        Console.WriteLine("Message successfuly sent to Service Bus Queue");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Failed to send Message to Service Bus Queue");
-                    }
-                    if (WriteLocalJsons)
-                    {
-                        string path = Path.Combine(@"C:\temp\", @"RAW_JsonData\CustomerAccount.json");
-                        await this.JsonFileWriterHelper.WriteToJsonFile(customerAccountDtos, path);
-                    }
-                }               
-        }
-        else
-        {
-            Logger.LogInformation("Customer function is not enabled - skipped");
-        }
-    }
-  }
+
+ Moved hardcoded paths and settings to constants i-e 
+ private const string DefaultJsonPath = @"C:\temp\RAW_JsonData\CustomerAccount.json";
+
+Null checking - No need for ?? as below should work i-e 
+int batchSize = _configuration.GetValue("Functions:Account:BatchSize", 100);
+
+ _logger.LogInformation("Message successfully sent to Service Bus Queue.");
+                }
