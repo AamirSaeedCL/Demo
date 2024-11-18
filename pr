@@ -1,2 +1,9 @@
 <IncludePreDeployment>true</IncludePreDeployment>
 <IncludePostDeployment>true</IncludePostDeployment>
+
+
+
+<IncludePreDeployment>true</IncludePreDeployment>
+<IncludePreDeploymentScript>$(ProjectDir)Scripts\CustomPreDeploymentScript.sql</IncludePreDeploymentScript>
+<IncludePostDeployment>true</IncludePostDeployment>
+<IncludePostDeploymentScript>$(ProjectDir)Scripts\CustomPostDeploymentScript.sql</IncludePostDeploymentScript>
