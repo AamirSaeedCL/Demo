@@ -1,1 +1,24 @@
 
+dbo	Account
+dbo	Bureau
+dbo	Customer
+dbo	CustomerAddress
+dbo	CustomerPhone
+dbo	CustomerTag
+dbo	Digital
+dbo	Eligibility
+dbo	FinancialStrength
+dbo	Interaction
+dbo	ModelledNdi
+dbo	PaymentPlan
+dbo	SalesForceInteraction
+dbo	Score
+dbo	Sfs
+dbo	WorkGroup
+
+-- Disable change tracking for [dbo].[Bureau]
+IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Bureau]'))
+BEGIN
+    ALTER TABLE [dbo].[Bureau] DISABLE CHANGE_TRACKING;
+END
+GO
