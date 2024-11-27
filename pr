@@ -1,17 +1,1 @@
 
-Msg 15600, Level 15, State 1, Procedure master.dbo.sp_serveroption, Line 212
-An invalid parameter or option was specified for procedure 'sys.sp_serveroption'.
-Msg 15600, Level 15, State 1, Procedure master.dbo.sp_serveroption, Line 212
-An invalid parameter or option was specified for procedure 'sys.sp_serveroption'.
-Total execution time: 00:00:00.019
-
-
-EXEC master.dbo.sp_serveroption 
-    @server = N'DM11Rep', 
-    @optname = 'is_remote_login_enabled', 
-    @optvalue = 'true'
- 
-EXEC master.dbo.sp_serveroption 
-    @server = N'DM11Rep', 
-    @optname = 'is_rpc_out_enabled', 
-    @optvalue = 'true'
