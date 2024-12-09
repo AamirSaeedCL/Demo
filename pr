@@ -1,10 +1,22 @@
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-01', 0, 0);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-02', 0, 1);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-03', 0, 1);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-04', 0, 1);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-05', 0, 1);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-06', 0, 1);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-07', 1, 0);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-08', 1, 0);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-09', 0, 1);
-INSERT INTO Dates (DateID, IsWeekend, WorkingDay) VALUES ('1900-01-10', 0, 1);
+    public setIABScript() {
+        try {
+            let firstScriptEl = window.document.getElementsByTagName('script')[2];
+            const scriptEl = window.document.createElement('script');
+            scriptEl.src = 'assets/third-party/sovrn.js';
+            scriptEl.type = 'text/javascript';
+            firstScriptEl.parentNode.insertBefore(scriptEl, firstScriptEl);
+
+            firstScriptEl = window.document.getElementsByTagName('script')[3];
+            const script = window.document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = '//get.s-onetag.com/6c2e8c41-ac88-4fb0-9096-c24ee803454b/tag.min.js';
+            script.async = true;
+            script.defer = true;
+
+            firstScriptEl.parentNode.insertBefore(script, firstScriptEl);
+        } catch(err) {
+          /* eslint-disable no-console */
+          console.log('Loading IAB script failed')
+          /* eslint-enable no-console */
+        }
+    }
