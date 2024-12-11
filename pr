@@ -1,1 +1,2 @@
 
+ErrorCode=AzureDatabricksCommandError,Hit an error when running the command in Azure Databricks. Error details: Operation failed: "This request is not authorized to perform this operation using this permission.", 403, HEAD, https://ccmdevpegauks.dfs.core.windows.net/67ef0479-3e37-468d-9543-6689e26674b4/?upn=false&action=getAccessControl&timeout=90.
