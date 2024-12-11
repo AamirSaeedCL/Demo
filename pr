@@ -1,2 +1,11 @@
+indicates that the Azure Databricks command failed due to insufficient permissions when attempting to access an Azure Data Lake Storage (ADLS) resource. Specifically, the error is a 403 Forbidden error, which typically means that the request is not authorized to perform the requested operation due to lack of permissions.
 
-ErrorCode=AzureDatabricksCommandError,Hit an error when running the command in Azure Databricks. Error details: Operation failed: "This request is not authorized to perform this operation using this permission.", 403, HEAD, https://ccmdevpegauks.dfs.core.windows.net/67ef0479-3e37-468d-9543-6689e26674b4/?upn=false&action=getAccessControl&timeout=90.
+
+Verify Permissions on ADLS: Ensure that the Azure Databricks service principal or managed identity has the appropriate permissions on the Azure Data Lake Storage Gen2. You need at least Read or List access to the folder or file in question.
+
+Check Access Control List (ACLs) on the file/folder in ADLS. You can use the Azure portal or Azure CLI to check and set permissions.
+The Storage Blob Data Reader or Storage Blob Data Contributor role at the container or file system level should be granted to the service principal or managed identity that Databricks uses.
+
+
+ensure that the Databricks cluster has the correct Azure Active Directory (AAD) authentication enabled.
+Verify that the Databricks workspace is configured with the correct managed identity or service principal and that it has access to the Azure Data Lake Storage.
