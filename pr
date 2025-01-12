@@ -1,5 +1,88 @@
-Failure happened on 'Source' side. 'Type=Microsoft.Data.SqlClient.SqlException,Message='VARCHAR' is not a recognized CURSOR option.
-'VARCHAR' is not a recognized CURSOR option.
-'VARCHAR' is not a recognized CURSOR option.
-'VARCHAR' is not a recognized CURSOR option.
-Incorrect syntax near 'ResponseCode'.,Source=Framework Microsoft SqlClient Data Provider,'
+@if(
+    equals(pipeline().parameters.pEnv, 'dev'),
+    '-- Declare variables for configuration
+    DECLARE @SchemaName VARCHAR(50) = ''dbo'';
+    DECLARE @ResponseCode VARCHAR(16) = ''525Plus'';
+    DECLARE @BatchStatus VARCHAR(20) = ''COMPLETED'';
+    DECLARE @DataMartName VARCHAR(50) = ''CSDE_DATAMART'';
+
+    -- Create temp table with primary key for better performance
+    DROP TABLE IF EXISTS #LastCompletedRun;
+    CREATE TABLE #LastCompletedRun (
+        DataMart VARCHAR(50) PRIMARY KEY CLUSTERED,
+        LastCompletedRunDate DATETIME
+    );
+
+    -- Create temp table with clustered index for better join performance
+    DROP TABLE IF EXISTS #ConsumerOwnership;
+    CREATE TABLE #ConsumerOwnership (
+        DataMart VARCHAR(50),
+        LEGACY_ID VARCHAR(50),
+        CONSUMER_ID BIGINT,
+        ACCOUNT_ID BIGINT,
+        Ownership VARCHAR(16),
+        INDEX CIX_ConsumerOwnership CLUSTERED (DataMart, CONSUMER_ID)
+    );
+
+    -- Set session level settings for performance
+    SET NOCOUNT ON;
+    SET ARITHABORT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Get latest completed run info
+        INSERT INTO #LastCompletedRun
+        SELECT TOP 1 
+            @DataMartName AS DataMart,
+            end_time AS LastCompletedRunDate
+        FROM [CSDE_JOB].[dbo].[BATCH_JOB_EXECUTION] WITH (NOLOCK)
+        WHERE [status] = @BatchStatus
+        ORDER BY end_time DESC;
+
+        -- Get consumer ownership data with optimized joins
+        INSERT INTO #ConsumerOwnership WITH (TABLOCK)
+        SELECT DISTINCT
+            @DataMartName AS DataMart,
+            c.LEGACY_ID,
+            c.CONSUMER_ID,
+            c.ACCOUNT_ID,
+            rc.CODE AS Ownership
+        FROM [CSDE_DATAMART].[dbo].[CONSUMER] c WITH (NOLOCK)
+        INNER JOIN [CSDE_DATAMART].[dbo].[CONSUMER_DECISIONS] cd WITH (NOLOCK)
+            ON cd.CONSUMER_ID = c.CONSUMER_ID
+        INNER JOIN [CSDE_DATAMART].[dbo].[RESPONSE_CODE] rc WITH (NOLOCK)
+            ON rc.FK_ASS_RESP_CODES_CONSUM_DECIS = cd.ID
+            AND rc.CODE = @ResponseCode
+        OPTION (HASH JOIN, OPTIMIZE FOR (@ResponseCode = ''525Plus'')); 
+
+        -- Final result set with optimized join
+        SELECT 
+            co.CONSUMER_ID,
+            co.LEGACY_ID,
+            co.ACCOUNT_ID,
+            co.Ownership,
+            lcr.LastCompletedRunDate AS OwnershipDate
+        FROM #ConsumerOwnership co
+        LEFT JOIN #LastCompletedRun lcr
+            ON co.DataMart = lcr.DataMart
+        OPTION (FORCE ORDER, FAST 50);
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        
+        THROW;
+    END CATCH;
+
+    -- Cleanup
+    BEGIN
+        DROP TABLE IF EXISTS #LastCompletedRun;
+        DROP TABLE IF EXISTS #ConsumerOwnership;
+        SET NOCOUNT OFF;
+    END',
+    '-- Add other environments or fallback logic here if needed'
+)
