@@ -1,151 +1,180 @@
+DEv=====
 
-export const cities = ['New York', 'London', 'Tokyo', 'Paris', 'Sydney'] as const;
-export type City = typeof cities[number];
+-- Declare variables for configuration
+DECLARE @SchemaName VARCHAR(50) = 'dbo';
+DECLARE @ResponseCode VARCHAR(16) = '525Plus';
+DECLARE @BatchStatus VARCHAR(20) = 'COMPLETED';
+DECLARE @DataMartName VARCHAR(50) = 'CSDE_DATAMART';
 
-export interface UserFormData {
-  name: string;
-  age: number;
-  city: City;
-}
+-- Create temp table with primary key for better performance
+DROP TABLE IF EXISTS #LastCompletedRun;
+CREATE TABLE #LastCompletedRun (
+    DataMart VARCHAR(50) PRIMARY KEY CLUSTERED,
+    LastCompletedRunDate DATETIME
+);
 
-// schemas/userSchema.ts
-import * as yup from 'yup';
-import { cities } from '../types/form';
+-- Create temp table with clustered index for better join performance
+DROP TABLE IF EXISTS #ConsumerOwnership;
+CREATE TABLE #ConsumerOwnership (
+    DataMart VARCHAR(50),
+    LEGACY_ID VARCHAR(50),
+    CONSUMER_ID BIGINT,
+    ACCOUNT_ID BIGINT,
+    Ownership VARCHAR(16),
+    INDEX CIX_ConsumerOwnership CLUSTERED (DataMart, CONSUMER_ID)
+);
 
-export const userSchema = yup.object({
-  name: yup
-    .string()
-    .required('Name is required')
-    .min(2, 'Name must be at least 2 characters')
-    .max(50, 'Name must not exceed 50 characters'),
-  age: yup
-    .number()
-    .required('Age is required')
-    .positive('Age must be a positive number')
-    .integer('Age must be an integer')
-    .min(18, 'Must be at least 18 years old')
-    .max(120, 'Age must not exceed 120'),
-  city: yup
-    .string()
-    .required('City is required')
-    .oneOf(cities, 'Please select a valid city')
-}).required();
+-- Set session level settings for performance
+SET NOCOUNT ON;
+SET ARITHABORT ON;
+SET XACT_ABORT ON;
 
-export type UserFormSchema = yup.InferType<typeof userSchema>;
+BEGIN TRY
+    BEGIN TRANSACTION;
 
-// components/UserForm.tsx
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import { UserFormData, cities } from '../types/form';
-import { userSchema } from '../schemas/userSchema';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+    -- Get latest completed run info
+    INSERT INTO #LastCompletedRun
+    SELECT TOP 1 
+        @DataMartName AS DataMart,
+        end_time AS LastCompletedRunDate
+    FROM [CSDE_JOB].[dbo].[BATCH_JOB_EXECUTION] WITH (NOLOCK)
+    WHERE [status] = @BatchStatus
+    ORDER BY end_time DESC;
 
-export default function UserForm() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    control,
-  } = useForm<UserFormData>({
-    resolver: yupResolver(userSchema),
-    defaultValues: {
-      name: '',
-      age: undefined,
-      city: undefined,
-    },
-  });
+    -- Get consumer ownership data with optimized joins
+    INSERT INTO #ConsumerOwnership WITH (TABLOCK)
+    SELECT DISTINCT
+        @DataMartName AS DataMart,
+        c.LEGACY_ID,
+        c.CONSUMER_ID,
+        c.ACCOUNT_ID,
+        rc.CODE AS Ownership
+    FROM [CSDE_DATAMART].[dbo].[CONSUMER] c WITH (NOLOCK)
+    INNER JOIN [CSDE_DATAMART].[dbo].[CONSUMER_DECISIONS] cd WITH (NOLOCK)
+        ON cd.CONSUMER_ID = c.CONSUMER_ID
+    INNER JOIN [CSDE_DATAMART].[dbo].[RESPONSE_CODE] rc WITH (NOLOCK)
+        ON rc.FK_ASS_RESP_CODES_CONSUM_DECIS = cd.ID
+        AND rc.CODE = @ResponseCode
+    OPTION (HASH JOIN, OPTIMIZE FOR (@ResponseCode = '525Plus'));
 
-  const onSubmit = async (data: UserFormData) => {
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log('Form submitted:', data);
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    }
-  };
+    -- Final result set with optimized join
+    SELECT 
+        co.CONSUMER_ID,
+        co.LEGACY_ID,
+        co.ACCOUNT_ID,
+        co.Ownership,
+        lcr.LastCompletedRunDate AS OwnershipDate
+    FROM #ConsumerOwnership co
+    LEFT JOIN #LastCompletedRun lcr
+        ON co.DataMart = lcr.DataMart
+    OPTION (FORCE ORDER, FAST 50);
 
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg mx-auto p-6">
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input
-          id="name"
-          {...register('name')}
-          className={errors.name ? 'border-red-500' : ''}
-          disabled={isSubmitting}
-        />
-        {errors.name && (
-          <p className="text-red-500 text-sm">{errors.name.message}</p>
-        )}
-      </div>
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+    
+    THROW;
+END CATCH
 
-      <div className="space-y-2">
-        <Label htmlFor="age">Age</Label>
-        <Input
-          id="age"
-          type="number"
-          {...register('age', { valueAsNumber: true })}
-          className={errors.age ? 'border-red-500' : ''}
-          disabled={isSubmitting}
-        />
-        {errors.age && (
-          <p className="text-red-500 text-sm">{errors.age.message}</p>
-        )}
-      </div>
+BEGIN
+    -- Cleanup
+    DROP TABLE IF EXISTS #LastCompletedRun;
+    DROP TABLE IF EXISTS #ConsumerOwnership; 
+    -- Reset session settings
+    SET NOCOUNT OFF;
+END
 
-      <div className="space-y-2">
-        <Label htmlFor="city">City</Label>
-        <Select
-          {...register('city')}
-          disabled={isSubmitting}
-        >
-          <SelectTrigger className={errors.city ? 'border-red-500' : ''}>
-            <SelectValue placeholder="Select a city" />
-          </SelectTrigger>
-          <SelectContent>
-            {cities.map((city) => (
-              <SelectItem key={city} value={city}>
-                {city}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.city && (
-          <p className="text-red-500 text-sm">{errors.city.message}</p>
-        )}
-      </div>
 
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Submitting...' : 'Submit'}
-      </Button>
-    </form>
-  );
-}
 
-// pages/register.tsx
-import UserForm from '../components/UserForm';
 
-export default function RegisterPage() {
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8">User Registration</h1>
-        <UserForm />
-      </div>
-    </div>
-  );
-}
+========test
+-- Declare variables for configuration
+DECLARE @responseCode VARCHAR(16) = '525Plus'
+DECLARE @completedStatus VARCHAR(20) = 'COMPLETED'
+
+-- Create a table variable for datamarts to make maintenance easier
+DECLARE @Datamarts TABLE (
+    DatamartName VARCHAR(50),
+    JobDatabase VARCHAR(50),
+    DatamartDatabase VARCHAR(50)
+)
+
+-- Insert datamart configurations
+INSERT INTO @Datamarts (DatamartName, JobDatabase, DatamartDatabase)
+VALUES 
+    ('CSDE_DATAMART', 'CSDE_JOB', 'CSDE_DATAMART'),
+    ('CSDE_DATAMART_1', 'CSDE_JOB_1', 'CSDE_DATAMART_1'),
+    ('CSDE_DATAMART_2', 'CSDE_JOB_2', 'CSDE_DATAMART_2'),
+    ('CSDE_DATAMART_3', 'CSDE_JOB_3', 'CSDE_DATAMART_3')
+
+-- Drop temporary tables if they exist
+DROP TABLE IF EXISTS #CompletedDate1
+DROP TABLE IF EXISTS #CompletedDate2
+
+-- Create index-optimized temp table
+CREATE TABLE #CompletedDate1 (
+    datamart VARCHAR(50),
+    LastCompletedRunDate DATETIME,
+    INDEX IX_CompletedDate1_datamart CLUSTERED (datamart)
+)
+
+-- Dynamic SQL to populate completion dates
+DECLARE @SQL NVARCHAR(MAX) = ''
+SELECT @SQL = @SQL + 
+    'INSERT INTO #CompletedDate1
+    SELECT TOP 1 ''' + DatamartName + ''', end_time, ''' + @completedStatus + '''
+    FROM ' + JobDatabase + '.dbo.BATCH_JOB_EXECUTION WITH (NOLOCK)
+    WHERE [status] = @completedStatus
+    ORDER BY end_time DESC
+    UNION ALL '
+FROM @Datamarts
+
+-- Remove trailing UNION ALL
+SET @SQL = LEFT(@SQL, LEN(@SQL) - 10)
+EXEC sp_executesql @SQL, N'@completedStatus VARCHAR(20)', @completedStatus
+
+-- Create index-optimized temp table for consumer data
+CREATE TABLE #CompletedDate2 (
+    Datamart VARCHAR(50),
+    LEGACY_ID VARCHAR(100),
+    CONSUMER_ID VARCHAR(100),
+    ACCOUNT_ID VARCHAR(100),
+    ownership VARCHAR(16),
+    INDEX IX_CompletedDate2_Datamart CLUSTERED (Datamart)
+)
+
+-- Dynamic SQL for consumer data
+SET @SQL = ''
+SELECT @SQL = @SQL + 
+    'INSERT INTO #CompletedDate2
+    SELECT DISTINCT ''' + DatamartName + ''',
+        c.[LEGACY_ID],
+        c.[CONSUMER_ID],
+        c.[ACCOUNT_ID],
+        rc.[CODE]
+    FROM ' + DatamartDatabase + '.dbo.CONSUMER c WITH (NOLOCK)
+    INNER JOIN ' + DatamartDatabase + '.dbo.CONSUMER_DECISIONS cd WITH (NOLOCK)
+        ON cd.CONSUMER_ID = c.CONSUMER_ID
+    INNER JOIN ' + DatamartDatabase + '.dbo.RESPONSE_CODE rc WITH (NOLOCK)
+        ON rc.FK_ASS_RESP_CODES_CONSUM_DECIS = cd.ID
+        AND rc.CODE = @responseCode
+    UNION ALL '
+FROM @Datamarts
+
+-- Remove trailing UNION ALL
+SET @SQL = LEFT(@SQL, LEN(@SQL) - 10)
+EXEC sp_executesql @SQL, N'@responseCode VARCHAR(16)', @responseCode
+
+-- Final result with optimized join
+SELECT 
+    c2.CONSUMER_ID,
+    c2.LEGACY_ID,
+    c2.ACCOUNT_ID,
+    c2.ownership,
+    c1.LastCompletedRunDate AS ownershipdate
+FROM #CompletedDate2 c2 WITH (NOLOCK)
+LEFT JOIN #CompletedDate1 c1 WITH (NOLOCK)
+    ON c2.Datamart = c1.datamart
+OPTION (RECOMPILE)
