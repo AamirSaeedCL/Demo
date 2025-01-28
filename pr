@@ -1,1 +1,11 @@
+This is working:
 
+SELECT Id, Group_ID__c, Legacy_ID__c, Record_Type_Name__c, Opened_Re_Opened_Date__c, LastModifiedDate
+
+FROM Case 
+
+WHERE LastModifiedDate >= YESTERDAY
+
+Can we replace YESTERDAY with ADF variable:
+
+LastRunDateTime
