@@ -1,3 +1,5 @@
+"LastRunDateTime": "2025-01-28T12:16:27.55Z"
+
 SELECT Id, Group_ID__c, Legacy_ID__c, Record_Type_Name__c, Opened_Re_Opened_Date__c, LastModifiedDate
 FROM Case
 WHERE LastModifiedDate >= 2023-10-01T00:00:00Z
