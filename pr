@@ -11,3 +11,6 @@ SELECT Id, Group_ID__c, Legacy_ID__c, Record_Type_Name__c, Opened_Re_Opened_Date
 FROM Case
 WHERE LastModifiedDate >= '@{variables('LastRunDateTime')}'
 
+=========
+
+Failure happened on 'Source' side. ErrorCode=SalesforceHttpResponseNotSuccessCodeException,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=The API request to Salesforce failed. Request Url: https://cabot--devmain.sandbox.my.salesforce.com/services/data/v47.0/jobs/query, Status Code: BadRequest, Error message: [{"errorCode":"INVALIDJOB","message":"Query parsing error: unexpected token: '<EOF>'"}],Source=Microsoft.Connectors.Salesforce,'
