@@ -1,4 +1,3 @@
 SELECT Id, Group_ID__c, Legacy_ID__c, Record_Type_Name__c, Opened_Re_Opened_Date__c, LastModifiedDate 
 FROM Case 
-WHERE LastModifiedDate >= @{variables('LastRunDateTime')}
-
+WHERE LastModifiedDate >= @{formatDateTime(variables('LastRunDateTime'), 'yyyy-MM-ddTHH:mm:ssZ')}
