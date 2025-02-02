@@ -1,1 +1,4 @@
 
+Inmon follows a normalized enterprise-wide approach, Kimball uses denormalized dimensional modeling for specific business processes, Data Vault focuses on adaptable history tracking with hubs/links/satellites, while One Big Table is a fully denormalized single-table approach optimized for query performance.
+
+Lake database/sprak table - Any database or table which we create through spark. We can't update/delete in spark table (v1) - we have delta table (v2)
