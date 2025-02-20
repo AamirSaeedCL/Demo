@@ -1,6 +1,21 @@
-		UPDATE c WITH (TABLOCKX, UPDLOCK, HOLDLOCK)
-        SET c.customergroupid = cg.groupId
+DECLARE @BatchSize INT = 50000;
+DECLARE @RowCount INT = 1;
+
+WHILE @RowCount > 0
+BEGIN
+    -- Merge in batches of 50,000
+    MERGE INTO dbo.Customer c
+    USING (
+        SELECT TOP (@BatchSize) c.customerid, cg.groupId
         FROM dbo.Customer c
-        INNER JOIN dbo.ConsumerGroup cg 
-			ON c.customerid = cg.consumerid
-        OPTION (MAXDOP 4);
+        INNER JOIN dbo.ConsumerGroup cg ON c.customerid = cg.consumerid
+        WHERE c.customergroupid != cg.groupId
+    ) AS source
+    ON c.customerid = source.customerid
+    WHEN MATCHED THEN
+        UPDATE SET c.customergroupid = source.groupId
+    OPTION (MAXDOP 4);
+
+    -- Check how many rows were updated
+    SET @RowCount = @@ROWCOUNT;
+END
