@@ -1,1 +1,2 @@
 
+@if(and(greaterOrEquals(int(formatDateTime(utcnow(),'HH')),2), lessOrEquals(int(formatDateTime(utcnow(),'HH')),5)), 'Skip', 'Proceed')
