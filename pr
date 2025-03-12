@@ -1,2 +1,5 @@
+In Azure Data Factory (ADF), Tumbling Window Triggers execute pipelines at a predefined frequency but do not provide built-in support for excluding specific time periods. To address this limitation, we can implement a workaround using the "Filter Execution Using a Control Flow in the Pipeline" approach. This method involves evaluating the current time before execution and skipping the pipeline run if it falls within an unwanted time period.
 
-@if(and(greaterOrEquals(int(formatDateTime(utcnow(),'HH')),2), lessOrEquals(int(formatDateTime(utcnow(),'HH')),5)), 'Skip', 'Proceed')
+However, ADF pipelines do not support directly nesting If Condition activities. Additionally, since we already have an If Condition activity in all our pipelines to check whether the pipeline is already running, we face a constraint in adding another nested condition.
+
+To overcome this, I have designed a wrapper pipeline that includes an If Condition to determine whether the current time falls within the allowed execution window. If the condition is met, the pipeline proceeds; otherwise, execution is skipped. The Tumbling Window Trigger is now associated with the wrapper pipeline, and both timeFrom and timeTo values are defined as global parameters to ensure flexibility in configuring the execution window.
