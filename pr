@@ -17,3 +17,47 @@ AND cnsmr_pymnt_tndrd_dt IS IN Last 30 days
 
 OR wgb.CONSUMER_ACCOUNT_BALANCE < 0
 )
+
+
+This pull request introduces the following updates
+Filters Applied:
+
+Workgroup Conditions:
+
+Customers who do not belong to the workgroups 'ZZZ', 'SDR', or 'ZSB'.
+
+Customers who belong to the workgroups 'ZZZ', 'SDR', or 'ZSB'.
+
+Timeframe Conditions:
+
+Workgroup assigned date is within the last 3 months.
+
+For workgroups 'ZZZ', 'SDR', or 'ZSB', the consumer payment tender date (cnsmr_pymnt_tndrd_dt) is within the last 30 days.
+
+Account Balance Condition:
+
+Include customers with a negative consumer account balance (CONSUMER_ACCOUNT_BALANCE < 0).
+
+
+
+SELECT * 
+FROM customers 
+WHERE 
+    (
+        Workgroup NOT IN ('ZZZ', 'SDR', 'ZSB')
+    ) 
+    OR 
+    (
+        Workgroup IN ('ZZZ', 'SDR', 'ZSB') 
+        AND Workgroup_Assigned_Date IN LAST 3 MONTHS
+    )
+    OR 
+    (
+        Workgroup IN ('ZZZ', 'SDR', 'ZSB') 
+        AND cnsmr_pymnt_tndrd_dt IN LAST 30 DAYS
+    )
+    OR 
+    (
+        Workgroup IN ('ZZZ', 'SDR', 'ZSB') 
+        AND CONSUMER_ACCOUNT_BALANCE < 0
+    )
