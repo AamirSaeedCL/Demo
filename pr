@@ -1,1 +1,19 @@
 
+--328 SDR Scottish Extinguished
+--520 ZSB Stat Barred Ceased Working
+--36 ZZZ Closed Accounts
+Include those customers  (Select statements)
+WHERE
+
+(
+NOT IN ('ZZZ','SDR','ZSB'))
+
+OR
+IN ('ZZZ','SDR','ZSB'))
+AND WGAssignedDate IS IN LAST 3 MONTHS
+
+OR IN ('ZZZ','SDR','ZSB')  
+AND cnsmr_pymnt_tndrd_dt IS IN Last 30 days
+
+OR wgb.CONSUMER_ACCOUNT_BALANCE < 0
+)
