@@ -1,1 +1,1 @@
-As discussed, the initial ingestion pipelines—Customer, CustomerTags, and Eligibility—have all been triggered and executed successfully. Could you please review the results and let me know if there are any issues? Additionally, please advise when I should enable the triggers for the incremental pipelines.
+
