@@ -1,1 +1,1 @@
-
+As discussed, all three pipelines Customer, CustomerTags and Eligibility for initial ingestion have been triggered and ran scussessfully - Could you please take a look and let me know if htere is any issue and also let me know when should I enable the triggers for increamental ones
