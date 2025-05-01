@@ -1,105 +1,62 @@
 CREATE PROCEDURE [dbo].[usp_Customer_UpdateCustomerGroupId]
+    @FromUpsertDate DATETIME
 AS
 BEGIN
     SET NOCOUNT ON;
     
     BEGIN TRANSACTION;
     
-    -- Update customer group IDs
+    -- Update customer group IDs where upsertDate is on or after the specified date
     UPDATE c WITH (TABLOCKX, UPDLOCK, HOLDLOCK)
     SET c.customergroupid = cg.groupId
     FROM dbo.Customer c
     INNER JOIN dbo.ConsumerGroup cg ON c.customerid = cg.consumerid
-    WHERE c.customergroupid <> cg.groupId
-       OR c.customergroupid IS NULL;
+    WHERE (c.customergroupid <> cg.groupId OR c.customergroupid IS NULL)
+      AND c.upsertDate >= @FromUpsertDate;
     
     COMMIT TRANSACTION;
 END;
 
 
 =======================================
-
 CREATE PROCEDURE [dbo].[usp_Customer_UpdateIsActive]
+    @FromUpsertDate DATETIME
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    DECLARE @BatchSize INT = 1000;
-    DECLARE @RowsAffected INT = 0;
-    DECLARE @TotalRowsAffected INT = 0;
-    DECLARE @ErrorMessage NVARCHAR(4000);
-    DECLARE @ErrorSeverity INT;
-    DECLARE @ErrorState INT;
 
-    CREATE TABLE #TempUpdateIds (
-        CustomerId INT PRIMARY KEY,
-        NewIsActive BIT
-    );
+    BEGIN TRANSACTION;
 
-   
-    INSERT INTO #TempUpdateIds (CustomerId, NewIsActive)
-    SELECT t.CustomerId,Max(t.NewIsActive)
-    FROM(
-    SELECT 
-        c.CustomerId,
-        CASE 
-            WHEN wg.WorkGroupShortName NOT IN ('ZZZ', 'SDR')
-             AND REPLACE(tag.TagShortName, 'S-', '') NOT IN ('80', '81', '61', '96')
-             AND accBal.CurrentBalance > 0 
-            THEN 1 
-            ELSE 0 
-        END AS NewIsActive,
-        c.IsActive
+    UPDATE c
+    SET c.IsActive = t.NewIsActive
     FROM dbo.Customer c
-    LEFT JOIN dbo.WorkGroup wg ON c.customerid = wg.customerid
-    LEFT JOIN dbo.CustomerTag tag ON c.customerid = tag.customerid
-    LEFT JOIN dbo.Account acc ON c.customerid = acc.customerid 
-    LEFT JOIN dbo.AccountBalance accBal ON acc.accountid = accBal.accountid 
-    ) AS t
-    WHERE t.IsActive is NULL OR t.IsActive <> t.NewIsActive
-    GROUP BY  t.CustomerId
-    
-    DECLARE @TotalRows INT = (SELECT COUNT(*) FROM #TempUpdateIds);
+    INNER JOIN (
+        SELECT 
+            c.CustomerId,
+            MAX(CASE 
+                    WHEN wg.WorkGroupShortName NOT IN ('ZZZ', 'SDR')
+                     AND REPLACE(tag.TagShortName, 'S-', '') NOT IN ('80', '81', '61', '96')
+                     AND accBal.CurrentBalance > 0 
+                    THEN 1 
+                    ELSE 0 
+                END) AS NewIsActive
+        FROM dbo.Customer c
+        LEFT JOIN dbo.WorkGroup wg ON c.customerid = wg.customerid
+        LEFT JOIN dbo.CustomerTag tag ON c.customerid = tag.customerid
+        LEFT JOIN dbo.Account acc ON c.customerid = acc.customerid 
+        LEFT JOIN dbo.AccountBalance accBal ON acc.accountid = accBal.accountid 
+        WHERE (c.IsActive IS NULL 
+               OR c.IsActive <> 
+                    CASE 
+                        WHEN wg.WorkGroupShortName NOT IN ('ZZZ', 'SDR')
+                         AND REPLACE(tag.TagShortName, 'S-', '') NOT IN ('80', '81', '61', '96')
+                         AND accBal.CurrentBalance > 0 
+                        THEN 1 
+                        ELSE 0 
+                    END)
+          AND c.upsertDate >= @FromUpsertDate
+        GROUP BY c.CustomerId
+    ) t ON c.CustomerId = t.CustomerId;
 
-    WHILE @TotalRows > 0
-    BEGIN
-        BEGIN TRY
-            BEGIN TRANSACTION;
-
-            
-            UPDATE TOP (@BatchSize) c
-            SET c.IsActive = t.NewIsActive
-            FROM dbo.Customer c
-            INNER JOIN #TempUpdateIds t ON c.customerid = t.CustomerId;
-
-            SET @RowsAffected = @@ROWCOUNT;
-            SET @TotalRowsAffected = @TotalRowsAffected + @RowsAffected;
-
-            
-            DELETE TOP (@BatchSize) FROM #TempUpdateIds;
-
-            COMMIT TRANSACTION;
-
-          
-            SET @TotalRows = @TotalRows - @RowsAffected;
-
-            
-            RAISERROR('Batch update completed. Rows affected: %d. Remaining rows: %d', 10, 1, @RowsAffected, @TotalRows) WITH NOWAIT;
-        END TRY
-        BEGIN CATCH
-            IF @@TRANCOUNT > 0
-                ROLLBACK TRANSACTION;
-
-            SELECT 
-                @ErrorMessage = ERROR_MESSAGE(),
-                @ErrorSeverity = ERROR_SEVERITY(),
-                @ErrorState = ERROR_STATE();
-         
-            RAISERROR('Error in batch update: %s', @ErrorSeverity, @ErrorState, @ErrorMessage) WITH NOWAIT;
-        END CATCH
-    END
-
-    RAISERROR('Update IsActive completed. Total rows affected: %d', 10, 1, @TotalRowsAffected) WITH NOWAIT;
-    
-    DROP TABLE #TempUpdateIds;
+    COMMIT TRANSACTION;
 END;
