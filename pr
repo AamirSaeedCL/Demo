@@ -1,2 +1,1 @@
-
-No need to run all the pipelines again - we will only re-run the ones where we got an error i-e Customer pipeline. Make sense?
+There is no need to re-run all the pipelines. We will only re-execute those that encountered errors—specifically, the Customer pipeline. Does that make sense?
