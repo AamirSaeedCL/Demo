@@ -1,1 +1,82 @@
 
+/****** Object:  StoredProcedure [dbo].[usp_PaymentPlan_UpdateCustomerGroupId]    Script Date: 16/05/2025 09:40:05 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[usp_PaymentPlan_UpdateCustomerGroupId]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @ErrorMessage NVARCHAR(4000);
+    DECLARE @TotalRowCount INT = 0;
+    DECLARE @BatchSize INT = 1000;
+    DECLARE @BatchCount INT = 0;
+
+    -- Create a temporary table to store the IDs of rows that need updating
+    CREATE TABLE #TempUpdateIds (
+        CustomerId INT,
+		CustomerGroupId uniqueidentifier
+    );
+
+    -- Populate the temporary table
+    INSERT INTO #TempUpdateIds (CustomerId, CustomerGroupId)
+    SELECT pp.CustomerId, pp.CustomerGroupId
+    FROM dbo.PaymentPlan pp
+    INNER JOIN dbo.Customer c ON pp.customerid = c.customerid
+    WHERE pp.customergroupid IS NULL OR pp.customergroupid <> c.customergroupid;
+
+    -- Get the total number of rows to update
+    DECLARE @TotalRows INT = (SELECT COUNT(*) FROM #TempUpdateIds);
+
+    BEGIN TRY
+        WHILE @TotalRows > 0
+        BEGIN
+            BEGIN TRANSACTION;
+
+            -- Update in batches
+            UPDATE TOP (@BatchSize) pp
+            SET pp.customergroupid = c.customergroupid
+            FROM dbo.PaymentPlan pp
+            INNER JOIN dbo.Customer c ON pp.customerid = c.customerid
+            INNER JOIN #TempUpdateIds t ON pp.CustomerId = t.CustomerId;
+
+            SET @TotalRowCount = @TotalRowCount + @@ROWCOUNT;
+            SET @BatchCount = @BatchCount + 1;
+
+            -- Remove processed rows from the temporary table
+            DELETE TOP (@BatchSize) FROM #TempUpdateIds;
+
+            COMMIT TRANSACTION;
+
+            -- Update the remaining rows count
+            SET @TotalRows = @TotalRows - @BatchSize;
+
+            -- Log progress
+            SET @ErrorMessage = CONCAT('Batch ', @BatchCount, ' completed. Total rows affected: ', @TotalRowCount, '. Remaining rows: ', @TotalRows);
+            RAISERROR(@ErrorMessage, 10, 1) WITH NOWAIT;
+        END
+
+        -- Final status message
+        SET @ErrorMessage = CONCAT('Update customer group id completed. Total rows affected: ', @TotalRowCount);
+        RAISERROR(@ErrorMessage, 10, 1) WITH NOWAIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        SET @ErrorMessage = CONCAT('Error ', ERROR_NUMBER(), ': ', ERROR_MESSAGE(), ' (Line ', ERROR_LINE(), ')');
+ 
+        THROW 50001, @ErrorMessage, 1;
+    END CATCH;
+
+    -- Clean up
+    DROP TABLE #TempUpdateIds;
+END;
+GO
+
+
