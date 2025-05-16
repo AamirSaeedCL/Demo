@@ -1,23 +1,25 @@
-
 ALTER PROCEDURE [dbo].[usp_PaymentPlan_UpdateCustomerGroupId]
 AS
 BEGIN
-	SET NOCOUNT ON;
+    SET NOCOUNT ON;
     SET XACT_ABORT ON;
-     BEGIN TRY
+
+    BEGIN TRY
         BEGIN TRANSACTION;
-        
-			 UPDATE pp
-				SET pp.CustomerGroupId = c.CustomerGroupId
-				FROM dbo.PaymentPlan pp
-					INNER JOIN dbo.Customer c ON pp.CustomerId = c.CustomerId
-						WHERE pp.CustomerGroupId IS NULL OR pp.CustomerGroupId <> c.CustomerGroupId;
+
+        UPDATE pp
+        SET pp.CustomerGroupId = c.CustomerGroupId
+        FROM dbo.PaymentPlan pp
+        INNER JOIN dbo.Customer c ON pp.CustomerId = c.CustomerId
+        WHERE pp.CustomerGroupId IS NULL 
+           OR pp.CustomerGroupId <> c.CustomerGroupId;
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION;
+
         THROW;
     END CATCH;
 END;
