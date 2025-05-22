@@ -1,6 +1,1 @@
-I've inserted several rows into the development environment with the responseCode set to '525Plus'.
 
-After executing the Customer pipeline, I was able to observe the expected results.
-
-@Dan Turrell – Would it be possible to insert a few rows into the SS2-BCA-D-01 environment as well, so we can run tests against them?
-CC: @India Burns, @Hannah Dixon – just keeping you in the loop.
