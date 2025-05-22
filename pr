@@ -1,21 +1,6 @@
+I've added rows in the dev environment with the responseCode as '525Plus' 
+Image
+and after running the Customer pipeline, I can see the result:
+Image
 
-SELECT DISTINCT
-        'CSDE_DATAMART' AS Datamart,
-        c.[LEGACY_ID],
-        c.[CONSUMER_ID],
-        c.[ACCOUNT_ID],
-        CASE
-            WHEN rc.[CODE] = ''' + @ResponseCodePlusA + ''' THEN ''' + @ResponseCodePlus + '''
-            ELSE rc.[CODE]
-        END AS Ownership
-    FROM [CSDE_DATAMART].[dbo].[CONSUMER] AS c WITH (NOLOCK)
-        INNER JOIN [CSDE_DATAMART].[dbo].[CONSUMER_DECISIONS] AS cd WITH (NOLOCK)
-            ON cd.[CONSUMER_ID] = c.[CONSUMER_ID]
-        INNER JOIN [CSDE_DATAMART].[dbo].[RESPONSE_CODE] AS rc WITH (NOLOCK)
-            ON rc.[FK_ASS_RESP_CODES_CONSUM_DECIS] = cd.[ID]
-            AND Ownership IN (@responseCodesStr);
-
-Select Top 10 [CONSUMER_ID], * FROM [CSDE_DATAMART].[dbo].[CONSUMER] 
-Select Top 10 * FROM [CSDE_DATAMART].[dbo].[CONSUMER_DECISIONS]
-
-'525Plus','525PlusA'
+@Dan Turrell - Can we push some rows in the `SS2-BCA-D-01` so we can test it against them? Fyi, @India Burns, @Hannah Dixon
