@@ -1,48 +1,5 @@
+-- CDC operation constants
+DECLARE @CDC_OP_INSERT INT = 2;
+DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
 
-
--- Main query
-SELECT 
-	[ST].[CustomerId]
-,	[ST].[CommercialName]
-,	[ST].[DateOfBirth]
-,	[ST].[Email]
-,	[ST].[EmailConfirmedDate]
-,	[ST].[FirstName]
-,	[ST].[WorkGroupId]
-,	[ST].[LastName]
-,	[ST].[MiddleName]
-,	[ST].[Title]
-,	[ST].[UpsertDateTime]
-,	[ST].[IsMaster]
-,	[ST].[IsActive]
-,	[ST].[IsValidEmail]
-,	[ST].[IsValidMobile]
-,	[ST].[DayOfWeek]
-,	[ST].[LegacyId] 
-FROM (
-	SELECT  
-		[C].[cnsmr_id] AS CustomerId
-	,	[C].[cnsmr_nm_cmmrcl_txt] AS CommercialName
-	,	[C].[cnsmr_brth_dt] AS DateOfBirth
-	,	[C].[cnsmr_email_txt] AS Email
-	,	[C].[cnsmr_email_cnfrmtn_dt] AS EmailConfirmedDate
-	,	[C].[cnsmr_nm_frst_txt] AS FirstName
-	,	[C].[wrkgrp_id] AS WorkGroupId
-	,	[C].[cnsmr_nm_lst_txt] AS LastName
-	,	[C].[cnsmr_nm_mddl_txt] AS MiddleName
-	,	[C].[cnsmr_nm_prfx_txt] AS Title
-	,	[C].[upsrt_dttm] AS UpsertDateTime
-	,	CAST(0 AS BIT) AS IsMaster
-	,	CAST(0 AS BIT) AS IsActive
-	,	CAST(0 AS BIT) AS IsValidEmail
-	,	CAST(0 AS BIT) AS IsValidMobile
-	,	@CurrentDayOfWeek AS DayOfWeek
-	,	[C].[cnsmr_idntfr_lgcy_txt] AS LegacyId
-	-- This ORDER BY will maintain the order the transactions were committed in.
-	,	ROW_NUMBER() OVER (PARTITION BY [C].[cnsmr_id] ORDER BY [C].[__$start_lsn] DESC, [C].[__$seqval] DESC) AS [RowNumber]
-	FROM [cdc].[dbo_cnsmr_CT] AS [C] WITH (NOLOCK)
-	WHERE [C].[upsrt_dttm] > @LastRunDateTime 
-		AND [C].[__$operation] IN (2, 4) -- Insert, or Update (values after).
-) AS [ST]
-WHERE [ST].[RowNumber] = 1
-OPTION (RECOMPILE);
+AND [C].[__$operation] IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
