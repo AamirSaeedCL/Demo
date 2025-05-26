@@ -1,18 +1,1 @@
-CREATE PROCEDURE [dbo].[usp_Customer_Initial_Ingestion_UpdateCustomerIsValidMobile]
-    @AllMobileCustomers [dbo].[CustomerIsValidMobileTableType] READONLY,
-    @ValidMobileCustomers [dbo].[CustomerIsValidMobileTableType] READONLY
-AS
-BEGIN
-    SET NOCOUNT ON;
 
-    -- Step 1: Reset IsValidMobile to 0 for all relevant customers
-    UPDATE c
-    SET c.IsValidMobile = 0
-    FROM dbo.Customer c
-    INNER JOIN @AllMobileCustomers m ON c.CustomerId = m.CustomerId;
-
-    -- Step 2: Set IsValidMobile to 1 only for customers with valid mobile data
-    UPDATE c
-    SET c.IsValidMobile = 1
-    FROM dbo.Customer c
-    INNER JOIN @ValidMobileCustomers m ON c.CustomerId = m.CustomerId;
