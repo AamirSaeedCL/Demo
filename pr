@@ -1,7 +1,24 @@
--- Get the current maximum LSN
-DECLARE @MaxLSN BINARY(10) = sys.fn_cdc_get_max_lsn();
+CREATE PROCEDURE [dbo].[usp_Customer_Initial_Ingestion_UpdateCustomerIsValidMobile]
+    @MobileData [dbo].[CustomerIsValidMobileTableType] READONLY,
+    @IsValidMobileData [dbo].[CustomerIsValidMobileTableType] READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Reset the status to de-active/zero for all the existing rows
+    UPDATE c
+    SET 
+        c.IsValidMobile = 0 
+    FROM dbo.Customer c
+    INNER JOIN @MobileData m ON c.CustomerId = m.CustomerId
 
--- Cleanup all CDC changes up to @MaxLSN
-EXEC sys.sp_cdc_cleanup_change_table  
-    @capture_instance = 'dbo_YourTable',   -- your CDC capture instance
-    @low_water_mark = @MaxLSN;
+    -- Set the status to active for ONLY valid rows.
+    UPDATE c
+    SET 
+        c.IsValidMobile = 1
+    FROM dbo.Customer c
+    INNER JOIN @IsValidMobileData m ON c.CustomerId = m.CustomerId
+    
+    -- Return number of updated rows
+    RETURN @@ROWCOUNT;
+END;
