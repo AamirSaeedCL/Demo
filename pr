@@ -1,5 +1,7 @@
--- CDC operation constants
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
+-- Get the current maximum LSN
+DECLARE @MaxLSN BINARY(10) = sys.fn_cdc_get_max_lsn();
 
-AND [C].[__$operation] IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+-- Cleanup all CDC changes up to @MaxLSN
+EXEC sys.sp_cdc_cleanup_change_table  
+    @capture_instance = 'dbo_YourTable',   -- your CDC capture instance
+    @low_water_mark = @MaxLSN;
