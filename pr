@@ -1,16 +1,1 @@
 
-Team,
-
-We did not have any data in the DATES table in both the Dev and SIT environments, which is why the isBankHoliday status was not being set to true.
-
-To address this, I copied the required data from the WH server into both Dev and SIT environments. I then tested the functionality using the following dates:
-
-2025-04-01
-
-2025-04-18 (Bank Holiday)
-
-2025-05-05 (Bank Holiday)
-
-2025-05-06 (Bank Holiday)
-
-After running the customer pipeline, the status updated correctly as expected, confirming that the issue is now resolved.
