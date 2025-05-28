@@ -1,8 +1,7 @@
-DECLARE @TableName SYSNAME = 'YourTableName';  -- Replace with your table
+DECLARE @TableName SYSNAME = 'YourTableName';  -- Replace with your table name
 DECLARE @Columns NVARCHAR(MAX);
-DECLARE @SQL NVARCHAR(MAX) = '';
 
--- Get comma-separated column list
+-- Get column list
 SELECT @Columns = STUFF((
     SELECT ', ' + QUOTENAME(name)
     FROM sys.columns
@@ -10,26 +9,23 @@ SELECT @Columns = STUFF((
     ORDER BY column_id
     FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
 
--- Generate INSERT statements
-SELECT @SQL = @SQL + 
-    'INSERT INTO ' + QUOTENAME(@TableName) + ' (' + @Columns + ') VALUES (' +
+-- Generate INSERT statements row by row
+SELECT 'INSERT INTO ' + QUOTENAME(@TableName) + ' (' + @Columns + ') VALUES (' +
     STUFF((
         SELECT ', ' + 
             CASE 
-                WHEN c.system_type_id IN (167, 175, 231, 239) -- varchar, nvarchar, char, nchar
-                    THEN '''' + REPLACE(REPLACE(ISNULL(CONVERT(NVARCHAR(MAX), t.['
-                        + c.name + ']), ''''), '''', ''''''), CHAR(13) + CHAR(10), ' ') + ''''
+                WHEN c.system_type_id IN (167, 175, 231, 239) -- string types
+                    THEN '''' + REPLACE(REPLACE(CONVERT(NVARCHAR(MAX), t.[col]), '''', ''''''), CHAR(13) + CHAR(10), ' ') + ''''
                 WHEN c.system_type_id IN (61, 40, 42, 43) -- datetime types
-                    THEN 'ISNULL(''' + CONVERT(NVARCHAR, t.[' + c.name + '], 120) + ''', NULL)'
-                ELSE 'ISNULL(CONVERT(NVARCHAR(MAX), t.[' + c.name + ']), ''NULL'')'
+                    THEN '''' + CONVERT(NVARCHAR, t.[col], 120) + ''''
+                WHEN t.[col] IS NULL
+                    THEN 'NULL'
+                ELSE CONVERT(NVARCHAR(MAX), t.[col])
             END
         FROM sys.columns c
+        CROSS APPLY (SELECT c.name AS colName, c.system_type_id) cc
+        CROSS APPLY (SELECT t.[colName] AS [col]) v
         WHERE c.object_id = OBJECT_ID(@TableName)
         ORDER BY c.column_id
-        FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') + ');' + CHAR(13) + CHAR(10)
+        FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') + ')'
 FROM [YourTableName] t;
-
--- Print or SELECT the full SQL
-PRINT @SQL;
--- If the output is too long, use this instead:
--- SELECT @SQL;
