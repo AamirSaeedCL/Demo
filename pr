@@ -1,17 +1,1 @@
-USE [crs5_oltp_replicated]
-GO
-
-/****** Object:  Table [CCM].[Dates]    Script Date: 28/05/2025 22:59:50 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-CREATE TABLE [CCM].[Dates](
-	[DateID] [date] NOT NULL,
-	[IsWeekend] [bit] NULL,
-	[WorkingDay] [bit] NULL
-) ON [PRIMARY]
-GO
 
