@@ -1,1 +1,18 @@
 
+DECLARE @tableName NVARCHAR(MAX) = 'YourTableName';
+
+-- Generate insert statements
+SELECT 'INSERT INTO ' + @tableName + ' (' + STRING_AGG(QUOTENAME(c.name), ', ') + ') VALUES (' +
+       STRING_AGG(
+           CASE
+               WHEN t.name IN ('varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext')
+                   THEN ''''' + REPLACE(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)), '''', '''''') + ''''''
+               WHEN t.name IN ('datetime', 'date', 'smalldatetime', 'datetime2')
+                   THEN '''' + CONVERT(NVARCHAR, ' + QUOTENAME(c.name) + ', 120) + ''''
+               ELSE 'CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR)'
+           END
+           , ', '
+       ) + ')'
+FROM sys.columns c
+JOIN sys.types t ON c.user_type_id = t.user_type_id
+WHERE c.object_id = OBJECT_ID(@tableName)
