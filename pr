@@ -1,18 +1,41 @@
+-- Replace this with your actual table name
+DECLARE @TableName NVARCHAR(128) = 'YourTableName';
 
-DECLARE @tableName NVARCHAR(MAX) = 'YourTableName';
+-- Temp table to hold the insert statements
+DECLARE @SQL NVARCHAR(MAX) = '';
 
--- Generate insert statements
-SELECT 'INSERT INTO ' + @tableName + ' (' + STRING_AGG(QUOTENAME(c.name), ', ') + ') VALUES (' +
-       STRING_AGG(
-           CASE
-               WHEN t.name IN ('varchar', 'nvarchar', 'char', 'nchar', 'text', 'ntext')
-                   THEN ''''' + REPLACE(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)), '''', '''''') + ''''''
-               WHEN t.name IN ('datetime', 'date', 'smalldatetime', 'datetime2')
-                   THEN '''' + CONVERT(NVARCHAR, ' + QUOTENAME(c.name) + ', 120) + ''''
-               ELSE 'CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR)'
-           END
-           , ', '
-       ) + ')'
-FROM sys.columns c
-JOIN sys.types t ON c.user_type_id = t.user_type_id
-WHERE c.object_id = OBJECT_ID(@tableName)
+-- Get column list
+DECLARE @ColumnList NVARCHAR(MAX);
+SELECT @ColumnList = STRING_AGG(QUOTENAME(name), ', ') 
+FROM sys.columns 
+WHERE object_id = OBJECT_ID(@TableName);
+
+-- Generate INSERT statements for each row
+SELECT @SQL = STRING_AGG('INSERT INTO ' + QUOTENAME(@TableName) + ' (' + @ColumnList + ') VALUES (' + ValuesList + ');', CHAR(13) + CHAR(10))
+FROM (
+    SELECT (
+        SELECT 
+            CASE 
+                WHEN c.system_type_id IN (167, 175, 231, 239) -- varchar, char, nvarchar, nchar
+                    THEN '''' + REPLACE(CAST(t.[value] AS NVARCHAR(MAX)), '''', '''''') + ''''
+                WHEN c.system_type_id IN (61, 40, 42, 43) -- datetime types
+                    THEN '''' + CONVERT(NVARCHAR, t.[value], 120) + ''''
+                WHEN t.[value] IS NULL
+                    THEN 'NULL'
+                ELSE CAST(t.[value] AS NVARCHAR(MAX))
+            END AS val
+        FROM sys.columns c
+        CROSS APPLY (SELECT TOP 1 v = CONVERT(sql_variant, 
+                (SELECT TOP 1 value FROM STRING_SPLIT(CONVERT(NVARCHAR(MAX), 
+                    (SELECT t2.* FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
+                ), ',') WHERE value LIKE '%"' + c.name + '":%')
+            )) t([value])
+        WHERE c.object_id = OBJECT_ID(@TableName)
+        ORDER BY c.column_id
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)') AS ValuesList
+    FROM (SELECT * FROM [YourTableName]) AS t2
+) AS Inserts;
+
+-- Print the result
+PRINT @SQL;
