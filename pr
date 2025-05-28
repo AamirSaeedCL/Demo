@@ -1,41 +1,36 @@
--- Replace this with your actual table name
-DECLARE @TableName NVARCHAR(128) = 'YourTableName';
-
--- Temp table to hold the insert statements
+DECLARE @TableName NVARCHAR(128) = 'YourTableName';  -- Replace with your table name
 DECLARE @SQL NVARCHAR(MAX) = '';
+DECLARE @Columns NVARCHAR(MAX);
 
 -- Get column list
-DECLARE @ColumnList NVARCHAR(MAX);
-SELECT @ColumnList = STRING_AGG(QUOTENAME(name), ', ') 
-FROM sys.columns 
-WHERE object_id = OBJECT_ID(@TableName);
+SELECT @Columns = STUFF((
+    SELECT ', ' + QUOTENAME(name)
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(@TableName)
+    ORDER BY column_id
+    FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
 
--- Generate INSERT statements for each row
-SELECT @SQL = STRING_AGG('INSERT INTO ' + QUOTENAME(@TableName) + ' (' + @ColumnList + ') VALUES (' + ValuesList + ');', CHAR(13) + CHAR(10))
-FROM (
-    SELECT (
-        SELECT 
+-- Generate the INSERT statements
+SELECT @SQL = @SQL + 'INSERT INTO ' + QUOTENAME(@TableName) + ' (' + @Columns + ') VALUES (' + CHAR(10) +
+    STUFF((
+        SELECT ', ' +
             CASE 
-                WHEN c.system_type_id IN (167, 175, 231, 239) -- varchar, char, nvarchar, nchar
-                    THEN '''' + REPLACE(CAST(t.[value] AS NVARCHAR(MAX)), '''', '''''') + ''''
-                WHEN c.system_type_id IN (61, 40, 42, 43) -- datetime types
-                    THEN '''' + CONVERT(NVARCHAR, t.[value], 120) + ''''
-                WHEN t.[value] IS NULL
-                    THEN 'NULL'
-                ELSE CAST(t.[value] AS NVARCHAR(MAX))
-            END AS val
-        FROM sys.columns c
-        CROSS APPLY (SELECT TOP 1 v = CONVERT(sql_variant, 
-                (SELECT TOP 1 value FROM STRING_SPLIT(CONVERT(NVARCHAR(MAX), 
-                    (SELECT t2.* FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
-                ), ',') WHERE value LIKE '%"' + c.name + '":%')
-            )) t([value])
-        WHERE c.object_id = OBJECT_ID(@TableName)
-        ORDER BY c.column_id
-        FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)') AS ValuesList
-    FROM (SELECT * FROM [YourTableName]) AS t2
-) AS Inserts;
+                WHEN col.system_type_id IN (167, 175, 231, 239) THEN  -- char/varchar/nchar/nvarchar
+                    '''' + REPLACE(REPLACE(ISNULL(CONVERT(NVARCHAR(MAX), t.[col]), ''), '''', ''''''), CHAR(13) + CHAR(10), '') + ''''
+                WHEN col.system_type_id IN (61, 40, 42, 43) THEN      -- datetime types
+                    '''' + ISNULL(CONVERT(NVARCHAR, t.[col], 120), 'NULL') + ''''
+                WHEN t.[col] IS NULL THEN 'NULL'
+                ELSE CONVERT(NVARCHAR(MAX), t.[col])
+            END
+        FROM sys.columns col
+        CROSS APPLY (SELECT col.name AS col) AS c
+        WHERE col.object_id = OBJECT_ID(@TableName)
+        ORDER BY col.column_id
+        FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') + ');' + CHAR(10)
+FROM (
+    SELECT *
+    FROM [YourTableName]  -- Use real table name here again
+) AS t;
 
--- Print the result
-PRINT @SQL;
+-- Print the generated script (use SELECT if result too long for PRINT)
+SELECT @SQL;
