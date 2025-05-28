@@ -1,31 +1,17 @@
-DECLARE @TableName SYSNAME = 'YourTableName';  -- Replace with your table name
-DECLARE @Columns NVARCHAR(MAX);
+USE [crs5_oltp_replicated]
+GO
 
--- Get column list
-SELECT @Columns = STUFF((
-    SELECT ', ' + QUOTENAME(name)
-    FROM sys.columns
-    WHERE object_id = OBJECT_ID(@TableName)
-    ORDER BY column_id
-    FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
+/****** Object:  Table [CCM].[Dates]    Script Date: 28/05/2025 22:59:50 ******/
+SET ANSI_NULLS ON
+GO
 
--- Generate INSERT statements row by row
-SELECT 'INSERT INTO ' + QUOTENAME(@TableName) + ' (' + @Columns + ') VALUES (' +
-    STUFF((
-        SELECT ', ' + 
-            CASE 
-                WHEN c.system_type_id IN (167, 175, 231, 239) -- string types
-                    THEN '''' + REPLACE(REPLACE(CONVERT(NVARCHAR(MAX), t.[col]), '''', ''''''), CHAR(13) + CHAR(10), ' ') + ''''
-                WHEN c.system_type_id IN (61, 40, 42, 43) -- datetime types
-                    THEN '''' + CONVERT(NVARCHAR, t.[col], 120) + ''''
-                WHEN t.[col] IS NULL
-                    THEN 'NULL'
-                ELSE CONVERT(NVARCHAR(MAX), t.[col])
-            END
-        FROM sys.columns c
-        CROSS APPLY (SELECT c.name AS colName, c.system_type_id) cc
-        CROSS APPLY (SELECT t.[colName] AS [col]) v
-        WHERE c.object_id = OBJECT_ID(@TableName)
-        ORDER BY c.column_id
-        FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '') + ')'
-FROM [YourTableName] t;
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [CCM].[Dates](
+	[DateID] [date] NOT NULL,
+	[IsWeekend] [bit] NULL,
+	[WorkingDay] [bit] NULL
+) ON [PRIMARY]
+GO
+
