@@ -1,1 +1,42 @@
+DECLARE @TableName SYSNAME = 'CCM.DATES';
+DECLARE @ColumnList NVARCHAR(MAX);
+DECLARE @SQL NVARCHAR(MAX) = '';
 
+-- Get list of columns properly quoted
+SELECT @ColumnList = STUFF((
+    SELECT ', ' + QUOTENAME(name)
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(@TableName)
+    ORDER BY column_id
+    FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
+
+DECLARE row_cursor CURSOR FOR
+SELECT DateID, IsWeekend, WorkingDay
+FROM CCM.DATES;
+
+OPEN row_cursor;
+
+DECLARE @DateID DATE;
+DECLARE @IsWeekend BIT;
+DECLARE @WorkingDay BIT;
+
+FETCH NEXT FROM row_cursor INTO @DateID, @IsWeekend, @WorkingDay;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SQL = 
+    CAST('INSERT INTO ' AS NVARCHAR(MAX)) + @TableName 
+    + CAST(' (' AS NVARCHAR(MAX)) + @ColumnList + CAST(') VALUES (' AS NVARCHAR(MAX))
+    + ISNULL('''' + CONVERT(NVARCHAR(30), @DateID, 23) + '''', 'NULL') + ', '
+    + CASE WHEN @IsWeekend IS NULL THEN 'NULL' ELSE CAST(@IsWeekend AS NVARCHAR(1)) END + ', '
+    + CASE WHEN @WorkingDay IS NULL THEN 'NULL' ELSE CAST(@WorkingDay AS NVARCHAR(1)) END
+    + ');' + CHAR(13) + CHAR(10);
+
+
+    PRINT @SQL;  -- or accumulate in a variable if you prefer
+
+    FETCH NEXT FROM row_cursor INTO @DateID, @IsWeekend, @WorkingDay;
+END
+
+CLOSE row_cursor;
+DEALLOCATE row_cursor;
