@@ -1,44 +1,48 @@
-
 CREATE PROCEDURE [dbo].[usp_Customer_UpdateCustomerGroupId]
     @LastUpsertDateTime DATETIME
 AS
 BEGIN
     SET NOCOUNT ON;
 
-	IF OBJECT_ID('tempdb..#tempPega_UpdateCustomerGroupId') IS NOT NULL
-		DROP TABLE #tempPega_UpdateCustomerGroupId
-
-	CREATE TABLE #tempPega_UpdateCustomerGroupId (
-		[CustomerId]		BIGINT NOT NULL
-	,	[CustomerGroupId]	UNIQUEIDENTIFIER NULL
-	,	CONSTRAINT [PK_tempPega_UpdateCustomerGroupId] PRIMARY KEY (
-			[CustomerId]
-		)
-	)
-	INSERT INTO [#tempPega_UpdateCustomerGroupId] ( [CustomerId], [CustomerGroupId] )
-	SELECT [C].[CustomerId], [C].[CustomerGroupId]
-	FROM dbo.Customer AS [C]
-    WHERE [C].[UpsertDateTime] >= @LastUpsertDateTime;
-
+    -- Begin transaction early
     BEGIN TRANSACTION;
 
-    -- Update customer group IDs where upsertDate is on or after the specified date
-    UPDATE [C] WITH (TABLOCKX, UPDLOCK, HOLDLOCK)
-    SET [C].[customergroupid] = [ST].[groupId]
-    FROM [dbo].[Customer] AS [C]
-    INNER JOIN (
-		SELECT
-			[TPUCGI].[CustomerId]
-		,	[CG].[groupId]
-		FROM [#tempPega_UpdateCustomerGroupId] AS [TPUCGI]
-		INNER JOIN [dbo].[ConsumerGroup] AS [CG]
-			ON [TPUCGI].[CustomerId] = [CG].[ConsumerID]
-		WHERE [TPUCGI].[CustomerGroupId] IS NULL OR 
-			[TPUCGI].[CustomerGroupId] <> [CG].[groupId]
-	) AS [ST]
-		ON [C].[CustomerId] = [ST].[CustomerId]
-    
-    COMMIT TRANSACTION;
+    -- CTE for latest Customer and ConsumerGroup changes
+    WITH ChangedGroupIds AS (
+        SELECT
+            C.CustomerId,
+            C.CustomerGroupId
+        FROM dbo.Customer C
+        WHERE C.UpsertDateTime >= @LastUpsertDateTime
 
-	DROP TABLE #tempPega_UpdateCustomerGroupId
+        UNION
+
+        SELECT
+            CG.ConsumerID AS CustomerId,
+            CG.GroupID AS CustomerGroupId
+        FROM dbo.ConsumerGroup CG
+        WHERE CG.DateModified >= @LastUpsertDateTime
+    ),
+    -- Join to ConsumerGroup to get latest group IDs
+    MatchedUpdates AS (
+        SELECT
+            C.CustomerId,
+            CG.GroupID AS NewGroupId
+        FROM ChangedGroupIds C
+        INNER JOIN dbo.ConsumerGroup CG
+            ON C.CustomerId = CG.ConsumerID
+        INNER JOIN dbo.Customer Cust
+            ON C.CustomerId = Cust.CustomerId
+        WHERE ISNULL(C.CustomerGroupId, '00000000-0000-0000-0000-000000000000') 
+              <> ISNULL(CG.GroupID, '00000000-0000-0000-0000-000000000000')
+    )
+    
+    -- Perform update
+    UPDATE C
+    SET C.CustomerGroupId = MU.NewGroupId
+    FROM dbo.Customer C
+    INNER JOIN MatchedUpdates MU
+        ON C.CustomerId = MU.CustomerId;
+
+    COMMIT TRANSACTION;
 END;
