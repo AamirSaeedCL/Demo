@@ -1,16 +1,1 @@
-SELECT TOP (1000)
-    cg.ConsumerID,
-    cg.GroupID,
-    cg.Confirmed,
-    cg.DateModified,
-    c.CustomerId,
-    c.FirstName,
-    c.LastName,
-    c.Email,
-    c.IsActive,
-    c.UpsertDateTime
-FROM dbo.ConsumerGroup cg
-JOIN dbo.Customer c
-    ON cg.ConsumerID = c.CustomerId
-WHERE cg.GroupID <> c.CustomerGroupId
-ORDER BY cg.DateModified DESC;
+
