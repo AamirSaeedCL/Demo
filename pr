@@ -1,1 +1,2 @@
 
+I've gone through it and there were total 14 rows where customergroup field were not matching - The reason was as per our logic we where only considering customer where upsert UpsertDateTime> @LastUpsertDateTime. Hwoerver, when groupId field in consumer table get changed (although it has modified field) but we were ignoring it - I have changed the logic and now it is working fine. I have tested at both dev & test and all good. ready for your testing now.
