@@ -1,7 +1,1 @@
-I have reviewed the issue and identified a total of 14 rows where the CustomerGroup field did not match. The root cause was related to our existing logic, which only considered customers where UpsertDateTime > @LastUpsertDateTime.
 
-However, when the GroupId field in the Consumer table was updated—despite the presence of a Modified timestamp—these changes were being ignored due to the current logic.
-
-I have now updated the logic to properly account for changes in the GroupId field. After implementing the fix, I tested the changes in both the Development and Test environments, and everything is working as expected.
-
-The solution is now ready for your validation and testing.
