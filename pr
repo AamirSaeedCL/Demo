@@ -1,1 +1,18 @@
 
+As discussed with Lee, Mark mentioned that we should execute some of the customer-related pipelines in parallel.
+
+Action Required – Please create a ticket for the following:
+
+The customer pipeline should be executed first. After its successful completion, the following pipelines should be executed in parallel within our pipeline chaining:
+
+Address
+
+Phone
+
+Tag
+
+Workgroup
+
+Ownership
+
+This approach should also be applied to other pipeline groups, such as Eden, Salesforce, SFS, etc., ensuring consistency across all relevant workflows.
