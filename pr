@@ -1,2 +1,2 @@
-
-CREATE TABLE #CustomerAddresses
+IF OBJECT_ID('tempdb..#CustomerAddresses') IS NOT NULL
+    DROP TABLE #CustomerAddresses;
