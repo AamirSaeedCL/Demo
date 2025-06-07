@@ -1,2 +1,81 @@
-IF OBJECT_ID('tempdb..#CustomerAddresses') IS NOT NULL
-    DROP TABLE #CustomerAddresses;
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+-- CDC operation constants
+DECLARE @CDC_OP_INSERT INT = 2;
+DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
+
+DECLARE @LastRunDateTime DATETIME2 = '2025-01-01' --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+
+IF OBJECT_ID('tempdb..#RecentCustomerPhones') IS NOT NULL
+    DROP TABLE #RecentCustomerPhones;
+-- Create a temporary table with an index
+CREATE TABLE #RecentCustomerPhones
+(
+    CustomerPhoneId INT NOT NULL,
+    CustomerId INT NOT NULL,
+    PhoneNumber NVARCHAR(50),
+    PhoneTypeCode NVARCHAR(50),
+    PhoneSourceCode NVARCHAR(50),
+    PhoneStatusCode NVARCHAR(50),
+    PhoneConsentDate DATETIME2,
+    UpsertDateTime DATETIME2 NOT NULL,
+	PhoneActive BIT,
+	RowNumber INT NOT NULL,
+    INDEX IX_RecentCustomerPhones_UpsertDateTime NONCLUSTERED (UpsertDateTime, CustomerPhoneId)
+);
+
+-- Populate the temp table
+INSERT INTO #RecentCustomerPhones (
+    CustomerPhoneId, CustomerId, PhoneNumber, PhoneTypeCode, 
+    PhoneSourceCode, PhoneStatusCode, PhoneConsentDate, UpsertDateTime,PhoneActive, RowNumber
+)
+SELECT * FROM (
+SELECT
+    cp.cnsmr_phn_id,
+    cp.cnsmr_id,
+    cp.cnsmr_phn_nmbr_txt,
+    cp.cnsmr_phn_typ_cd,
+    cp.cnsmr_phn_src_cd,
+    cp.cnsmr_phn_stts_cd,
+    cp.cnsmr_phn_cnsnt_dt,
+    cp.upsrt_dttm,
+    CAST(
+        CASE 
+            WHEN cp.cnsmr_phn_sft_dlt_flg = 'Y' THEN 0
+            ELSE 1
+        END AS bit) AS PhoneActive
+	-- This ORDER BY will maintain the order the transactions were committed in.
+	,	ROW_NUMBER() OVER (PARTITION BY [cp].[cnsmr_id] ORDER BY [cp].[__$start_lsn] DESC, [cp].[__$seqval] DESC) AS [RowNumber]
+FROM 
+    [crs5_oltp].[cdc].[dbo_cnsmr_Phn_CT] AS cp WITH (NOLOCK)
+WHERE 
+    [cp].cnsmr_phn_nmbr_txt IS NOT NULL 
+	AND [cp].upsrt_dttm > @LastRunDateTime
+	AND [cp].[__$operation] IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+) AS [ST]
+WHERE [ST].[RowNumber] = 1
+
+-- Main query using the temporary table
+SELECT
+    rcp.CustomerPhoneId,
+    rcp.CustomerId,
+    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
+    rcp.PhoneNumber,
+    pt.phn_typ_val_txt AS PhoneType,
+    ps.phn_src_val_txt AS PhoneSource,
+    pst.phn_stts_val_txt AS PhoneStatus,
+    rcp.PhoneConsentDate,
+	rcp.PhoneActive,
+    rcp.UpsertDateTime
+FROM 
+    #RecentCustomerPhones rcp
+    INNER JOIN Ref_phn_typ_cd pt WITH (NOLOCK) ON rcp.PhoneTypeCode = pt.phn_typ_cd
+    INNER JOIN Ref_phn_src_cd ps WITH (NOLOCK) ON rcp.PhoneSourceCode = ps.phn_src_cd
+    INNER JOIN Ref_phn_stts_cd pst WITH (NOLOCK) ON rcp.PhoneStatusCode = pst.phn_stts_cd
+ORDER BY 
+    rcp.UpsertDateTime, rcp.CustomerPhoneId;
+
+-- Clean up
+IF OBJECT_ID('tempdb..#RecentCustomerPhones') IS NOT NULL
+    DROP TABLE #RecentCustomerPhones;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
