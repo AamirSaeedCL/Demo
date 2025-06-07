@@ -1,62 +1,122 @@
--- Set isolation level to avoid locking during CDC reads
+
+
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
--- Define CDC operation constants
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+
+DECLARE @CustomerAddressTypeId VARCHAR(50) = 'Customer';
+DECLARE @CorrespondenceAddressTypeId VARCHAR(50)='Correspondence';
+-- CDC operation constants
 DECLARE @CDC_OP_INSERT INT = 2;
 DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
 
--- Define last run datetime (this could be dynamic in production)
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01';
+-- Create a temporary table to store results
+IF OBJECT_ID('tempdb..#CustomerAddresses') IS NOT NULL
+    DROP TABLE #CustomerAddresses;
 
--- CTE to get the latest customer phone per CustomerId
-WITH RecentCustomerPhones AS (
-    SELECT
-        cp.cnsmr_phn_id        AS CustomerPhoneId,
-        cp.cnsmr_id            AS CustomerId,
-        cp.cnsmr_phn_nmbr_txt  AS PhoneNumber,
-        cp.cnsmr_phn_typ_cd    AS PhoneTypeCode,
-        cp.cnsmr_phn_src_cd    AS PhoneSourceCode,
-        cp.cnsmr_phn_stts_cd   AS PhoneStatusCode,
-        cp.cnsmr_phn_cnsnt_dt  AS PhoneConsentDate,
-        cp.upsrt_dttm          AS UpsertDateTime,
-        CAST(CASE 
-                WHEN cp.cnsmr_phn_sft_dlt_flg = 'Y' THEN 0 
-                ELSE 1 
-             END AS BIT)       AS PhoneActive,
-        ROW_NUMBER() OVER (
-            PARTITION BY cp.cnsmr_id 
-            ORDER BY cp.__$start_lsn DESC, cp.__$seqval DESC
-        ) AS RowNumber
-    FROM 
-        [crs5_oltp].[cdc].[dbo_cnsmr_Phn_CT] cp WITH (NOLOCK)
-    WHERE 
-        cp.cnsmr_phn_nmbr_txt IS NOT NULL
-        AND cp.upsrt_dttm > @LastRunDateTime
-        AND cp.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+CREATE TABLE #CustomerAddresses
+(
+    CustomerAddressId BIGINT,
+    CustomerId INT,
+    CustomerGroupId UNIQUEIDENTIFIER NULL,
+    AddressLine1 NVARCHAR(255),
+    AddressLine2 NVARCHAR(255),
+    AddressLine3 NVARCHAR(255),
+    AddressLine4 NVARCHAR(255),
+    AddressLine5 NVARCHAR(255),
+    PostCode NVARCHAR(32),
+    AddressSource NVARCHAR(50),
+    AddressStatus NVARCHAR(50),
+    AddressType NVARCHAR(50),
+    UpsertDateTime DATETIME2,
+	RowNumber INT
+    INDEX IX_CustomerAddresses_UpsertDateTime NONCLUSTERED (UpsertDateTime, CustomerAddressId)
+);
+
+-- Insert data from cnsmr_addrss
+INSERT INTO #CustomerAddresses
+(
+    CustomerAddressId, CustomerId, CustomerGroupId, AddressLine1, AddressLine2, AddressLine3, 
+    AddressLine4, AddressLine5, PostCode, AddressSource, AddressStatus, AddressType, UpsertDateTime, RowNumber
 )
-
--- Final query to join reference tables and return enriched data
-SELECT
-    rcp.CustomerPhoneId,
-    rcp.CustomerId,
-    CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
-    rcp.PhoneNumber,
-    pt.phn_typ_val_txt   AS PhoneType,
-    ps.phn_src_val_txt   AS PhoneSource,
-    pst.phn_stts_val_txt AS PhoneStatus,
-    rcp.PhoneConsentDate,
-    rcp.PhoneActive,
-    rcp.UpsertDateTime
+SELECT * FROM 
+(SELECT
+    ca.cnsmr_addrss_id,
+    ca.cnsmr_id,
+    NULL AS CustomerGroupId,
+    ca.cnsmr_addrss_ln_1_txt,
+    ca.cnsmr_addrss_ln_2_txt,
+    ca.cnsmr_addrss_ln_3_txt,
+    ca.cnsmr_addrss_city_txt,
+    ca.cnsmr_addrss_cnty_txt,
+    ca.cnsmr_addrss_pstl_cd_txt,
+    ca.cnsmr_addrss_src_cd,
+    ca.cnsmr_addrss_stts_cd,
+    @CustomerAddressTypeId AS AddressType,
+    ca.upsrt_dttm
+	-- This ORDER BY will maintain the order the transactions were committed in.
+	,	ROW_NUMBER() OVER (PARTITION BY [ca].[cnsmr_addrss_id] ORDER BY [ca].[__$start_lsn] DESC, [ca].[__$seqval] DESC) AS [RowNumber]
 FROM 
-    RecentCustomerPhones rcp
-    INNER JOIN Ref_phn_typ_cd   pt WITH (NOLOCK) ON rcp.PhoneTypeCode   = pt.phn_typ_cd
-    INNER JOIN Ref_phn_src_cd   ps WITH (NOLOCK) ON rcp.PhoneSourceCode = ps.phn_src_cd
-    INNER JOIN Ref_phn_stts_cd pst WITH (NOLOCK) ON rcp.PhoneStatusCode = pst.phn_stts_cd
+    [cdc].[dbo_cnsmr_addrss_CT] ca WITH (NOLOCK)
 WHERE 
-    rcp.RowNumber = 1
-ORDER BY 
-    rcp.UpsertDateTime,
-    rcp.CustomerPhoneId;
+    ca.upsrt_dttm > @LastRunDateTime
+	AND [ca].[__$operation] IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+) AS [ST]
+WHERE [ST].[RowNumber] = 1
 
--- Reset isolation level
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+-- Insert data from UDEFCORRESPONDENCEADDRESS
+INSERT INTO #CustomerAddresses
+(
+    CustomerAddressId, CustomerId, CustomerGroupId, AddressLine1, AddressLine2, AddressLine3, 
+    AddressLine4, AddressLine5, PostCode, AddressSource, AddressStatus, AddressType, UpsertDateTime, RowNumber
+)
+SELECT * FROM
+(SELECT
+    uca.Id,
+    uca.cnsmr_id,
+    NULL AS CustomerGroupId,
+    uca.UDEFCADDRESS1,
+    uca.UDEFCADDRESS2,
+    uca.UDEFCADDRESS3,
+    uca.UDEFCADDRESS4,
+    NULL AS AddressLine5,
+    uca.UDEFCPOSTCODE,
+    NULL AS AddressSource,
+    NULL AS AddressStatus,
+    @CorrespondenceAddressTypeId AS AddressType,
+    uca.upsrt_dttm
+	-- This ORDER BY will maintain the order the transactions were committed in.
+	,	ROW_NUMBER() OVER (PARTITION BY [uca].[cnsmr_id] ORDER BY [uca].[__$start_lsn] DESC, [uca].[__$seqval] DESC) AS [RowNumber]
+FROM 
+    [cdc].[dbo_UDEFCORRESPONDENCEADDRESS_CT] uca WITH (NOLOCK)
+WHERE 
+    uca.upsrt_dttm > @LastRunDateTime
+	AND [uca].[__$operation] IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+) AS [ST1]
+WHERE [ST1].[RowNumber] = 1
+
+-- Select from the temporary table
+SELECT 
+    CustomerAddressId,
+    CustomerId,
+    CustomerGroupId,
+    AddressLine1,
+    AddressLine2,
+    AddressLine3,
+    AddressLine4,
+    AddressLine5,
+    PostCode,
+    AddressSource,
+    AddressStatus,
+    AddressType,
+    UpsertDateTime
+FROM 
+    #CustomerAddresses
+ORDER BY 
+    UpsertDateTime, CustomerAddressId;
+
+-- Clean up
+IF OBJECT_ID('tempdb..#CustomerAddresses') IS NOT NULL
+    DROP TABLE #CustomerAddresses;
+-- Set TRANSACTION back to normal
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
