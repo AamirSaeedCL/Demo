@@ -1,33 +1,17 @@
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
 DECLARE @MonthsPerYear INT = 12;
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+
+-- Parse LastRunDateTime parameter from pipeline, ensure it is valid
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity(''Lookup the pipeline log table to fetch lastrundatetime'').output.value[0].LastRunDateTime}' AS DATETIME2);
 
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
--- Create a temporary table
-CREATE TABLE #TempSFSData
-(
-    SfsId UNIQUEIDENTIFIER,
-    CustomerGroupId UNIQUEIDENTIFIER,
-    CustomerId INT,
-    TotalExpenditure DECIMAL(18, 2),
-    TotalIncome DECIMAL(18, 2),
-    TotalCreditor DECIMAL(18, 2),
-    TotalSaving DECIMAL(18, 2),
-    NetDisposableIncome DECIMAL(18, 2),
-    CreatedBy NVARCHAR(255),
-    CreatedDate DATETIME2,
-    CompletedBy NVARCHAR(255),
-    CompletedDate DATETIME2,
-    UpsertDateTime DATETIME2,
-    INDEX CIX_TempSFSData CLUSTERED (SfsId, CustomerId)
-);
-
-
+-- Calculate aggregated monthly values for Expenditure, Income, Creditor, and Saving
 WITH Expenditure AS (
     SELECT 
         sfsExp.SFSID, 
@@ -65,65 +49,58 @@ Saving AS (
     GROUP BY sfsSave.SFSID
 )
 
-
-INSERT INTO #TempSFSData (SfsId, CustomerGroupId, CustomerId, TotalExpenditure, TotalIncome, TotalCreditor, TotalSaving, NetDisposableIncome, CreatedBy, CreatedDate, CompletedBy, CompletedDate, UpsertDateTime)
+-- Final SELECT statement combines all aggregated values and computes NetDisposableIncome
 SELECT
     ps.SFSID AS SfsId,
     ps.GroupID AS CustomerGroupId,
     ps.OriginalConsumerID AS CustomerId,
-    
-     CAST(ROUND(       
-            COALESCE(exp.TotalExpenditure, 0.00) 
-            + COALESCE(crd.TotalCreditor, 0.00)  
-            + COALESCE(sav.TotalSaving, 0.00),
-         2) AS DECIMAL(18,2)) AS TotalExpenditure,
+
+    -- Total expenditure includes expenditure, creditor and saving sums rounded
+    CAST(ROUND(
+        COALESCE(exp.TotalExpenditure, 0.00)
+        + COALESCE(crd.TotalCreditor, 0.00)
+        + COALESCE(sav.TotalSaving, 0.00),
+    2) AS DECIMAL(18,2)) AS TotalExpenditure,
+
+    -- Total income
     COALESCE(inc.TotalIncome, 0.00) AS TotalIncome,
+
+    -- Total creditor amount
     COALESCE(crd.TotalCreditor, 0.00) AS TotalCreditor,
+
+    -- Total saving amount
     COALESCE(sav.TotalSaving, 0.00) AS TotalSaving,
-   
+
+    -- Net disposable income = Income - (Expenditure + Creditor + Saving)
     CAST(ROUND(
         COALESCE(inc.TotalIncome, 0.00) 
         - (
-            COALESCE(exp.TotalExpenditure, 0.00) 
-            + COALESCE(crd.TotalCreditor, 0.00)  
+            COALESCE(exp.TotalExpenditure, 0.00)
+            + COALESCE(crd.TotalCreditor, 0.00)
             + COALESCE(sav.TotalSaving, 0.00)
         ), 2) AS DECIMAL(18,2)) AS NetDisposableIncome,
 
+    -- Metadata columns
     ps.CreatedByUser AS CreatedBy,
     ps.CreatedDateTime AS CreatedDate,
     ps.CompletedByUser AS CompletedBy,
     ps.CompletedDateTime AS CompletedDate,
+
+    -- Use last updated datetime or default minimum if null
     COALESCE(ps.SFSLastUpdatedDateTime, '1900-01-01') AS UpsertDateTime
+
 FROM dbo.SFS AS ps WITH (NOLOCK)
 
+-- Join aggregated expenditure, income, creditor and saving values
 LEFT JOIN Expenditure exp ON ps.SFSID = exp.SFSID
 LEFT JOIN Income inc ON ps.SFSID = inc.SFSID
 LEFT JOIN Creditor crd ON ps.SFSID = crd.SFSID
 LEFT JOIN Saving sav ON ps.SFSID = sav.SFSID
 
-WHERE 
-    ps.SFSLastUpdatedDateTime > @LastRunDateTime
+-- Filter records updated after last run datetime to avoid duplicates
+WHERE ps.SFSLastUpdatedDateTime > @LastRunDateTime
 
-CREATE NONCLUSTERED INDEX IX_TempSFSData_UpsertDateTime ON #TempSFSData (UpsertDateTime);
-
-SELECT 
-    SfsId,
-    CustomerGroupId,
-    CustomerId,
-    TotalExpenditure,
-    TotalIncome,
-    TotalCreditor,
-    TotalSaving,
-    NetDisposableIncome,
-    CreatedBy,
-    CreatedDate,
-    CompletedBy,
-    CompletedDate,
-    UpsertDateTime
-FROM 
-    #TempSFSData
 OPTION (RECOMPILE);
 
--- Clean up temp
-DROP TABLE #TempSFSData;
+-- Reset transaction isolation level to default
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
