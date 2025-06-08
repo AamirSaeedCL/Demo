@@ -1,93 +1,35 @@
-SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+IF OBJECT_ID('tempdb..#temp_K_Blaze_Eligibility') IS NOT NULL
+    DROP TABLE #temp_K_Blaze_Eligibility;
 
--- CDC operation constants
-DECLARE 
-    @CDC_OP_INSERT INT = 2,
-    @CDC_OP_UPDATE_AFTER INT = 4;
-
--- Get Last Run DateTime
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST(
-    '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' 
-    AS DATETIME2
+CREATE TABLE #temp_K_Blaze_Eligibility (
+    AccountID INT,
+    LegacyId VARCHAR(40),
+    CustomerGroupId UNIQUEIDENTIFIER,
+    LitigationMentioned INT,
+    Reconnect INT,
+    UpsertDateTime DATETIME
 );
 
--- Validate input
-IF @LastRunDateTime IS NULL
-BEGIN
-    THROW 50001, 'Invalid LastRunDateTime Value', 1;
-END;
-
--- CTE to get first instalment per payment plan
-WITH FirstInstalment AS (
-    SELECT
-        schdld_pymnt_smmry_id,
-        schdld_pymnt_instnc_amnt,
-        schdld_pymnt_instnc_dttm,
-        ROW_NUMBER() OVER (
-            PARTITION BY schdld_pymnt_smmry_id 
-            ORDER BY schdld_pymnt_instnc_dttm ASC
-        ) AS rn
-    FROM [cdc].[dbo_schdld_pymnt_instnc_CT] WITH (NOLOCK)
-),
--- CTE to join all combinations of payment plan metadata
-RefPaymentPlan AS (
-    SELECT DISTINCT
-        f.pymnt_frqncy_cd,
-        f.pymnt_frqncy_val_txt,
-        s.schdld_pymnt_stts_cd,
-        s.schdld_pymnt_stts_val_txt,
-        t.schdld_pymnt_typ_cd,
-        t.schdld_pymnt_typ_val_txt
-    FROM dbo.Ref_pymnt_frqncy_cd f WITH (NOLOCK)
-    CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
-    CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
-)
-
--- Final query: flatten and join all data
-SELECT *
-FROM (
-    SELECT
-        summary.schdld_pymnt_smmry_id AS PaymentPlanId,
-        summary.cnsmr_id AS CustomerId,
+INSERT INTO #temp_K_Blaze_Eligibility (AccountID, LegacyId, CustomerGroupId, LitigationMentioned, Reconnect, UpsertDateTime)
+    SELECT 
+        [AccountID],
+        [Debtorno] AS LegacyId,
         CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
-        summary.schdld_pymnt_smmry_ttl_amnt AS PlanAmount,
-        summary.schdld_pymnt_smmry_cmmnt_txt AS PlanComment,
-        summary.schdld_pymnt_smmry_cnt AS InstalmentCount,
-        summary.schdld_pymnt_smmry_dwnpymnt_amnt AS InitialPaymentAmount,
-        summary.schdld_pymnt_smmry_dwnpymnt_dttm AS InitialPaymentDate,
-        summary.schdld_pymnt_smmry_rglr_amnt AS RegularPaymentAmount,
-        fi.schdld_pymnt_instnc_amnt AS FirstInstalmentAmount,
-        fi.schdld_pymnt_instnc_dttm AS FirstInstalmentDate,
-        summary.schdld_pymnt_smmry_lst_amnt AS LastInstalmentAmount,
-        CAST(CASE WHEN settlement.cnsmr_accnt_sttlmnt_id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsSettlement,
-        summary.schdld_pymnt_smmry_frqncy_cd AS PlanFrequencyId,
-        ref.pymnt_frqncy_val_txt AS PlanFrequencyText,
-        summary.schdld_pymnt_smmry_frqncy_cnt AS PlanFrequencyCount,
-        summary.schdld_pymnt_smmry_typ_cd AS PlanTypeId,
-        ref.schdld_pymnt_typ_val_txt AS PlanTypeText,
-        summary.schdld_pymnt_smmry_stts_cd AS PlanStatusId,
-        ref.schdld_pymnt_stts_val_txt AS PlanStatusText,
-        CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
-        summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
-        summary.upsrt_dttm AS UpsertDateTime,
-        ROW_NUMBER() OVER (
-            PARTITION BY summary.cnsmr_id
-            ORDER BY summary.upsrt_dttm DESC
-        ) AS RowNumber
-    FROM [cdc].[dbo_schdld_pymnt_smmry_CT] summary WITH (NOLOCK)
-    LEFT JOIN FirstInstalment fi 
-        ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id AND fi.rn = 1
-    LEFT JOIN [cdc].[dbo_cnsmr_accnt_sttlmnt_CT] settlement WITH (NOLOCK)
-        ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-    JOIN RefPaymentPlan ref 
-        ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
-        AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
-        AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
-    WHERE summary.upsrt_dttm > @LastRunDateTime
-      AND summary.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-) filtered
-WHERE filtered.RowNumber = 1
-OPTION (RECOMPILE);
+        [LitMention] AS LitigationMentioned,
+        [Reconnect],
+        CAST(GETDATE() AS DATETIME) AS UpsertDateTime
+    FROM [crs5_oltp_replicated].[CCM].[K_Blaze_Eligibility];  
 
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT DISTINCT 
+    AccountID, 
+    LegacyId, 
+    MAX(LitigationMentioned) AS LitigationMentioned, 
+    MAX(Reconnect) AS Reconnect,
+    MAX(CustomerGroupId) AS CustomerGroupId, 
+    MAX(UpsertDateTime) AS UpsertDateTime
+FROM 
+    #temp_K_Blaze_Eligibility
+GROUP BY 
+    AccountID, LegacyId;
+
+DROP TABLE #temp_K_Blaze_Eligibility;
