@@ -1,64 +1,55 @@
-SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
--- CDC operation constants
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01';  -- Replace with dynamic expression as needed
+SET NOCOUNT ON;
+
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
--- CTE: Get Workgroup Data
-WITH CTE_Workgroup AS (
-    SELECT 
-        wrkgrp_id,
-        wrkgrp_nm,
-        wrkgrp_shrt_nm
-    FROM 
-        [dbo].[wrkgrp] WITH (NOLOCK)
-),
+-- Create a temp table
+CREATE TABLE #Results 
+(
+    LegacyId VARCHAR(40),
+    CustomerGroupId UNIQUEIDENTIFIER,
+    NetDisposableIncome DECIMAL(18,2),
+    UpsertDateTime DATETIME2,
+    INDEX CIX_Results CLUSTERED (LegacyId, UpsertDateTime)
+);
 
--- CTE: Latest Consumer Records from CDC
-CTE_Consumer AS (
-    SELECT 
-        c.cnsmr_id,
-        c.wrkgrp_id,
-        c.cnsmr_lst_wrkgrp_id,
-        c.upsrt_dttm,
-        ROW_NUMBER() OVER (
-            PARTITION BY c.cnsmr_id 
-            ORDER BY c.__$start_lsn DESC, c.__$seqval DESC
-        ) AS RowNumber
-    FROM 
-        [cdc].[dbo_cnsmr_CT] c WITH (NOLOCK)
-    WHERE 
-        c.upsrt_dttm > @LastRunDateTime
-        AND c.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+-- Insert data into the temp table (result)
+INSERT INTO #Results 
+(
+    LegacyId, 
+    CustomerGroupId, 
+    NetDisposableIncome, 
+    UpsertDateTime
 )
 
--- Final Output
 SELECT 
-    c.cnsmr_id AS CustomerId,
-    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
-    w.wrkgrp_id AS WorkGroupId,
-    w.wrkgrp_nm AS WorkgroupName,
-    w.wrkgrp_shrt_nm AS WorkgroupShortName,
-    c.cnsmr_lst_wrkgrp_id AS LastWorkGroupId,
-    lw.wrkgrp_nm AS LastWorkgroupName,
-    lw.wrkgrp_shrt_nm AS LastWorkgroupShortName,
-    c.upsrt_dttm AS UpsertDateTime
-FROM 
-    CTE_Consumer c
-    INNER JOIN CTE_Workgroup w ON c.wrkgrp_id = w.wrkgrp_id
-    LEFT JOIN [dbo].[wrkgrp] lw WITH (NOLOCK) ON c.cnsmr_lst_wrkgrp_id = lw.wrkgrp_id
+    [DebtorNo] AS LegacyId,
+    CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
+    [NDI] AS NetDisposableIncome,
+    [LastRunDate] AS UpsertDateTime
+FROM [dbo].[DynamicMinimumPayment] WITH (NOLOCK)
 WHERE 
-    c.RowNumber = 1
+    [LastRunDate] > @LastRunDateTime 
 ORDER BY 
-    c.upsrt_dttm, c.cnsmr_id
+    [LastRunDate] ASC;
+
+CREATE NONCLUSTERED INDEX IX_Results_UpsertDateTime 
+ON #Results (UpsertDateTime);
+
+-- Select from the temp table (result)
+SELECT 
+    LegacyId,
+    CustomerGroupId,
+    NetDisposableIncome,
+    UpsertDateTime
+FROM #Results
 OPTION (RECOMPILE);
 
--- Restore transaction level
+-- Clean up temp table
+DROP TABLE #Results;
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
