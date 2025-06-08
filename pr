@@ -1,63 +1,61 @@
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
--- Declare constants
-DECLARE @PaymentTypeCode INT = 2;
-DECLARE @PaymentReversalTypeCode INT = 9;
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
+DECLARE @LastRunDateTime DATETIME2;
+DECLARE 
+    @CDC_OP_INSERT INT = 2,
+    @CDC_OP_UPDATE_AFTER INT = 4;
 
--- Replace this with dynamic expression from pipeline in production
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01';
+SET @LastRunDateTime = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 
 IF @LastRunDateTime IS NULL
 BEGIN
+    DROP TABLE #LastRunDateTimeTable;
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
--- CTE to calculate total payments per account since last run
-WITH CustomerAccountPayments AS (
-    SELECT 
-        cnsmr_accnt_id AS AccountId,
-        SUM(cnsmr_accnt_pymnt_amnt) AS TotalPayments
-    FROM [crs5_oltp].[cdc].[dbo_cnsmr_accnt_pymnt_jrnl_CT] WITH (NOLOCK)
-    WHERE 
-        bckt_trnsctn_typ_cd IN (@PaymentTypeCode, @PaymentReversalTypeCode)
-        AND upsrt_dttm > @LastRunDateTime
-    GROUP BY cnsmr_accnt_id
-),
+-- Create a temp table to store the results
+CREATE TABLE #tempAccountTag (
+    AccountTagId INT,
+    AccountId INT,
+    TagId INT,
+    TagName NVARCHAR(255),
+    TagShortName NVARCHAR(50),
+	TagAssignmentDate DATETIME2,
+    TagActive BIT,
+    UpsertDateTime DATETIME2,
+    INDEX IX_Results_UpsertDateTime (UpsertDateTime)
+);
 
--- CTE to get the latest customer account balance rows with corresponding payments
-CustomerAccountBalanceData AS (
-    SELECT 
-        cab.cnsmr_accnt_bal_id AS CustomerAccountBalanceId,
-        cab.cnsmr_accnt_id AS AccountId,
-        cab.cnsmr_accnt_bal_amnt AS OriginalBalance,
-        cab.cnsmr_accnt_bal_amnt AS CurrentBalance,
-        COALESCE(cap.TotalPayments, 0.00) AS TotalPayments,
-        cab.upsrt_dttm AS UpsertDateTime,
-        ROW_NUMBER() OVER (
-            PARTITION BY cab.cnsmr_accnt_id 
-            ORDER BY cab.upsrt_dttm DESC
+-- Insert data into the temp table
+INSERT INTO #tempAccountTag (AccountTagId, AccountId, TagId, TagName, TagShortName, TagAssignmentDate, TagActive, UpsertDateTime)
+SELECT
+    [CAT].[cnsmr_accnt_tag_id] AS AccountTagId,
+    [CAT].[cnsmr_accnt_id] AS AccountId,
+    [T].[tag_id] AS TagId,
+    [T].[tag_nm] AS TagName,
+    [T].[tag_shrt_nm] AS TagShortName,
+	[CAT2].[cnsmr_accnt_tag_assgn_dt] AS [TagAssignmentDate],
+    CAST(1 AS BIT) AS TagActive,
+    [CAT].[upsrt_dttm] AS UpsertDateTime,
+	ROW_NUMBER() OVER (
+            PARTITION BY CA.cnsmr_accnt_id
+            ORDER BY CA.upsrt_dttm DESC
         ) AS rn
-    FROM [cdc].[dbo_cnsmr_accnt_bal_CT] cab WITH (NOLOCK)
-    INNER JOIN CustomerAccountPayments cap 
-        ON cab.cnsmr_accnt_id = cap.AccountId
-    WHERE 
-        cab.upsrt_dttm > @LastRunDateTime
-        AND cab.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-)
+FROM [cdc].[dbo_cnsmr_accnt_Tag_CT] AS [CAT] WITH (NOLOCK)
+LEFT OUTER JOIN [dbo].[cnsmr_accnt_tag] AS [CAT2] WITH (NOLOCK)
+	ON [CAT].[cnsmr_accnt_tag_id] = [CAT2].[cnsmr_accnt_tag_id]
+INNER JOIN [dbo].[tag] AS [T] WITH (NOLOCK) 
+	ON [CAT].[tag_id] = [T].[tag_id]
+WHERE 
+	[CAT].[upsrt_dttm] > @LastRunDateTime
+	AND [CAT].[cnsmr_accnt_sft_delete_flg] = 'N'
+	AND [CAT].__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+ORDER BY [CAT].[upsrt_dttm];
 
--- Final result: return latest record per account
-SELECT 
-    CustomerAccountBalanceId,
-    AccountId,
-    OriginalBalance,
-    CurrentBalance,
-    TotalPayments,
-    UpsertDateTime
-FROM CustomerAccountBalanceData
-WHERE rn = 1;
+-- Select from the temp table
+SELECT * FROM #tempAccountTag where rn=1;
 
--- Reset transaction isolation level
+-- Clean up
+DROP TABLE #tempAccountTag;
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
