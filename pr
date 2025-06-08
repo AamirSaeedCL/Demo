@@ -1,23 +1,129 @@
-ErrorCode=AzureDatabricksCommandError,Hit an error when running the command in Azure Databricks. Error details: <span class='ansi-red-fg'>ParseException</span>: 
-Expected format is 'SET', 'SET key', or 'SET key=value'. If you want to include special characters in key, or include semicolon in value, please use quotes, e.g., SET `key`=`value`.(line 1, pos 0)
-== SQL ==
 SET NOCOUNT ON;
-^^^
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-06-02T17:43:59.7146734' AS DATETIME2);
--- Validate the parsed LastRunDateTime
+DECLARE @MonthsPerYear INT = 12;
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+
 IF @LastRunDateTime IS NULL
 BEGIN
-    THROW 50001, 'Invalid LastRunDateTime value from pipeline.', 1;
-END;
--- Main Query
-SELECT 
-    DebtorNo, 
-    Run_Date, 
-    Financial_Strength_Metric
-FROM 
-    gold_modeloutputs.financial_strength_model_archive
+    THROW 50001, 'Invalid LastRunDateTime Value', 1;
+END
+
+-- Create a temporary table
+CREATE TABLE #TempSFSData
+(
+    SfsId UNIQUEIDENTIFIER,
+    CustomerGroupId UNIQUEIDENTIFIER,
+    CustomerId INT,
+    TotalExpenditure DECIMAL(18, 2),
+    TotalIncome DECIMAL(18, 2),
+    TotalCreditor DECIMAL(18, 2),
+    TotalSaving DECIMAL(18, 2),
+    NetDisposableIncome DECIMAL(18, 2),
+    CreatedBy NVARCHAR(255),
+    CreatedDate DATETIME2,
+    CompletedBy NVARCHAR(255),
+    CompletedDate DATETIME2,
+    UpsertDateTime DATETIME2,
+    INDEX CIX_TempSFSData CLUSTERED (SfsId, CustomerId)
+);
+
+
+WITH Expenditure AS (
+    SELECT 
+        sfsExp.SFSID, 
+        CAST(ROUND(SUM(sfsExp.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalExpenditure
+    FROM dbo.SFSExpenditure AS sfsExp WITH (NOLOCK)
+    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
+        ON freq.FrequencyCode = sfsExp.FrequencyCode
+    GROUP BY sfsExp.SFSID
+),
+Income AS (
+    SELECT 
+        sfsInc.SFSID, 
+        CAST(ROUND(SUM(sfsInc.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalIncome
+    FROM dbo.SFSIncome AS sfsInc WITH (NOLOCK)
+    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
+        ON freq.FrequencyCode = sfsInc.FrequencyCode
+    GROUP BY sfsInc.SFSID
+),
+Creditor AS (
+    SELECT 
+        cred.SFSID, 
+        CAST(ROUND(SUM(cred.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalCreditor
+    FROM dbo.SFSCreditor AS cred WITH (NOLOCK)
+    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
+        ON freq.FrequencyCode = cred.FrequencyCode
+    GROUP BY cred.SFSID
+),
+Saving AS (
+    SELECT 
+        sfsSave.SFSID, 
+        CAST(ROUND(SUM(sfsSave.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalSaving
+    FROM dbo.SFSSaving AS sfsSave WITH (NOLOCK)
+    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
+        ON freq.FrequencyCode = sfsSave.FrequencyCode
+    GROUP BY sfsSave.SFSID
+)
+
+
+INSERT INTO #TempSFSData (SfsId, CustomerGroupId, CustomerId, TotalExpenditure, TotalIncome, TotalCreditor, TotalSaving, NetDisposableIncome, CreatedBy, CreatedDate, CompletedBy, CompletedDate, UpsertDateTime)
+SELECT
+    ps.SFSID AS SfsId,
+    ps.GroupID AS CustomerGroupId,
+    ps.OriginalConsumerID AS CustomerId,
+    
+     CAST(ROUND(       
+            COALESCE(exp.TotalExpenditure, 0.00) 
+            + COALESCE(crd.TotalCreditor, 0.00)  
+            + COALESCE(sav.TotalSaving, 0.00),
+         2) AS DECIMAL(18,2)) AS TotalExpenditure,
+    COALESCE(inc.TotalIncome, 0.00) AS TotalIncome,
+    COALESCE(crd.TotalCreditor, 0.00) AS TotalCreditor,
+    COALESCE(sav.TotalSaving, 0.00) AS TotalSaving,
+   
+    CAST(ROUND(
+        COALESCE(inc.TotalIncome, 0.00) 
+        - (
+            COALESCE(exp.TotalExpenditure, 0.00) 
+            + COALESCE(crd.TotalCreditor, 0.00)  
+            + COALESCE(sav.TotalSaving, 0.00)
+        ), 2) AS DECIMAL(18,2)) AS NetDisposableIncome,
+
+    ps.CreatedByUser AS CreatedBy,
+    ps.CreatedDateTime AS CreatedDate,
+    ps.CompletedByUser AS CompletedBy,
+    ps.CompletedDateTime AS CompletedDate,
+    COALESCE(ps.SFSLastUpdatedDateTime, '1900-01-01') AS UpsertDateTime
+FROM dbo.SFS AS ps WITH (NOLOCK)
+
+LEFT JOIN Expenditure exp ON ps.SFSID = exp.SFSID
+LEFT JOIN Income inc ON ps.SFSID = inc.SFSID
+LEFT JOIN Creditor crd ON ps.SFSID = crd.SFSID
+LEFT JOIN Saving sav ON ps.SFSID = sav.SFSID
+
 WHERE 
-    Run_Date > @LastRunDateTime;
--- Reset isolation level to default
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;.
+    ps.SFSLastUpdatedDateTime > @LastRunDateTime
+
+CREATE NONCLUSTERED INDEX IX_TempSFSData_UpsertDateTime ON #TempSFSData (UpsertDateTime);
+
+SELECT 
+    SfsId,
+    CustomerGroupId,
+    CustomerId,
+    TotalExpenditure,
+    TotalIncome,
+    TotalCreditor,
+    TotalSaving,
+    NetDisposableIncome,
+    CreatedBy,
+    CreatedDate,
+    CompletedBy,
+    CompletedDate,
+    UpsertDateTime
+FROM 
+    #TempSFSData
+OPTION (RECOMPILE);
+
+-- Clean up temp
+DROP TABLE #TempSFSData;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
