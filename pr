@@ -1,55 +1,29 @@
-
 SET NOCOUNT ON;
 
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+-- Declare and validate LastRunDateTime
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST(
+    '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' 
+    AS DATETIME2
+);
 
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
-END
+END;
 
--- Create a temp table
-CREATE TABLE #Results 
-(
-    LegacyId VARCHAR(40),
-    CustomerGroupId UNIQUEIDENTIFIER,
-    NetDisposableIncome DECIMAL(18,2),
-    UpsertDateTime DATETIME2,
-    INDEX CIX_Results CLUSTERED (LegacyId, UpsertDateTime)
-);
-
--- Insert data into the temp table (result)
-INSERT INTO #Results 
-(
-    LegacyId, 
-    CustomerGroupId, 
-    NetDisposableIncome, 
-    UpsertDateTime
-)
-
+-- Main query without using a temp table
 SELECT 
-    [DebtorNo] AS LegacyId,
+    [DebtorNo]                     AS LegacyId,
     CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
-    [NDI] AS NetDisposableIncome,
-    [LastRunDate] AS UpsertDateTime
-FROM [dbo].[DynamicMinimumPayment] WITH (NOLOCK)
+    [NDI]                          AS NetDisposableIncome,
+    [LastRunDate]                  AS UpsertDateTime
+FROM 
+    [dbo].[DynamicMinimumPayment] WITH (NOLOCK)
 WHERE 
-    [LastRunDate] > @LastRunDateTime 
+    [LastRunDate] > @LastRunDateTime
 ORDER BY 
-    [LastRunDate] ASC;
-
-CREATE NONCLUSTERED INDEX IX_Results_UpsertDateTime 
-ON #Results (UpsertDateTime);
-
--- Select from the temp table (result)
-SELECT 
-    LegacyId,
-    CustomerGroupId,
-    NetDisposableIncome,
-    UpsertDateTime
-FROM #Results
+    [LastRunDate] ASC
 OPTION (RECOMPILE);
 
--- Clean up temp table
-DROP TABLE #Results;
+-- Restore default transaction isolation level (if previously altered)
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
