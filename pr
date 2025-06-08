@@ -1,22 +1,57 @@
-WITH KBlazeEligibilityCTE AS (
-    SELECT 
-        [AccountID],
-        [Debtorno] AS LegacyId,
-        CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
-        [LitMention] AS LitigationMentioned,
-        [Reconnect],
-        CAST(GETDATE() AS DATETIME) AS UpsertDateTime
-    FROM [Insight].[dbo].[K_Blaze_Eligibility]
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+
+-- Validate input parameter
+IF @LastRunDateTime IS NULL
+BEGIN
+    THROW 50001, 'Invalid LastRunDateTime Value', 1;
+END
+
+-- Create temporary table
+DROP TABLE IF EXISTS #UserAccountData;
+CREATE TABLE #UserAccountData
+(
+    DigitalId BIGINT,
+    CustomerGroupId UNIQUEIDENTIFIER,
+    CustomerId BIGINT,
+    AccountReferenceNumber VARCHAR(100),
+    UpsertDateTime DATETIME2,
+    IsActive BIT,
+    INDEX IX_UserAccountData_UpsertDateTime (UpsertDateTime)
+);
+
+-- Insert data into temp table
+INSERT INTO #UserAccountData (
+    DigitalId,
+    CustomerGroupId,
+    CustomerId,
+    AccountReferenceNumber,
+    UpsertDateTime,
+    IsActive
 )
+SELECT
+    ua.UserAccountId AS DigitalId,
+    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
+    ua.CustomerPrimaryId AS CustomerId,
+    ua.AccountReferenceNumber,
+    ua.CreatedAt AS UpsertDateTime,
+    u.Activated AS IsActive
+FROM dbo.UserAccount ua WITH (NOLOCK)
+INNER JOIN dbo.[User] u WITH (NOLOCK) ON u.UserId = ua.UserId
+WHERE ua.CreatedAt > @LastRunDateTime
+ORDER BY ua.CreatedAt;  
 
 SELECT 
-    AccountID, 
-    LegacyId, 
-    MAX(LitigationMentioned) AS LitigationMentioned, 
-    MAX(Reconnect) AS Reconnect,
-    MAX(CustomerGroupId) AS CustomerGroupId, 
-    MAX(UpsertDateTime) AS UpsertDateTime
-FROM 
-    KBlazeEligibilityCTE
-GROUP BY 
-    AccountID, LegacyId;
+    DigitalId,
+    CustomerGroupId,
+    CustomerId,
+    AccountReferenceNumber,
+    UpsertDateTime,
+    IsActive
+FROM #UserAccountData;
+
+-- Cleanup
+DROP TABLE IF EXISTS #UserAccountData;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
