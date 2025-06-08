@@ -1,67 +1,54 @@
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-DECLARE @PaymentTypeCode INT = 2,
-	    @PaymentReversalTypeCode INT = 9;
--- CDC operation constants for insert and update-after
-DECLARE 
-    @CDC_OP_INSERT INT = 2,
-    @CDC_OP_UPDATE_AFTER INT = 4;
+-- Declare constants
+DECLARE @PaymentTypeCode INT = 2;
+DECLARE @PaymentReversalTypeCode INT = 9;
+DECLARE @CDC_OP_INSERT INT = 2;
+DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
 
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01'; --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+-- Replace this with dynamic expression from pipeline in production
+DECLARE @LastRunDateTime DATETIME2 = '2025-01-01';
 
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
-CREATE TABLE #tempCustomerAccountBalanceFigure (
-	AccountId BIGINT,
-    TotalPayments DECIMAL(18, 2),
+-- CTE to calculate total payments per account since last run
+WITH CustomerAccountPayments AS (
+    SELECT 
+        cnsmr_accnt_id AS AccountId,
+        SUM(cnsmr_accnt_pymnt_amnt) AS TotalPayments
+    FROM [crs5_oltp].[cdc].[dbo_cnsmr_accnt_pymnt_jrnl_CT] WITH (NOLOCK)
+    WHERE 
+        bckt_trnsctn_typ_cd IN (@PaymentTypeCode, @PaymentReversalTypeCode)
+        AND upsrt_dttm > @LastRunDateTime
+    GROUP BY cnsmr_accnt_id
+),
+
+-- CTE to get the latest customer account balance rows with corresponding payments
+CustomerAccountBalanceData AS (
+    SELECT 
+        cab.cnsmr_accnt_bal_id AS CustomerAccountBalanceId,
+        cab.cnsmr_accnt_id AS AccountId,
+        cab.cnsmr_accnt_bal_amnt AS OriginalBalance,
+        cab.cnsmr_accnt_bal_amnt AS CurrentBalance,
+        COALESCE(cap.TotalPayments, 0.00) AS TotalPayments,
+        cab.upsrt_dttm AS UpsertDateTime,
+        ROW_NUMBER() OVER (
+            PARTITION BY cab.cnsmr_accnt_id 
+            ORDER BY cab.upsrt_dttm DESC
+        ) AS rn
+    FROM [cdc].[dbo_cnsmr_accnt_bal_CT] cab WITH (NOLOCK)
+    INNER JOIN CustomerAccountPayments cap 
+        ON cab.cnsmr_accnt_id = cap.AccountId
+    WHERE 
+        cab.upsrt_dttm > @LastRunDateTime
+        AND cab.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
 )
 
-INSERT INTO #tempCustomerAccountBalanceFigure(AccountId, TotalPayments)
-SELECT 
-    [cnsmr_accnt_id] AS AccountId,
-    COALESCE(SUM(cnsmr_accnt_pymnt_amnt), 0) AS TotalPayments
-FROM 
-    [crs5_oltp].[cdc].[dbo_cnsmr_accnt_pymnt_jrnl_CT] WITH (NOLOCK)
-WHERE 
-	 bckt_trnsctn_typ_cd IN (@PaymentTypeCode, @PaymentReversalTypeCode)
-	 AND  upsrt_dttm > @LastRunDateTime
-GROUP BY 
-    [cnsmr_accnt_id];
-
--- Create a temporary table
-CREATE TABLE #tempCustomerAccountBalance (
-    CustomerAccountBalanceId BIGINT,
-    AccountId BIGINT,
-    OriginalBalance DECIMAL(18, 2),
-    CurrentBalance DECIMAL(18, 2),
-    TotalPayments DECIMAL(18, 2),
-    UpsertDateTime DATETIME2
-);
-
--- Insert data into the temporary table
-INSERT INTO #tempCustomerAccountBalance (CustomerAccountBalanceId, AccountId, OriginalBalance, CurrentBalance, TotalPayments, UpsertDateTime)
-SELECT 
-    cab.cnsmr_accnt_bal_id AS CustomerAccountBalanceId,
-    cab.cnsmr_accnt_id AS AccountId,
-    cab.cnsmr_accnt_bal_amnt AS OriginalBalance,
-    cab.cnsmr_accnt_bal_amnt AS CurrentBalance,
-    CAST(cabf.TotalPayments AS DECIMAL(18, 2)) AS TotalPayments,
-    cab.upsrt_dttm AS UpsertDateTime,
-	ROW_NUMBER() OVER (
-            PARTITION BY CA.cnsmr_accnt_id
-            ORDER BY CA.upsrt_dttm DESC
-        ) AS rn
-FROM [cdc].[dbo_cnsmr_accnt_bal_CT] cab WITH (NOLOCK), #tempCustomerAccountBalanceFigure as cabf WITH (NOLOCK)
-WHERE 
-	cab.cnsmr_accnt_id = cabf.AccountId
-	AND cab.upsrt_dttm > @LastRunDateTime;
-	AND cab.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-
--- Select from the temporary table
+-- Final result: return latest record per account
 SELECT 
     CustomerAccountBalanceId,
     AccountId,
@@ -69,11 +56,8 @@ SELECT
     CurrentBalance,
     TotalPayments,
     UpsertDateTime
-FROM #tempCustomerAccountBalance;
-Where rn = 1
+FROM CustomerAccountBalanceData
+WHERE rn = 1;
 
--- Drop the temporary table
-DROP TABLE #tempCustomerAccountBalance;
-DROP TABLE #tempCustomerAccountBalanceFigure;
-
+-- Reset transaction isolation level
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
