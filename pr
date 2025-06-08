@@ -1,73 +1,64 @@
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
--- Define CDC operation constants
+
+-- CDC operation constants
 DECLARE @CDC_OP_INSERT INT = 2;
 DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01' --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+DECLARE @LastRunDateTime DATETIME2 = '2025-01-01';  -- Replace with dynamic expression as needed
 
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
--- Create a temporary table for workgroups
-CREATE TABLE #TempWorkgroup
-(
-    wrkgrp_id INT,
-    wrkgrp_nm NVARCHAR(255),
-    wrkgrp_shrt_nm NVARCHAR(50),    
-    INDEX CIX_TempWorkgroup CLUSTERED (wrkgrp_id)
-);
+-- CTE: Get Workgroup Data
+WITH CTE_Workgroup AS (
+    SELECT 
+        wrkgrp_id,
+        wrkgrp_nm,
+        wrkgrp_shrt_nm
+    FROM 
+        [dbo].[wrkgrp] WITH (NOLOCK)
+),
 
--- Populate the temporary workgroup table
-INSERT INTO #TempWorkgroup (wrkgrp_id, wrkgrp_nm, wrkgrp_shrt_nm)
-SELECT wrkgrp_id, wrkgrp_nm, wrkgrp_shrt_nm
-FROM [dbo].[wrkgrp] WITH (NOLOCK)
-
-
--- Create a temporary table for consumers
-CREATE TABLE #TempConsumer
-(
-    cnsmr_id INT,
-    wrkgrp_id INT,
-    cnsmr_lst_wrkgrp_id INT,
-    upsrt_dttm DATETIME2,
-    INDEX CIX_TempConsumer CLUSTERED (cnsmr_id, wrkgrp_id)
-);
-
--- Populate the temporary customer table
-INSERT INTO #TempConsumer (cnsmr_id, wrkgrp_id, cnsmr_lst_wrkgrp_id, upsrt_dttm)
-Select * from (
-SELECT c.cnsmr_id, c.wrkgrp_id, c.cnsmr_lst_wrkgrp_id, c.upsrt_dttm,
- ROW_NUMBER() OVER (
-            PARTITION BY cp.cnsmr_id 
-            ORDER BY cp.__$start_lsn DESC, cp.__$seqval DESC
+-- CTE: Latest Consumer Records from CDC
+CTE_Consumer AS (
+    SELECT 
+        c.cnsmr_id,
+        c.wrkgrp_id,
+        c.cnsmr_lst_wrkgrp_id,
+        c.upsrt_dttm,
+        ROW_NUMBER() OVER (
+            PARTITION BY c.cnsmr_id 
+            ORDER BY c.__$start_lsn DESC, c.__$seqval DESC
         ) AS RowNumber
-FROM [cdc].[dbo_cnsmr_CT] c WITH (NOLOCK)
-LEFT JOIN #TempWorkgroup tw ON c.wrkgrp_id = tw.wrkgrp_id
-WHERE c.upsrt_dttm > @LastRunDateTime
-AND c.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-) AS ST;
+    FROM 
+        [cdc].[dbo_cnsmr_CT] c WITH (NOLOCK)
+    WHERE 
+        c.upsrt_dttm > @LastRunDateTime
+        AND c.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+)
 
+-- Final Output
 SELECT 
-    tc.cnsmr_id AS CustomerId,
+    c.cnsmr_id AS CustomerId,
     CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
-    tw.wrkgrp_id AS WorkGroupId,
-    tw.wrkgrp_nm AS WorkgroupName,
-    tw.wrkgrp_shrt_nm AS WorkgroupShortName,
-    tc.cnsmr_lst_wrkgrp_id AS LastWorkGroupId,
-    lwg.wrkgrp_nm AS LastWorkgroupName,
-    lwg.wrkgrp_shrt_nm AS LastWorkgroupShortName,
-    tc.upsrt_dttm AS UpsertDateTime
-FROM #TempConsumer tc
-INNER JOIN #TempWorkgroup tw ON tc.wrkgrp_id = tw.wrkgrp_id
-LEFT JOIN [dbo].[wrkgrp] lwg WITH (NOLOCK) ON tc.cnsmr_lst_wrkgrp_id = lwg.wrkgrp_id
-
+    w.wrkgrp_id AS WorkGroupId,
+    w.wrkgrp_nm AS WorkgroupName,
+    w.wrkgrp_shrt_nm AS WorkgroupShortName,
+    c.cnsmr_lst_wrkgrp_id AS LastWorkGroupId,
+    lw.wrkgrp_nm AS LastWorkgroupName,
+    lw.wrkgrp_shrt_nm AS LastWorkgroupShortName,
+    c.upsrt_dttm AS UpsertDateTime
+FROM 
+    CTE_Consumer c
+    INNER JOIN CTE_Workgroup w ON c.wrkgrp_id = w.wrkgrp_id
+    LEFT JOIN [dbo].[wrkgrp] lw WITH (NOLOCK) ON c.cnsmr_lst_wrkgrp_id = lw.wrkgrp_id
+WHERE 
+    c.RowNumber = 1
+ORDER BY 
+    c.upsrt_dttm, c.cnsmr_id
 OPTION (RECOMPILE);
 
--- Clean up
-DROP TABLE #TempWorkgroup;
-DROP TABLE #TempConsumer;
-
+-- Restore transaction level
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
