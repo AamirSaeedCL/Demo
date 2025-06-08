@@ -1,33 +1,23 @@
-
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
--- CDC operation constants
+-- CDC operation constants for insert and update-after
 DECLARE 
     @CDC_OP_INSERT INT = 2,
     @CDC_OP_UPDATE_AFTER INT = 4;
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01' --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 
+-- LastRunDateTime parameter (replace hardcoded value with pipeline param as needed)
+DECLARE @LastRunDateTime DATETIME2 = '2025-01-01'; 
+-- Example to use pipeline parameter:
+-- DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity(''Lookup the pipeline log table to fetch lastrundatetime'').output.value[0].LastRunDateTime}' AS DATETIME2);
+
+-- Validate LastRunDateTime parameter
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
-
-CREATE TABLE #TempCreditorAccount
-(
-    AccountId INT,
-    CustomerId INT,
-    CustomerGroupId UNIQUEIDENTIFIER,
-    CreditorID INT,
-    CreditorName NVARCHAR(255),
-    CreditorShortName NVARCHAR(50),
-    AccountDescription NVARCHAR(MAX),
-    UpsertDateTime DATETIME2,
-    INDEX CIX_TempCreditorAccount CLUSTERED (CreditorID, AccountId)
-);
-
+-- CTE to rank accounts by most recent UpsertDateTime per AccountId
 WITH RankedAccounts AS (
     SELECT
         CA.cnsmr_accnt_id AS AccountId,
@@ -43,18 +33,16 @@ WITH RankedAccounts AS (
             ORDER BY CA.upsrt_dttm DESC
         ) AS rn
     FROM 
-        [dbo].[crdtr] AS C WITH (NOLOCK)
-        INNER JOIN [cdc].[dbo_cnsmr_accnt_CT] CA WITH (NOLOCK) 
+        dbo.crdtr AS C WITH (NOLOCK)
+        INNER JOIN cdc.dbo_cnsmr_accnt_CT AS CA WITH (NOLOCK) 
             ON CA.crdtr_id = C.crdtr_id
     WHERE 
         CA.upsrt_dttm > @LastRunDateTime
-	AND 
-		CA.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+        AND CA.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
 )
 
-
-INSERT INTO #TempCreditorAccount (AccountId, CustomerId, CustomerGroupId, CreditorID, CreditorName, CreditorShortName, AccountDescription, UpsertDateTime)
-SELECT 
+-- Select only the latest record per AccountId (rn = 1)
+SELECT
     AccountId,
     CustomerId,
     CustomerGroupId,
@@ -64,25 +52,8 @@ SELECT
     AccountDescription,
     UpsertDateTime
 FROM RankedAccounts
-WHERE rn = 1;
-
-
-CREATE NONCLUSTERED INDEX IX_TempCreditorAccount_UpsertDateTime ON #TempCreditorAccount (UpsertDateTime);
-
-
-SELECT 
-    AccountId,
-    CustomerId,
-    CustomerGroupId,
-    CreditorID,
-    CreditorName,
-    CreditorShortName,
-    AccountDescription,
-    UpsertDateTime
-FROM 
-    #TempCreditorAccount
+WHERE rn = 1
 OPTION (RECOMPILE);
 
-
-DROP TABLE #TempCreditorAccount;
+-- Reset transaction isolation level to default
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
