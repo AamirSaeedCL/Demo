@@ -1,32 +1,3 @@
-SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-
--- Set the LastRunDateTime from the pipeline input
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
-
--- Validate input parameter
-IF @LastRunDateTime IS NULL
-BEGIN
-    THROW 50001, 'Invalid LastRunDateTime value from pipeline.', 1;
-END;
-
--- Select Experian variables updated after last run
-SELECT 
-    Debtorno,
-    Credit_Card_Balance_to_0,
-    Loan_Balance_to_0,
-    Unsecured_Loan_Balance_to_0,
-    Secured_Loan_Balance_to_0,
-    Home_Credit_Balance_to_0,
-    Mortgage_Balance_to_0,
-    Payment_Status_Change_Mortgage,
-    Payment_Status_Change_CAIS,
-    DateRun
-FROM 
-    gold_modeloutputs.uk_experian_cabot_variables
-WHERE 
-    DateRun > @LastRunDateTime
-    AND TRY_CAST(Mortgage_Balance_to_0 AS DATE) IS NOT NULL;
-
--- Reset isolation level to default
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT DebtorNo, Run_Date, Financial_Strength_Metric
+FROM gold_modeloutputs.financial_strength_model_archive
+WHERE Run_Date >  '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}'
