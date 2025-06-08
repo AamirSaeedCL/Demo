@@ -1,25 +1,23 @@
+ErrorCode=AzureDatabricksCommandError,Hit an error when running the command in Azure Databricks. Error details: <span class='ansi-red-fg'>ParseException</span>: 
+Expected format is 'SET', 'SET key', or 'SET key=value'. If you want to include special characters in key, or include semicolon in value, please use quotes, e.g., SET `key`=`value`.(line 1, pos 0)
+== SQL ==
 SET NOCOUNT ON;
+^^^
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-
--- Parse LastRunDateTime from pipeline parameter
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST(
-    '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' 
-    AS DATETIME2
-);
-
--- Validate the input parameter
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-06-02T17:43:59.7146734' AS DATETIME2);
+-- Validate the parsed LastRunDateTime
 IF @LastRunDateTime IS NULL
 BEGIN
-    THROW 50001, 'Invalid LastRunDateTime Value', 1;
+    THROW 50001, 'Invalid LastRunDateTime value from pipeline.', 1;
 END;
-
--- Query data with Run_Date greater than the last run datetime
+-- Main Query
 SELECT 
     DebtorNo, 
-    Run_Date,
-    DRS_V1_Score
-FROM gold_modeloutputs.financial_strength_model_archive WITH (NOLOCK)
-WHERE Run_Date > @LastRunDateTime;
-
--- Reset isolation level
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    Run_Date, 
+    Financial_Strength_Metric
+FROM 
+    gold_modeloutputs.financial_strength_model_archive
+WHERE 
+    Run_Date > @LastRunDateTime;
+-- Reset isolation level to default
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;.
