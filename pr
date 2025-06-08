@@ -1,106 +1,88 @@
+
+
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-DECLARE @MonthsPerYear INT = 12;
-
--- Parse LastRunDateTime parameter from pipeline, ensure it is valid
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity(''Lookup the pipeline log table to fetch lastrundatetime'').output.value[0].LastRunDateTime}' AS DATETIME2);
+-- CDC operation constants
+DECLARE 
+    @CDC_OP_INSERT INT = 2,
+    @CDC_OP_UPDATE_AFTER INT = 4;
+DECLARE @LastRunDateTime DATETIME2 = '2025-01-01' --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
--- Calculate aggregated monthly values for Expenditure, Income, Creditor, and Saving
-WITH Expenditure AS (
-    SELECT 
-        sfsExp.SFSID, 
-        CAST(ROUND(SUM(sfsExp.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalExpenditure
-    FROM dbo.SFSExpenditure AS sfsExp WITH (NOLOCK)
-    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
-        ON freq.FrequencyCode = sfsExp.FrequencyCode
-    GROUP BY sfsExp.SFSID
-),
-Income AS (
-    SELECT 
-        sfsInc.SFSID, 
-        CAST(ROUND(SUM(sfsInc.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalIncome
-    FROM dbo.SFSIncome AS sfsInc WITH (NOLOCK)
-    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
-        ON freq.FrequencyCode = sfsInc.FrequencyCode
-    GROUP BY sfsInc.SFSID
-),
-Creditor AS (
-    SELECT 
-        cred.SFSID, 
-        CAST(ROUND(SUM(cred.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalCreditor
-    FROM dbo.SFSCreditor AS cred WITH (NOLOCK)
-    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
-        ON freq.FrequencyCode = cred.FrequencyCode
-    GROUP BY cred.SFSID
-),
-Saving AS (
-    SELECT 
-        sfsSave.SFSID, 
-        CAST(ROUND(SUM(sfsSave.Amount * freq.MonthlyMultiplicationFactor / @MonthsPerYear), 2) AS DECIMAL(18,2)) AS TotalSaving
-    FROM dbo.SFSSaving AS sfsSave WITH (NOLOCK)
-    LEFT JOIN dbo.Frequency AS freq WITH (NOLOCK) 
-        ON freq.FrequencyCode = sfsSave.FrequencyCode
-    GROUP BY sfsSave.SFSID
+
+CREATE TABLE #TempCreditorAccount
+(
+    AccountId INT,
+    CustomerId INT,
+    CustomerGroupId UNIQUEIDENTIFIER,
+    CreditorID INT,
+    CreditorName NVARCHAR(255),
+    CreditorShortName NVARCHAR(50),
+    AccountDescription NVARCHAR(MAX),
+    UpsertDateTime DATETIME2,
+    INDEX CIX_TempCreditorAccount CLUSTERED (CreditorID, AccountId)
+);
+
+WITH RankedAccounts AS (
+    SELECT
+        CA.cnsmr_accnt_id AS AccountId,
+        CA.cnsmr_id AS CustomerId,
+        CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
+        C.crdtr_id AS CreditorID,
+        C.crdtr_nm AS CreditorName,
+        C.crdtr_shrt_nm AS CreditorShortName,
+        C.crdtr_dscrptn_txt AS AccountDescription,
+        CA.upsrt_dttm AS UpsertDateTime,
+        ROW_NUMBER() OVER (
+            PARTITION BY CA.cnsmr_accnt_id
+            ORDER BY CA.upsrt_dttm DESC
+        ) AS rn
+    FROM 
+        [dbo].[crdtr] AS C WITH (NOLOCK)
+        INNER JOIN [cdc].[dbo_cnsmr_accnt_CT] CA WITH (NOLOCK) 
+            ON CA.crdtr_id = C.crdtr_id
+    WHERE 
+        CA.upsrt_dttm > @LastRunDateTime
+	AND 
+		CA.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
 )
 
--- Final SELECT statement combines all aggregated values and computes NetDisposableIncome
-SELECT
-    ps.SFSID AS SfsId,
-    ps.GroupID AS CustomerGroupId,
-    ps.OriginalConsumerID AS CustomerId,
 
-    -- Total expenditure includes expenditure, creditor and saving sums rounded
-    CAST(ROUND(
-        COALESCE(exp.TotalExpenditure, 0.00)
-        + COALESCE(crd.TotalCreditor, 0.00)
-        + COALESCE(sav.TotalSaving, 0.00),
-    2) AS DECIMAL(18,2)) AS TotalExpenditure,
+INSERT INTO #TempCreditorAccount (AccountId, CustomerId, CustomerGroupId, CreditorID, CreditorName, CreditorShortName, AccountDescription, UpsertDateTime)
+SELECT 
+    AccountId,
+    CustomerId,
+    CustomerGroupId,
+    CreditorID,
+    CreditorName,
+    CreditorShortName,
+    AccountDescription,
+    UpsertDateTime
+FROM RankedAccounts
+WHERE rn = 1;
 
-    -- Total income
-    COALESCE(inc.TotalIncome, 0.00) AS TotalIncome,
 
-    -- Total creditor amount
-    COALESCE(crd.TotalCreditor, 0.00) AS TotalCreditor,
+CREATE NONCLUSTERED INDEX IX_TempCreditorAccount_UpsertDateTime ON #TempCreditorAccount (UpsertDateTime);
 
-    -- Total saving amount
-    COALESCE(sav.TotalSaving, 0.00) AS TotalSaving,
 
-    -- Net disposable income = Income - (Expenditure + Creditor + Saving)
-    CAST(ROUND(
-        COALESCE(inc.TotalIncome, 0.00) 
-        - (
-            COALESCE(exp.TotalExpenditure, 0.00)
-            + COALESCE(crd.TotalCreditor, 0.00)
-            + COALESCE(sav.TotalSaving, 0.00)
-        ), 2) AS DECIMAL(18,2)) AS NetDisposableIncome,
-
-    -- Metadata columns
-    ps.CreatedByUser AS CreatedBy,
-    ps.CreatedDateTime AS CreatedDate,
-    ps.CompletedByUser AS CompletedBy,
-    ps.CompletedDateTime AS CompletedDate,
-
-    -- Use last updated datetime or default minimum if null
-    COALESCE(ps.SFSLastUpdatedDateTime, '1900-01-01') AS UpsertDateTime
-
-FROM dbo.SFS AS ps WITH (NOLOCK)
-
--- Join aggregated expenditure, income, creditor and saving values
-LEFT JOIN Expenditure exp ON ps.SFSID = exp.SFSID
-LEFT JOIN Income inc ON ps.SFSID = inc.SFSID
-LEFT JOIN Creditor crd ON ps.SFSID = crd.SFSID
-LEFT JOIN Saving sav ON ps.SFSID = sav.SFSID
-
--- Filter records updated after last run datetime to avoid duplicates
-WHERE ps.SFSLastUpdatedDateTime > @LastRunDateTime
-
+SELECT 
+    AccountId,
+    CustomerId,
+    CustomerGroupId,
+    CreditorID,
+    CreditorName,
+    CreditorShortName,
+    AccountDescription,
+    UpsertDateTime
+FROM 
+    #TempCreditorAccount
 OPTION (RECOMPILE);
 
--- Reset transaction isolation level to default
+
+DROP TABLE #TempCreditorAccount;
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
