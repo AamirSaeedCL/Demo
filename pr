@@ -1,4 +1,3 @@
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -8,7 +7,7 @@ DECLARE
     @CDC_OP_UPDATE_AFTER INT = 4;
 
 DECLARE 
-    @LastRunDateTime DATETIME2 = '2025-01-01', --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2),
+    @LastRunDateTime DATETIME2 = '2025-01-01', -- Change as needed
     @PaymentTypeCode INT = 2,
     @PaymentReversalTypeCode INT = 9,
     @ExcludedWorkgroupShortNames VARCHAR(50) = 'ZZZ,SDR,ZSB',
@@ -59,23 +58,36 @@ ConsumersWithZeroBalance AS (
 
 -- Final result
 SELECT
-    capj.cnsmr_accnt_pymnt_jrnl_id AS AccountPaymentId,
-    capj.cnsmr_accnt_id            AS AccountId,
-    rbtc.bckt_trnsctn_typ_cd       AS PaymentTypeId,
-    rbtc.bckt_trnsctn_val_txt      AS PaymentTypeText,
-    capj.cnsmr_accnt_pymnt_amnt    AS PaymentAmount,
-    ISNULL(capj.cnsmr_accnt_pymnt_bal_amnt, 0) AS BalanceAmount,
-    capj.cnsmr_accnt_pymnt_cmmnt_txt AS PaymentComment,
-    capj.cnsmr_accnt_pymnt_stts_cd AS PaymentStatusId,
-    rps.pymnt_stts_dscrptn_txt     AS PaymentStatusText,
-    CAST(NULL AS DATETIME2)        AS PaymentStatusDate,
-    capj.cnsmr_accnt_pymnt_pstd_dt AS PostedDate,
-    capj.cnsmr_pymnt_entrd_dt      AS EnteredDate,
-    capj.upsrt_dttm                AS UpsertDateTime
+    filtered.AccountPaymentId,
+    filtered.AccountId,
+    filtered.PaymentTypeId,
+    filtered.PaymentTypeText,
+    filtered.PaymentAmount,
+    filtered.BalanceAmount,
+    filtered.PaymentComment,
+    filtered.PaymentStatusId,
+    filtered.PaymentStatusText,
+    filtered.PaymentStatusDate,
+    filtered.PostedDate,
+    filtered.EnteredDate,
+    filtered.UpsertDateTime
 FROM (
     SELECT 
-        capj.*,
+        capj.cnsmr_accnt_pymnt_jrnl_id AS AccountPaymentId,
+        capj.cnsmr_accnt_id AS AccountId,
+        rbtc.bckt_trnsctn_typ_cd AS PaymentTypeId,
+        rbtc.bckt_trnsctn_val_txt AS PaymentTypeText,
+        capj.cnsmr_accnt_pymnt_amnt AS PaymentAmount,
+        ISNULL(capj.cnsmr_accnt_pymnt_bal_amnt, 0) AS BalanceAmount,
+        capj.cnsmr_accnt_pymnt_cmmnt_txt AS PaymentComment,
+        capj.cnsmr_accnt_pymnt_stts_cd AS PaymentStatusId,
+        rps.pymnt_stts_dscrptn_txt AS PaymentStatusText,
+        CAST(NULL AS DATETIME2) AS PaymentStatusDate,
+        capj.cnsmr_accnt_pymnt_pstd_dt AS PostedDate,
+        capj.cnsmr_pymnt_entrd_dt AS EnteredDate,
+        capj.upsrt_dttm AS UpsertDateTime,
         c.cnsmr_id,
+        c.wrkgrp_id,
         ROW_NUMBER() OVER (
             PARTITION BY c.cnsmr_id 
             ORDER BY capj.__$start_lsn DESC, capj.__$seqval DESC
@@ -123,37 +135,7 @@ FROM (
         )
 ) AS filtered
 WHERE filtered.RowNumber = 1
-ORDER BY filtered.upsrt_dttm;
+ORDER BY filtered.UpsertDateTime;
 
 -- Reset isolation level
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-
-
-Error:
-
-Msg 4104, Level 16, State 1, Line 756
-The multi-part identifier "capj.cnsmr_accnt_pymnt_jrnl_id" could not be bound.
-Msg 4104, Level 16, State 1, Line 757
-The multi-part identifier "capj.cnsmr_accnt_id" could not be bound.
-Msg 4104, Level 16, State 1, Line 758
-The multi-part identifier "rbtc.bckt_trnsctn_typ_cd" could not be bound.
-Msg 4104, Level 16, State 1, Line 759
-The multi-part identifier "rbtc.bckt_trnsctn_val_txt" could not be bound.
-Msg 4104, Level 16, State 1, Line 760
-The multi-part identifier "capj.cnsmr_accnt_pymnt_amnt" could not be bound.
-Msg 4104, Level 16, State 1, Line 761
-The multi-part identifier "capj.cnsmr_accnt_pymnt_bal_amnt" could not be bound.
-Msg 4104, Level 16, State 1, Line 762
-The multi-part identifier "capj.cnsmr_accnt_pymnt_cmmnt_txt" could not be bound.
-Msg 4104, Level 16, State 1, Line 763
-The multi-part identifier "capj.cnsmr_accnt_pymnt_stts_cd" could not be bound.
-Msg 4104, Level 16, State 1, Line 764
-The multi-part identifier "rps.pymnt_stts_dscrptn_txt" could not be bound.
-Msg 4104, Level 16, State 1, Line 766
-The multi-part identifier "capj.cnsmr_accnt_pymnt_pstd_dt" could not be bound.
-Msg 4104, Level 16, State 1, Line 767
-The multi-part identifier "capj.cnsmr_pymnt_entrd_dt" could not be bound.
-Msg 4104, Level 16, State 1, Line 768
-The multi-part identifier "capj.upsrt_dttm" could not be bound.
