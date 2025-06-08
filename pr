@@ -1,57 +1,106 @@
-SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
--- Declare constants
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2),
+    @ExcludedWorkgroupShortNames VARCHAR(50) = 'ZZZ,SDR,ZSB',
+    @WorkgroupIdChangePattern NVARCHAR(50) = 'U:%wrkgrp_id',
+    @CurrentBalanceShortName NVARCHAR(50) = 'CurBal',
+    @HistoryMonthsBack INT = 3,
+	@PaymentTndrd INT = 30;
 
--- Set LastRunDateTime from pipeline (replace this with pipeline expression if needed)
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+DECLARE 
+    @CDC_OP_INSERT INT = 2,
+    @CDC_OP_UPDATE_AFTER INT = 4;
 
--- Validate LastRunDateTime
+--328	SDR	Scottish Extinguished
+--520	ZSB	Stat Barred Ceased Working
+--36	ZZZ	Closed Accounts
+
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
-END
+END;
 
--- CTE to gather and filter latest consumer account tags
-WITH LatestAccountTags AS (
-    SELECT
-        CAT.cnsmr_accnt_tag_id AS AccountTagId,
-        CAT.cnsmr_accnt_id AS AccountId,
-        T.tag_id AS TagId,
-        T.tag_nm AS TagName,
-        T.tag_shrt_nm AS TagShortName,
-        CAT2.cnsmr_accnt_tag_assgn_dt AS TagAssignmentDate,
-        CAST(1 AS BIT) AS TagActive,
-        CAT.upsrt_dttm AS UpsertDateTime,
-        ROW_NUMBER() OVER (
-            PARTITION BY CAT.cnsmr_accnt_id
-            ORDER BY CAT.upsrt_dttm DESC
-        ) AS rn
-    FROM [cdc].[dbo_cnsmr_accnt_Tag_CT] AS CAT WITH (NOLOCK)
-    LEFT JOIN [dbo].[cnsmr_accnt_tag] AS CAT2 WITH (NOLOCK)
-        ON CAT.cnsmr_accnt_tag_id = CAT2.cnsmr_accnt_tag_id
-    INNER JOIN [dbo].[tag] AS T WITH (NOLOCK)
-        ON CAT.tag_id = T.tag_id
-    WHERE 
-        CAT.upsrt_dttm > @LastRunDateTime
-        AND CAT.cnsmr_accnt_sft_delete_flg = 'N'
-        AND CAT.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+-- CTE for Workgroup IDs to exclude/include
+WITH WorkgroupIDs AS (
+    SELECT wrkgrp_id
+    FROM [dbo].[wrkgrp]
+    WHERE wrkgrp_shrt_nm IN (SELECT value FROM STRING_SPLIT(@ExcludedWorkgroupShortNames, ','))
+),
+-- CTE for consumers with recent workgroup ID changes
+RecentWorkgroupChanges AS (
+    SELECT DISTINCT [CH].[cnsmr_id] 
+    FROM [dbo].[cnsmr_hst] AS [CH]
+    WHERE [CH].[upsrt_chng_fld_txt] LIKE @WorkgroupIdChangePattern
+    AND [CH].[adt_dttm] >= DATEADD(MONTH, -@HistoryMonthsBack, GETDATE())
+),
+
+-- CTE for consumers with 30 days payment
+RecentPaymentChanges AS (
+	SELECT DISTINCT [C].[cnsmr_id] 
+	FROM [dbo].[cnsmr] AS [C]
+	INNER JOIN [dbo].[cnsmr_pymnt_jrnl] AS [CPJ]
+		ON [CPJ].[cnsmr_id] = [C].[cnsmr_id]
+	WHERE 
+		[CPJ].[cnsmr_pymnt_tndrd_dt] >= DATEADD(DAY, -@PaymentTndrd, GETDATE())
+),
+-- CTE for consumers with zero balance
+ConsumersWithZeroBalance AS (
+    SELECT TOP 1 [C].[cnsmr_id]
+    FROM [dbo].[cnsmr] AS [C]
+    INNER JOIN [dbo].[cnsmr_accnt_ownrs] AS [CAO]
+        ON [CAO].[cnsmr_id] = [C].[cnsmr_id]
+    INNER JOIN [dbo].[cnsmr_accnt] AS [CA]
+        ON [CA].[cnsmr_accnt_id] = [CAO].[cnsmr_accnt_id]
+    INNER JOIN [dbo].[cnsmr_accnt_bal] AS [CAB]
+        ON [CAB].[cnsmr_accnt_id] = [CAO].[cnsmr_accnt_id]
+    INNER JOIN [dbo].[bal_nm] AS [BN]
+        ON [BN].[bal_nm_id] = [CAB].[bal_nm_id]
+    WHERE [BN].[bal_shrt_nm] = @CurrentBalanceShortName
+		AND [CAB].[cnsmr_accnt_bal_amnt] < 0
 )
-
--- Select only latest tag per account
+-- Main Query
+Select * from (
 SELECT 
-    AccountTagId,
-    AccountId,
-    TagId,
-    TagName,
-    TagShortName,
-    TagAssignmentDate,
-    TagActive,
-    UpsertDateTime
-FROM LatestAccountTags
-WHERE rn = 1;
+    ca.[cnsmr_id] AS CustomerId,
+    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
+    ca.[cnsmr_accnt_id] AS AccountId,
+    ca.[upsrt_dttm] AS UpsertDateTime,
+	ROW_NUMBER() OVER (
+            PARTITION BY CA.cnsmr_accnt_id
+            ORDER BY CA.upsrt_dttm DESC
+        ) AS rn
+FROM 
+    [crs5_oltp].[cdc].[dbo_cnsmr_accnt_CT] ca WITH (NOLOCK)
+    INNER JOIN [dbo].[cnsmr] AS c WITH (NOLOCK) 
+        ON ca.[cnsmr_id] = c.[cnsmr_id]
+WHERE 
+    ca.[upsrt_dttm] > @LastRunDateTime
+    AND 
+    AND ca.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+    AND
+	(
+		-- Exclude specific workgroups
+		c.wrkgrp_id NOT IN (SELECT wrkgrp_id FROM WorkgroupIDs)
+	)	
+	OR
+	(
+		-- Include specific workgroups with recent changes
+		c.wrkgrp_id IN (SELECT wrkgrp_id FROM WorkgroupIDs)
+		AND c.cnsmr_id IN (SELECT cnsmr_id FROM RecentWorkgroupChanges)
+	)
+	OR
+	(
+		-- Include specific workgroups with current balance
+		c.wrkgrp_id IN (SELECT wrkgrp_id FROM WorkgroupIDs)
+		AND c.cnsmr_id IN (SELECT cnsmr_id FROM RecentPaymentChanges)
+	)
+	OR
+	(
+	   -- Check customer balance
+	   c.cnsmr_id IN (SELECT cnsmr_id FROM ConsumersWithZeroBalance)
+	)
+ORDER BY ca.[upsrt_dttm]
+) where rn = 1
+OPTION (RECOMPILE);
 
--- Reset isolation level
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
