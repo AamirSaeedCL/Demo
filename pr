@@ -1,59 +1,79 @@
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
+DECLARE @PaymentTypeCode INT = 2,
+	    @PaymentReversalTypeCode INT = 9;
 -- CDC operation constants for insert and update-after
 DECLARE 
     @CDC_OP_INSERT INT = 2,
     @CDC_OP_UPDATE_AFTER INT = 4;
 
--- LastRunDateTime parameter (replace hardcoded value with pipeline param as needed)
-DECLARE @LastRunDateTime DATETIME2 = '2025-01-01'; 
--- Example to use pipeline parameter:
--- DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity(''Lookup the pipeline log table to fetch lastrundatetime'').output.value[0].LastRunDateTime}' AS DATETIME2);
+DECLARE @LastRunDateTime DATETIME2 = '2025-01-01'; --TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 
--- Validate LastRunDateTime parameter
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
 END
 
--- CTE to rank accounts by most recent UpsertDateTime per AccountId
-WITH RankedAccounts AS (
-    SELECT
-        CA.cnsmr_accnt_id AS AccountId,
-        CA.cnsmr_id AS CustomerId,
-        CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
-        C.crdtr_id AS CreditorID,
-        C.crdtr_nm AS CreditorName,
-        C.crdtr_shrt_nm AS CreditorShortName,
-        C.crdtr_dscrptn_txt AS AccountDescription,
-        CA.upsrt_dttm AS UpsertDateTime,
-        ROW_NUMBER() OVER (
+CREATE TABLE #tempCustomerAccountBalanceFigure (
+	AccountId BIGINT,
+    TotalPayments DECIMAL(18, 2),
+)
+
+INSERT INTO #tempCustomerAccountBalanceFigure(AccountId, TotalPayments)
+SELECT 
+    [cnsmr_accnt_id] AS AccountId,
+    COALESCE(SUM(cnsmr_accnt_pymnt_amnt), 0) AS TotalPayments
+FROM 
+    [crs5_oltp].[cdc].[dbo_cnsmr_accnt_pymnt_jrnl_CT] WITH (NOLOCK)
+WHERE 
+	 bckt_trnsctn_typ_cd IN (@PaymentTypeCode, @PaymentReversalTypeCode)
+	 AND  upsrt_dttm > @LastRunDateTime
+GROUP BY 
+    [cnsmr_accnt_id];
+
+-- Create a temporary table
+CREATE TABLE #tempCustomerAccountBalance (
+    CustomerAccountBalanceId BIGINT,
+    AccountId BIGINT,
+    OriginalBalance DECIMAL(18, 2),
+    CurrentBalance DECIMAL(18, 2),
+    TotalPayments DECIMAL(18, 2),
+    UpsertDateTime DATETIME2
+);
+
+-- Insert data into the temporary table
+INSERT INTO #tempCustomerAccountBalance (CustomerAccountBalanceId, AccountId, OriginalBalance, CurrentBalance, TotalPayments, UpsertDateTime)
+SELECT 
+    cab.cnsmr_accnt_bal_id AS CustomerAccountBalanceId,
+    cab.cnsmr_accnt_id AS AccountId,
+    cab.cnsmr_accnt_bal_amnt AS OriginalBalance,
+    cab.cnsmr_accnt_bal_amnt AS CurrentBalance,
+    CAST(cabf.TotalPayments AS DECIMAL(18, 2)) AS TotalPayments,
+    cab.upsrt_dttm AS UpsertDateTime,
+	ROW_NUMBER() OVER (
             PARTITION BY CA.cnsmr_accnt_id
             ORDER BY CA.upsrt_dttm DESC
         ) AS rn
-    FROM 
-        dbo.crdtr AS C WITH (NOLOCK)
-        INNER JOIN cdc.dbo_cnsmr_accnt_CT AS CA WITH (NOLOCK) 
-            ON CA.crdtr_id = C.crdtr_id
-    WHERE 
-        CA.upsrt_dttm > @LastRunDateTime
-        AND CA.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-)
+FROM [cdc].[dbo_cnsmr_accnt_bal_CT] cab WITH (NOLOCK), #tempCustomerAccountBalanceFigure as cabf WITH (NOLOCK)
+WHERE 
+	cab.cnsmr_accnt_id = cabf.AccountId
+	AND cab.upsrt_dttm > @LastRunDateTime;
+	AND cab.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
 
--- Select only the latest record per AccountId (rn = 1)
-SELECT
+-- Select from the temporary table
+SELECT 
+    CustomerAccountBalanceId,
     AccountId,
-    CustomerId,
-    CustomerGroupId,
-    CreditorID,
-    CreditorName,
-    CreditorShortName,
-    AccountDescription,
+    OriginalBalance,
+    CurrentBalance,
+    TotalPayments,
     UpsertDateTime
-FROM RankedAccounts
-WHERE rn = 1
-OPTION (RECOMPILE);
+FROM #tempCustomerAccountBalance;
+Where rn = 1
 
--- Reset transaction isolation level to default
+-- Drop the temporary table
+DROP TABLE #tempCustomerAccountBalance;
+DROP TABLE #tempCustomerAccountBalanceFigure;
+
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
