@@ -1,48 +1,34 @@
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+-- Attempt to cast the dynamic pipeline parameter to DATETIME2
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST(
+    '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' 
+    AS DATETIME2
+);
 
--- Validate input parameter
+-- Validate LastRunDateTime parameter
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
-END
+END;
 
--- Create temporary table
-DROP TABLE IF EXISTS #UserAccountData;
-CREATE TABLE #UserAccountData
-(
-    DigitalId BIGINT,
-    CustomerGroupId UNIQUEIDENTIFIER,
-    CustomerId BIGINT,
-    AccountReferenceNumber VARCHAR(100),
-    UpsertDateTime DATETIME2,
-    IsActive BIT,
-    INDEX IX_UserAccountData_UpsertDateTime (UpsertDateTime)
-);
-
--- Insert data into temp table
-INSERT INTO #UserAccountData (
-    DigitalId,
-    CustomerGroupId,
-    CustomerId,
-    AccountReferenceNumber,
-    UpsertDateTime,
-    IsActive
+-- Use CTE to replace temp table and fetch user account data
+WITH UserAccountDataCTE AS (
+    SELECT
+        ua.UserAccountId AS DigitalId,
+        CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
+        ua.CustomerPrimaryId AS CustomerId,
+        ua.AccountReferenceNumber,
+        ua.CreatedAt AS UpsertDateTime,
+        u.Activated AS IsActive
+    FROM dbo.UserAccount ua WITH (NOLOCK)
+    INNER JOIN dbo.[User] u WITH (NOLOCK) 
+        ON u.UserId = ua.UserId
+    WHERE ua.CreatedAt > @LastRunDateTime
 )
-SELECT
-    ua.UserAccountId AS DigitalId,
-    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
-    ua.CustomerPrimaryId AS CustomerId,
-    ua.AccountReferenceNumber,
-    ua.CreatedAt AS UpsertDateTime,
-    u.Activated AS IsActive
-FROM dbo.UserAccount ua WITH (NOLOCK)
-INNER JOIN dbo.[User] u WITH (NOLOCK) ON u.UserId = ua.UserId
-WHERE ua.CreatedAt > @LastRunDateTime
-ORDER BY ua.CreatedAt;  
 
+-- Final result selection
 SELECT 
     DigitalId,
     CustomerGroupId,
@@ -50,8 +36,8 @@ SELECT
     AccountReferenceNumber,
     UpsertDateTime,
     IsActive
-FROM #UserAccountData;
+FROM UserAccountDataCTE
+ORDER BY UpsertDateTime;
 
--- Cleanup
-DROP TABLE IF EXISTS #UserAccountData;
+-- Reset isolation level
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
