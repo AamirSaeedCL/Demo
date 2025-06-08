@@ -6,123 +6,101 @@ DECLARE
     @CDC_OP_INSERT INT = 2,
     @CDC_OP_UPDATE_AFTER INT = 4;
 
-DECLARE 
-    @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2),
-    @PaymentTypeCode INT = 2,
-    @PaymentReversalTypeCode INT = 9,
-    @ExcludedWorkgroupShortNames VARCHAR(50) = 'ZZZ,SDR,ZSB',
-    @WorkgroupIdChangePattern NVARCHAR(50) = 'U:%wrkgrp_id',
-    @CurrentBalanceShortName NVARCHAR(50) = 'CurBal',
-    @HistoryMonthsBack INT = 3,
-    @PaymentTndrd INT = 30;
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 
--- Validate input
 IF @LastRunDateTime IS NULL
 BEGIN
     THROW 50001, 'Invalid LastRunDateTime Value', 1;
-END;
+END
 
--- Workgroups to exclude
-WITH WorkgroupIDs AS (
-    SELECT wrkgrp_id
-    FROM [dbo].[wrkgrp]
-    WHERE wrkgrp_shrt_nm IN (SELECT value FROM STRING_SPLIT(@ExcludedWorkgroupShortNames, ','))
-),
+CREATE TABLE #TempFirstInstalment (
+    schdld_pymnt_smmry_id INT,
+    schdld_pymnt_instnc_amnt DECIMAL(18,2),
+    schdld_pymnt_instnc_dttm DATETIME2,
+    PRIMARY KEY (schdld_pymnt_smmry_id)
+);
 
--- Consumers with recent workgroup change
-RecentWorkgroupChanges AS (
-    SELECT DISTINCT cnsmr_id
-    FROM [dbo].[cnsmr_hst]
-    WHERE upsrt_chng_fld_txt LIKE @WorkgroupIdChangePattern
-      AND adt_dttm >= DATEADD(MONTH, -@HistoryMonthsBack, GETDATE())
-),
-
--- Consumers with payments in last @PaymentTndrd days
-RecentPaymentChanges AS (
-    SELECT DISTINCT cpj.cnsmr_id
-    FROM [dbo].[cnsmr_pymnt_jrnl] cpj
-    WHERE cpj.cnsmr_pymnt_tndrd_dt >= DATEADD(DAY, -@PaymentTndrd, GETDATE())
-),
-
--- Consumers with negative balance
-ConsumersWithZeroBalance AS (
-    SELECT DISTINCT c.cnsmr_id
-    FROM [dbo].[cnsmr] c
-    INNER JOIN [dbo].[cnsmr_accnt_ownrs] cao ON cao.cnsmr_id = c.cnsmr_id
-    INNER JOIN [dbo].[cnsmr_accnt] ca ON ca.cnsmr_accnt_id = cao.cnsmr_accnt_id
-    INNER JOIN [dbo].[cnsmr_accnt_bal] cab ON cab.cnsmr_accnt_id = ca.cnsmr_accnt_id
-    INNER JOIN [dbo].[bal_nm] bn ON bn.bal_nm_id = cab.bal_nm_id
-    WHERE bn.bal_shrt_nm = @CurrentBalanceShortName
-      AND cab.cnsmr_accnt_bal_amnt < 0
-)
-
--- Final result
+INSERT INTO #TempFirstInstalment
 SELECT
-    capj.cnsmr_accnt_pymnt_jrnl_id AS AccountPaymentId,
-    capj.cnsmr_accnt_id            AS AccountId,
-    rbtc.bckt_trnsctn_typ_cd       AS PaymentTypeId,
-    rbtc.bckt_trnsctn_val_txt      AS PaymentTypeText,
-    capj.cnsmr_accnt_pymnt_amnt    AS PaymentAmount,
-    ISNULL(capj.cnsmr_accnt_pymnt_bal_amnt, 0) AS BalanceAmount,
-    capj.cnsmr_accnt_pymnt_cmmnt_txt AS PaymentComment,
-    capj.cnsmr_accnt_pymnt_stts_cd AS PaymentStatusId,
-    rps.pymnt_stts_dscrptn_txt     AS PaymentStatusText,
-    CAST(NULL AS DATETIME2)        AS PaymentStatusDate,
-    capj.cnsmr_accnt_pymnt_pstd_dt AS PostedDate,
-    capj.cnsmr_pymnt_entrd_dt      AS EnteredDate,
-    capj.upsrt_dttm                AS UpsertDateTime
+    schdld_pymnt_smmry_id,
+    schdld_pymnt_instnc_amnt,
+    schdld_pymnt_instnc_dttm
 FROM (
     SELECT 
-        capj.*,
-        c.cnsmr_id,
+        schdld_pymnt_smmry_id,
+        schdld_pymnt_instnc_amnt,
+        schdld_pymnt_instnc_dttm,
         ROW_NUMBER() OVER (
-            PARTITION BY c.cnsmr_id 
-            ORDER BY capj.__$start_lsn DESC, capj.__$seqval DESC
-        ) AS RowNumber
-    FROM [cdc].[dbo_cnsmr_accnt_pymnt_jrnl_CT] capj WITH (NOLOCK)
-    INNER JOIN [crs5_oltp].[dbo].[cnsmr_accnt] ca WITH (NOLOCK) 
-        ON ca.cnsmr_accnt_id = capj.cnsmr_accnt_id
-    INNER JOIN [dbo].[cnsmr] c WITH (NOLOCK) 
-        ON ca.cnsmr_id = c.cnsmr_id
-    INNER JOIN [crs5_oltp].[dbo].[Ref_bckt_trnsctn_typ_cd] rbtc WITH (NOLOCK)
-        ON capj.bckt_trnsctn_typ_cd = rbtc.bckt_trnsctn_typ_cd
-    INNER JOIN [crs5_oltp].[dbo].[Ref_pymnt_stts_cd] rps WITH (NOLOCK)
-        ON capj.cnsmr_accnt_pymnt_stts_cd = rps.pymnt_stts_cd
-    WHERE 
-        capj.upsrt_dttm > @LastRunDateTime
-        AND capj.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-        AND capj.bckt_trnsctn_typ_cd IN (@PaymentTypeCode, @PaymentReversalTypeCode)
-        AND (
-            -- Consumer NOT in excluded workgroups
-            NOT EXISTS (
-                SELECT 1 FROM WorkgroupIDs w 
-                WHERE w.wrkgrp_id = c.wrkgrp_id
-            )
-            OR
-            -- Consumer in excluded workgroup but with recent change
-            (EXISTS (
-                SELECT 1 FROM WorkgroupIDs w 
-                WHERE w.wrkgrp_id = c.wrkgrp_id
-            ) AND EXISTS (
-                SELECT 1 FROM RecentWorkgroupChanges rw 
-                WHERE rw.cnsmr_id = c.cnsmr_id
-            ))
-            OR
-            -- Consumer with recent payment
-            EXISTS (
-                SELECT 1 FROM RecentPaymentChanges rp 
-                WHERE rp.cnsmr_id = c.cnsmr_id
-            )
-            OR
-            -- Consumer with negative balance
-            EXISTS (
-                SELECT 1 FROM ConsumersWithZeroBalance zb 
-                WHERE zb.cnsmr_id = c.cnsmr_id
-            )
-        )
+            PARTITION BY schdld_pymnt_smmry_id 
+            ORDER BY schdld_pymnt_instnc_dttm ASC
+        ) AS rn
+    FROM [cdc].[dbo_schdld_pymnt_instnc_CT] WITH (NOLOCK)
+) AS ranked
+WHERE rn = 1;
+
+CREATE TABLE #TempPaymentPlan (
+    pymnt_frqncy_cd INT,
+    pymnt_frqncy_val_txt NVARCHAR(50),
+    schdld_pymnt_stts_cd INT,
+    schdld_pymnt_stts_val_txt NVARCHAR(50),
+    schdld_pymnt_typ_cd INT,
+    schdld_pymnt_typ_val_txt NVARCHAR(50)
+);
+
+INSERT INTO #TempPaymentPlan
+SELECT DISTINCT
+    f.pymnt_frqncy_cd,
+    f.pymnt_frqncy_val_txt,
+    s.schdld_pymnt_stts_cd,
+    s.schdld_pymnt_stts_val_txt,
+    t.schdld_pymnt_typ_cd,
+    t.schdld_pymnt_typ_val_txt
+FROM dbo.Ref_pymnt_frqncy_cd f WITH (NOLOCK)
+CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
+CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK);
+
+--Select from temp table
+Select * from (
+SELECT
+    summary.schdld_pymnt_smmry_id AS PaymentPlanId,
+    summary.cnsmr_id AS CustomerId,
+    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
+    summary.schdld_pymnt_smmry_ttl_amnt AS PlanAmount,
+    summary.schdld_pymnt_smmry_cmmnt_txt AS PlanComment,
+    summary.schdld_pymnt_smmry_cnt AS InstalmentCount,
+    summary.schdld_pymnt_smmry_dwnpymnt_amnt AS InitialPaymentAmount,
+    summary.schdld_pymnt_smmry_dwnpymnt_dttm AS InitialPaymentDate,
+    summary.schdld_pymnt_smmry_rglr_amnt AS RegularPaymentAmount,
+    fi.schdld_pymnt_instnc_amnt AS FirstInstalmentAmount,
+    fi.schdld_pymnt_instnc_dttm AS FirstInstalmentDate,
+    summary.schdld_pymnt_smmry_lst_amnt AS LastInstalmentAmount,
+    CAST(CASE WHEN settlement.cnsmr_accnt_sttlmnt_id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsSettlement,
+    summary.schdld_pymnt_smmry_frqncy_cd AS PlanFrequencyId,
+    ref.pymnt_frqncy_val_txt AS PlanFrequencyText,
+    summary.schdld_pymnt_smmry_frqncy_cnt AS PlanFrequencyCount,
+    summary.schdld_pymnt_smmry_typ_cd AS PlanTypeId,
+    ref.schdld_pymnt_typ_val_txt AS PlanTypeText,
+    summary.schdld_pymnt_smmry_stts_cd AS PlanStatusId,
+    ref.schdld_pymnt_stts_val_txt AS PlanStatusText,
+    CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
+    summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
+    summary.upsrt_dttm AS UpsertDateTime
+FROM [cdc].[dbo_schdld_pymnt_smmry_CT] summary WITH (NOLOCK)
+LEFT JOIN #TempFirstInstalment fi ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN [cdc].[dbo_cnsmr_accnt_sttlmnt_CT] settlement WITH (NOLOCK) 
+    ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+JOIN #TempPaymentPlan ref ON 
+    ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
+    AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
+    AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+WHERE summary.upsrt_dttm > @LastRunDateTime
+AND summary.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
 ) AS filtered
 WHERE filtered.RowNumber = 1
-ORDER BY filtered.upsrt_dttm;
+OPTION (RECOMPILE);
 
--- Reset isolation level
+-- Cleanup
+DROP TABLE IF EXISTS #TempFirstInstalment;
+DROP TABLE IF EXISTS #TempPaymentPlan;
+
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
