@@ -1,24 +1,3 @@
-SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-
--- Declare and parse the LastRunDateTime parameter from pipeline input
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
-
--- Validate the parsed LastRunDateTime
-IF @LastRunDateTime IS NULL
-BEGIN
-    THROW 50001, 'Invalid LastRunDateTime value from pipeline.', 1;
-END;
-
--- Select data from financial strength model archive newer than LastRunDateTime
-SELECT 
-    DebtorNo, 
-    Run_Date, 
-    Financial_Strength_Metric
-FROM 
-    gold_modeloutputs.financial_strength_model_archive
-WHERE 
-    Run_Date > @LastRunDateTime;
-
--- Reset isolation level to default
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SELECT DebtorNo, Run_Date,DRS_V1_Score
+FROM gold_modeloutputs.financial_strength_model_archive
+WHERE Run_Date > '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}'
