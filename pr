@@ -1,16 +1,4 @@
-IF OBJECT_ID('tempdb..#temp_K_Blaze_Eligibility') IS NOT NULL
-    DROP TABLE #temp_K_Blaze_Eligibility;
-
-CREATE TABLE #temp_K_Blaze_Eligibility (
-    AccountID INT,
-    LegacyId VARCHAR(40),
-    CustomerGroupId UNIQUEIDENTIFIER,
-    LitigationMentioned INT,
-    Reconnect INT,
-    UpsertDateTime DATETIME
-);
-
-INSERT INTO #temp_K_Blaze_Eligibility (AccountID, LegacyId, CustomerGroupId, LitigationMentioned, Reconnect, UpsertDateTime)
+WITH KBlazeEligibilityCTE AS (
     SELECT 
         [AccountID],
         [Debtorno] AS LegacyId,
@@ -18,7 +6,8 @@ INSERT INTO #temp_K_Blaze_Eligibility (AccountID, LegacyId, CustomerGroupId, Lit
         [LitMention] AS LitigationMentioned,
         [Reconnect],
         CAST(GETDATE() AS DATETIME) AS UpsertDateTime
-    FROM [crs5_oltp_replicated].[CCM].[K_Blaze_Eligibility];  
+    FROM [crs5_oltp_replicated].[CCM].[K_Blaze_Eligibility]
+)
 
 SELECT DISTINCT 
     AccountID, 
@@ -28,8 +17,6 @@ SELECT DISTINCT
     MAX(CustomerGroupId) AS CustomerGroupId, 
     MAX(UpsertDateTime) AS UpsertDateTime
 FROM 
-    #temp_K_Blaze_Eligibility
+    KBlazeEligibilityCTE
 GROUP BY 
     AccountID, LegacyId;
-
-DROP TABLE #temp_K_Blaze_Eligibility;
