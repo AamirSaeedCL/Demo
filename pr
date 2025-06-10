@@ -1,2 +1,2 @@
 
-test
+Failure happened on 'Source' side. ErrorCode=RestCallFailedWithServerError,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=Rest call failed with server error, status code 500 InternalServerError, please check your activity settings and remote server issues. Request URL: https://apiuk-dev.cabot-nonprod.com/engpublisher/CustomerTagInitialIngestion. Response: { "statusCode": 500, "message": "Internal server error", "activityId": "00bc4575-77e3-4c93-96e3-25eb135cfbc7" },Source=Microsoft.DataTransfer.ClientLibrary,'
