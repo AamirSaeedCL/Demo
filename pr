@@ -1,5 +1,1 @@
-Hi Team,
 
-I have thoroughly investigated this issue and confirmed that within our Pega Data Mart, we are referencing an external table: SingleCustomerView.dbo.ConsumerGroup. Unfortunately, there is currently no mechanism (e.g., Change Data Capture or audit trail) in place to detect if the CustomerGroupId has changed for any customer.
-
-To address this limitation, I have implemented a workaround solution by creating a new pipeline that runs on an hourly schedule. This pipeline executes a script to detect any changes in CustomerGroupId and apply the necessary updates to our Pega Data Mart database accordingly.
