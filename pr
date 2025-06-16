@@ -27,3 +27,13 @@ JOIN dbo.Customer c
           ON icg.CustomerId = c.CustomerId
 
       COMMIT TRANSACTION;
+
+
+
+
+UPDATE c
+SET c.CustomerGroupId = cg.GroupId
+FROM dbo.Customer c
+INNER JOIN dbo.ConsumerGroup cg
+    ON cg.ConsumerId = c.CustomerId
+WHERE cg.GroupId <> c.CustomerGroupId;
