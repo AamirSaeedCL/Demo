@@ -1,1 +1,29 @@
 
+Select Top 100
+   cg.ConsumerId AS ConsumerId,
+   cg.GroupId  AS ConsumerGroupId,
+   c.CustomerId,
+   c.CustomerGroupId,
+   c.UpsertDateTime
+
+From dbo.ConsumerGroup cg
+JOIN dbo.Customer c
+   ON cg.ConsumerID  = c.CustomerId
+   WHERE cg.GroupID <> c.CustomerGroupId
+
+==============
+
+      BEGIN TRANSACTION;
+      
+      --Please note, we are locking the table for initial ingestion
+      --No other process can access the CustomerPhone table (TABLOCKX)
+      --Rows being read are protected from updates by other transactions (UPDLOCK)
+      --The locks are held until the transaction completes (HOLDLOCK)
+
+      UPDATE c WITH (TABLOCKX, UPDLOCK, HOLDLOCK)
+      SET c.customergroupid = icg.CustomerGroupId
+      FROM dbo.customer c WITH (TABLOCKX, UPDLOCK, HOLDLOCK)
+      INNER JOIN dbo.InitialIngestionCustomerGroup icg WITH (TABLOCK, HOLDLOCK) 
+          ON icg.CustomerId = c.CustomerId
+
+      COMMIT TRANSACTION;
