@@ -1,1 +1,20 @@
-
+Pipeline Name	Refresh-rate	Refresh-Time	Comments
+Customer	Realtime	Trigger/CDC	Triggered based for non DM source
+CustomerPhone	Realtime	CDC	 
+CustomerTag	Realtime	CDC	 
+CustomerAddress	Realtime	CDC	 
+Account	Realtime	CDC	 
+AccountBalance	Realtime	CDC	 
+AccountTag	Realtime	CDC	 
+Payment	Realtime	CDC	 
+PaymentPlan	Realtime	CDC	 
+CustomerAddress	Realtime	CDC	 
+Workgroup	Realtime	CDC	 
+SFS	Realtime	Trigger	 
+SalesforceInteraction	Realtime	Trigger	 
+digital	Realtime	Trigger	 
+ModelledNDI	Daily	Trigger	12:00AM
+Eligibility	Daily	9:00pm	12:00AM
+Score	Daily	After 8am	10:00AM
+Bureau	Monthly 25th	TBC with pete	daterun logic based
+FinancialStrength	Daily	TBC with pete	run_date logic based
