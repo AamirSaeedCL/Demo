@@ -1,5 +1,1 @@
-I have tested this against two to three instances of the customer pipeline, and it appears to be functioning as expected. Below is one of the test cases for your review.
 
-Upon further investigation, the issue seems to occur when the customer pipeline is already running via a trigger or scheduled execution (i.e., in real time), and we manually click "Debug" or "Start" to initiate the pipeline again. This overlapping execution appears to be causing the observed behavior.
-
-In a normal execution scenario—whether the pipeline completes successfully or encounters an error—we are logging the EndDateTime as expected. This issue arises specifically in cases of concurrent manual and automated executions.
