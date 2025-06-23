@@ -1,9 +1,1 @@
-I have investigated the issue and updated the customer data in the crs5_oltp database. After running the customer pipeline, I verified that the data has been successfully updated in the PegaDataMart database. Additionally, the customer JSON file has been correctly generated in Azure Blob Storage—there are no issues observed in this part of the process.
 
-However, it has come to our attention that several pipelines include additional transformation steps (such as updating CustomerGroupID and IsBankHoliday) which are currently applied to the entire table rather than being limited to the CDC (Change Data Capture) rows loaded during the copy step.
-
-This approach can lead to problems, as these transformations cause updates across the entire dataset—even when only a few rows have actually changed—resulting in unintended updates and inefficient processing.
-
-We had a discussion regarding this with the tester (Shivanshu), Eknath, and India. Eknath has already sent a follow-up email. Ideally, our approach should be revised so that updates like CustomerGroupID are applied only to rows where changes have occurred, rather than to the full table.
-
-India will be raising a ticket to track this improvement, and I will take ownership of it once it’s created.
