@@ -1,1 +1,4 @@
 
+However, many of the pipelines include additional steps (e.g., updating CustomerGroupID, updating IsBankHoliday) that are being applied to the entire table dataset rather than just the CDC changes, that are loaded in copy step.
+
+This is going to cause an issue because these additional steps trigger updates across the entire table, not just the CDC changes. As a result, even if only a few rows are updated, we end up processing unintended changes.
