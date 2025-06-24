@@ -1,2 +1,1 @@
-
-They are realtime but in Azure there is no realtime terms (There is always a delay of 5 mins) :)
+While they are considered real-time, it's important to note that Azure does not support true real-time processing in this context—there is typically a delay of approximately five minutes.
