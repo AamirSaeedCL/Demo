@@ -1,1 +1,10 @@
 
+I had a call with Pradeep, and we manually copied the JSON and metadata files to the Azure Storage Blob in order to replicate the scenario. We then executed the DirectMail pipeline, and everything appears to be working as expected. The files were successfully moved to the "Completed" subfolder, and no issues were logged in the monitoring tables or elsewhere.
+
+Pradeep is satisfied with the outcome.
+
+Additionally, I’d like to note that the DirectMailFulfilment pipeline is scheduled to run daily at 7:00 AM to process incoming files, and this schedule is managed via a trigger.
+
+However, during my review, I observed that the triggers related to the fulfilment pipelines were not following our standard naming conventions. I have taken the initiative to update and rename these triggers to align with our established naming guidelines.
+
+Please let me know if any further actions are required.
