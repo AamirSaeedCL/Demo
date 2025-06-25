@@ -1,1 +1,4 @@
 
+WH is our production server so we are only using it for Staging & Production evn.  
+
+Ideally we should use it only for production env but we don't have staging available for WH. 
