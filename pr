@@ -1,4 +1,3 @@
+WH is our production server, and as such, it is currently being utilized for both the Staging and Production environments.
 
-WH is our production server so we are only using it for Staging & Production evn.  
-
-Ideally we should use it only for production env but we don't have staging available for WH. 
+Ideally, this server should be dedicated exclusively to the Production environment; however, due to the unavailability of a separate Staging environment for WH, we are temporarily using it for both purposes.
