@@ -1,9 +1,1 @@
-These are **event-based triggers** tied to data storage changes.
 
-| **Trigger Name**                               | **Refresh Rate** | **Description**                                     | **Trigger Type**   |
-|------------------------------------------------|------------------|-----------------------------------------------------|--------------------|
-| Pipeline_Scheduler_Daily_FulfilmentLetter      | Daily            | Storage trigger running daily at 07:00 AM           | Storage events     |
-| Pipeline_Scheduler_Realtime_FulfilmentDialer   | Realtime         | Storage trigger running every 5 minutes             | Storage events     |
-| Pipeline_Scheduler_Realtime_FulfilmentEmail    | Realtime         | Storage trigger running every 5 minutes             | Storage events     |
-| Pipeline_Scheduler_Realtime_FulfilmentSMS      | Realtime         | Storage trigger running every 5 minutes             | Storage events     |
-| Pipeline_Scheduler_Realtime_InteractionHistory | Realtime         | Storage trigger running every 5 minutes             | Storage events     |
