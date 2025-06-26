@@ -1,1 +1,16 @@
 
+I have reviewed both pipelines—WritebackInteractionHistory and WritebackDialerFulfillment—in both the Development and Test environments. Upon thorough validation, I found that both pipelines are functioning as expected, with no issues observed in their execution.
+
+However, upon reviewing the bug report and examining the error logs in the DataFactoryPipelineLog table for the specified date and time related to these pipelines, I discovered that the associated JSON files were missing the mandatory accountId field. This omission likely caused the reported issue.
+
+Please ensure that the JSON files adhere to the correct schema format and include all required fields, especially accountId.
+
+For your reference, I have attached:
+
+Screenshots of the pipeline runs
+
+The JSON files I used during testing
+
+The JSON files submitted by the tester while raising the bug
+
+Thank you
