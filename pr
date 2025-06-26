@@ -1,1 +1,1 @@
-Initial Ingestion has own separate folder for Script & SPs etc. I don't want to mix them as Icnremental ones will have continve changes etc.
+The initial ingestion has its own dedicated folder for scripts, stored procedures, and related components. I prefer to keep these separate, as the incremental processes will undergo continuous changes and updates over time.
