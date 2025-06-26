@@ -1,1 +1,4 @@
 
+CREATE DATABASE permission denied in database 'master'.
+(54,0): SQL72045: Script execution error.  The executed script:
+CREATE DATABASE [$(DatabaseName)]
