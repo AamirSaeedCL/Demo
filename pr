@@ -1,8 +1,1 @@
-UPDATE  [CustomerAddress]
-	SET CustomerAddressId = NEWID()
-	Where CustomerId IN ('5293537',
-'5293538',
-'5293539')
-
-Msg 206, Level 16, State 2, Line 29
-Operand type clash: uniqueidentifier is incompatible with bigint
+"Please note that I have removed the batch logic from the update query. Since filtering by lastUpdatedDateTime results in only a small number of rows, batch processing is no longer necessary and has therefore been omitted
