@@ -1,4 +1,8 @@
+UPDATE  [CustomerAddress]
+	SET CustomerAddressId = NEWID()
+	Where CustomerId IN ('5293537',
+'5293538',
+'5293539')
 
-CREATE DATABASE permission denied in database 'master'.
-(54,0): SQL72045: Script execution error.  The executed script:
-CREATE DATABASE [$(DatabaseName)]
+Msg 206, Level 16, State 2, Line 29
+Operand type clash: uniqueidentifier is incompatible with bigint
