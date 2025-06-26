@@ -1,1 +1,1 @@
-"Please note that I have removed the batch logic from the update query. Since filtering by lastUpdatedDateTime results in only a small number of rows, batch processing is no longer necessary and has therefore been omitted
+Initial Ingestion has own separate folder for Script & SPs etc. I don't want to mix them as Icnremental ones will have continve changes etc.
