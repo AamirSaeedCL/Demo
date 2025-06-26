@@ -1,1 +1,1 @@
-The initial ingestion has its own dedicated folder for scripts, stored procedures, and related components. I prefer to keep these separate, as the incremental processes will undergo continuous changes and updates over time.
+
