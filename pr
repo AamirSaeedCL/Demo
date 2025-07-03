@@ -13,3 +13,6 @@
 		"integrationRuntimeQueue": 1
 	}
 }
+
+
+@join(activity('LookupCustomerIds').output.value,',')
