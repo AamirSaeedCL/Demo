@@ -1,18 +1,1 @@
-{
-	"count": 2,
-	"value": [
-		{
-			"CustomerId": 1593028
-		},
-		{
-			"CustomerId": 1648563
-		}
-	],
-	"effectiveIntegrationRuntime": "VNetRuntime01 (UK South)",
-	"durationInQueue": {
-		"integrationRuntimeQueue": 1
-	}
-}
-
-
-@join(activity('LookupCustomerIds').output.value,',')
+arrayContains(split('1593028,16485563', ','), toString(CustomerId))
