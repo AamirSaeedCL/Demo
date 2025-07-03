@@ -1,1 +1,5 @@
-
+SELECT distinct [CustomerId]
+     
+  FROM [dbo].[Customer]
+  Where legacyId in (Select legacyId from dbo.Eligibility)
+  Order by CustomerId
