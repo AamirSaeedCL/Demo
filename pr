@@ -1,1 +1,1 @@
-arrayContains(split('1593028,16485563', ','), toString(CustomerId))
+indexOf(split('1593028,16485563', ','), toString(CustomerId)) != -1
