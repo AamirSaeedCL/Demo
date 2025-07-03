@@ -1,4 +1,1 @@
-SELECT DISTINCT c.[CustomerId]
-FROM [dbo].[Customer] c
-JOIN [dbo].[Eligibility] e ON c.[LegacyId] = e.[LegacyId]
-ORDER BY c.[CustomerId];
+
