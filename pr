@@ -1,14 +1,15 @@
 {
-	"name": "abc",
+	"count": 2,
 	"value": [
 		{
 			"CustomerId": 1593028
 		},
 		{
 			"CustomerId": 1648563
-		},
-		{
-			"CustomerId": 1661216
 		}
-	]
+	],
+	"effectiveIntegrationRuntime": "VNetRuntime01 (UK South)",
+	"durationInQueue": {
+		"integrationRuntimeQueue": 1
+	}
 }
