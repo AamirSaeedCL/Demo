@@ -1,1 +1,3 @@
-indexOf(split('1593028,16485563', ','), toString(CustomerId)) != -1
+!isNull(find(split($pfilterCustomerIds, ','), toString(CustomerId)))
+
+instr(',' + $pfilterCustomerIds + ',', ',' + toString(CustomerId) + ',') > 0
