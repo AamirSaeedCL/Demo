@@ -1,4 +1,1 @@
-@isCustomerIdInFilter($filteredCustomerIds as string, CustomerId as string) => 
-    isNull($filteredCustomerIds) || 
-    $filteredCustomerIds == '' || 
-    instr(',' + $filteredCustomerIds + ',', ',' + toString(CustomerId) + ',') > 0
+DataFlowCoreLib is a shared library for reusable expressions and functions in Azure Data Factory (ADF) and Synapse Data Flows. It centralizes common logic to promote consistency, reduce duplication, and simplify maintenance across data pipelines.
