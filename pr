@@ -1,5 +1,5 @@
-I’ve successfully implemented the dynamic filtering and was able to generate the JSON file based on the provided filter IDs. However, I’ve encountered an issue.
+Msg 9829, Level 16, State 1, Line 7
+STRING_AGG aggregation result exceeded the limit of 8000 bytes. Use LOB types to avoid result truncation.
 
-When there is no data in the underlying table for a specific ID (e.g., no score data for a given customer), the corresponding object is omitted from the JSON output — meaning the score: {} object is not present at all.
-
-Could you please confirm if this is the expected behavior, or should we include an empty score object in such cases to maintain the structure?
+SELECT DISTINCT STRING_AGG(c.[CustomerId],',') as CustomerId
+FROM [dbo].[Customer] c
