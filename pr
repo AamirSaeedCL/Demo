@@ -1,1 +1,1 @@
-DataFlowCoreLib is a shared library for reusable expressions and functions in Azure Data Factory (ADF) and Synapse Data Flows. It centralizes common logic to promote consistency, reduce duplication, and simplify maintenance across data pipelines.
+Guys, managed to pass the filter on fly and got the json file based on filter Ids. However, there is an issue. In case we don't have data in table for that particular Id, the object is generated i-e here we don't have score data for this customer Id so there is no score:{}  object. Is this right or do we need empty object?
