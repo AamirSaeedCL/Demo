@@ -1,2 +1,4 @@
-
-isNull($filteredCustomerIds) ||  $filteredCustomerIds == '' || instr(',' + $filteredCustomerIds + ',', ',' + toString(CustomerId) + ',') > 0
+@isCustomerIdInFilter($filteredCustomerIds as string, CustomerId as string) => 
+    isNull($filteredCustomerIds) || 
+    $filteredCustomerIds == '' || 
+    instr(',' + $filteredCustomerIds + ',', ',' + toString(CustomerId) + ',') > 0
