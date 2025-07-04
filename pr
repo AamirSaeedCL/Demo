@@ -1,1 +1,2 @@
 
+isNull($filteredCustomerIds) ||  $filteredCustomerIds == '' || instr(',' + $filteredCustomerIds + ',', ',' + toString(CustomerId) + ',') > 0
