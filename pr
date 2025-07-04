@@ -1,1 +1,5 @@
-Guys, managed to pass the filter on fly and got the json file based on filter Ids. However, there is an issue. In case we don't have data in table for that particular Id, the object is generated i-e here we don't have score data for this customer Id so there is no score:{}  object. Is this right or do we need empty object?
+I’ve successfully implemented the dynamic filtering and was able to generate the JSON file based on the provided filter IDs. However, I’ve encountered an issue.
+
+When there is no data in the underlying table for a specific ID (e.g., no score data for a given customer), the corresponding object is omitted from the JSON output — meaning the score: {} object is not present at all.
+
+Could you please confirm if this is the expected behavior, or should we include an empty score object in such cases to maintain the structure?
