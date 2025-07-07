@@ -1,5 +1,2 @@
-Msg 9829, Level 16, State 1, Line 7
-STRING_AGG aggregation result exceeded the limit of 8000 bytes. Use LOB types to avoid result truncation.
-
-SELECT DISTINCT STRING_AGG(c.[CustomerId],',') as CustomerId
-FROM [dbo].[Customer] c
+as I discussed with India this morning, it should be scheduled at 6:00AM (Not at 7:00AM or 6:15AM etc).
+Therefore, as I mentioned earlier, trigger is updated to scheduled at 6:00AM. Thank you.
