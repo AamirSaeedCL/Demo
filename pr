@@ -1,1 +1,3 @@
-FilterCustomerId(toString(CustomerId),$CustomerIds)
+isNull(i2) || 
+    i2 == "" || 
+    instr(',' + i2 + ',', ',' + toString(i1) + ',') > 0
