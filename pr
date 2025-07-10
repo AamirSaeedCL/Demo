@@ -1,134 +1,87 @@
-
-CREATE PROCEDURE [dbo].[usp_DisableChangeTracking_AllTables]
+CREATE PROCEDURE [dbo].[ChangeTrackingStatusAllTables]
+    @Enable BIT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Account]'))
-        ALTER TABLE [dbo].[Account] DISABLE CHANGE_TRACKING;
+    DECLARE @Schema NVARCHAR(128) = 'dbo';
+    DECLARE @TableName NVARCHAR(128);
+    DECLARE @SQL NVARCHAR(MAX);
+    DECLARE @Index INT = 1;
+    DECLARE @TableCount INT;
 
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[AccountTag]'))
-        ALTER TABLE [dbo].[AccountTag] DISABLE CHANGE_TRACKING;
+    -- List of tables
+    DECLARE @Tables TABLE (ID INT IDENTITY(1,1), TableName NVARCHAR(128));
+    INSERT INTO @Tables (TableName)
+    VALUES 
+        ('Account'),
+        ('AccountTag'),
+        ('Bureau'),
+        ('Customer'),
+        ('CustomerAddress'),
+        ('CustomerPhone'),
+        ('CustomerTag'),
+        ('Digital'),
+        ('Eligibility'),
+        ('FinancialStrength'),
+        ('Interaction'),
+        ('ModelledNdi'),
+        ('PaymentPlan'),
+        ('SalesForceInteraction'),
+        ('Score'),
+        ('Sfs'),
+        ('WorkGroup');
 
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Bureau]'))
-        ALTER TABLE [dbo].[Bureau] DISABLE CHANGE_TRACKING;
+    SET @TableCount = (SELECT COUNT(*) FROM @Tables);
 
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Customer]'))
-        ALTER TABLE [dbo].[Customer] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[CustomerAddress]'))
-        ALTER TABLE [dbo].[CustomerAddress] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[CustomerPhone]'))
-        ALTER TABLE [dbo].[CustomerPhone] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[CustomerTag]'))
-        ALTER TABLE [dbo].[CustomerTag] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Digital]'))
-        ALTER TABLE [dbo].[Digital] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Eligibility]'))
-        ALTER TABLE [dbo].[Eligibility] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[FinancialStrength]'))
-        ALTER TABLE [dbo].[FinancialStrength] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Interaction]'))
-        ALTER TABLE [dbo].[Interaction] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[ModelledNdi]'))
-        ALTER TABLE [dbo].[ModelledNdi] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[PaymentPlan]'))
-        ALTER TABLE [dbo].[PaymentPlan] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[SalesForceInteraction]'))
-        ALTER TABLE [dbo].[SalesForceInteraction] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Score]'))
-        ALTER TABLE [dbo].[Score] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Sfs]'))
-        ALTER TABLE [dbo].[Sfs] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[WorkGroup]'))
-        ALTER TABLE [dbo].[WorkGroup] DISABLE CHANGE_TRACKING;
-
-    IF EXISTS (
-        SELECT 1 FROM sys.change_tracking_databases
-        WHERE database_id = DB_ID()
-    )
+    -- If disabling, process table-level first, then disable DB-level
+    IF @Enable = 0
     BEGIN
-        ALTER DATABASE CURRENT SET CHANGE_TRACKING = OFF;
+        WHILE @Index <= @TableCount
+        BEGIN
+            SELECT @TableName = TableName FROM @Tables WHERE ID = @Index;
+
+            IF EXISTS (
+                SELECT 1 FROM sys.change_tracking_tables 
+                WHERE object_id = OBJECT_ID(QUOTENAME(@Schema) + '.' + QUOTENAME(@TableName))
+            )
+            BEGIN
+                SET @SQL = 'ALTER TABLE [' + @Schema + '].[' + @TableName + '] DISABLE CHANGE_TRACKING';
+                EXEC (@SQL);
+            END
+
+            SET @Index += 1;
+        END
+
+        -- Disable database-level change tracking if it's enabled
+        IF EXISTS (SELECT 1 FROM sys.change_tracking_databases WHERE database_id = DB_ID())
+        BEGIN
+            ALTER DATABASE CURRENT SET CHANGE_TRACKING = OFF;
+        END
     END
-END
-GO
-
-
-=======================================
-CREATE PROCEDURE [dbo].[usp_EnableChangeTracking_AllTables]
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM sys.change_tracking_databases
-        WHERE database_id = DB_ID()
-    )
+    ELSE -- Enable
     BEGIN
-        ALTER DATABASE CURRENT SET CHANGE_TRACKING = ON;
+        -- Enable database-level change tracking if not already enabled
+        IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_databases WHERE database_id = DB_ID())
+        BEGIN
+            ALTER DATABASE CURRENT SET CHANGE_TRACKING = ON;
+        END
+
+        WHILE @Index <= @TableCount
+        BEGIN
+            SELECT @TableName = TableName FROM @Tables WHERE ID = @Index;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM sys.change_tracking_tables 
+                WHERE object_id = OBJECT_ID(QUOTENAME(@Schema) + '.' + QUOTENAME(@TableName))
+            )
+            BEGIN
+                SET @SQL = 'ALTER TABLE [' + @Schema + '].[' + @TableName + '] ENABLE CHANGE_TRACKING';
+                EXEC (@SQL);
+            END
+
+            SET @Index += 1;
+        END
     END
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Account]'))
-        ALTER TABLE [dbo].[Account] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[AccountTag]'))
-        ALTER TABLE [dbo].[AccountTag] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Bureau]'))
-        ALTER TABLE [dbo].[Bureau] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Customer]'))
-        ALTER TABLE [dbo].[Customer] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[CustomerAddress]'))
-        ALTER TABLE [dbo].[CustomerAddress] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[CustomerPhone]'))
-        ALTER TABLE [dbo].[CustomerPhone] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[CustomerTag]'))
-        ALTER TABLE [dbo].[CustomerTag] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Digital]'))
-        ALTER TABLE [dbo].[Digital] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Eligibility]'))
-        ALTER TABLE [dbo].[Eligibility] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[FinancialStrength]'))
-        ALTER TABLE [dbo].[FinancialStrength] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Interaction]'))
-        ALTER TABLE [dbo].[Interaction] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[ModelledNdi]'))
-        ALTER TABLE [dbo].[ModelledNdi] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[PaymentPlan]'))
-        ALTER TABLE [dbo].[PaymentPlan] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[SalesForceInteraction]'))
-        ALTER TABLE [dbo].[SalesForceInteraction] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Score]'))
-        ALTER TABLE [dbo].[Score] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[Sfs]'))
-        ALTER TABLE [dbo].[Sfs] ENABLE CHANGE_TRACKING;
-
-    IF NOT EXISTS (SELECT 1 FROM sys.change_tracking_tables WHERE object_id = OBJECT_ID('[dbo].[WorkGroup]'))
-        ALTER TABLE [dbo].[WorkGroup] ENABLE CHANGE_TRACKING;
 END
 GO
