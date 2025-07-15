@@ -1,1 +1,5 @@
+ALTER TABLE [dbo].[CustomerTag] DROP CONSTRAINT [PK_CustomerTag_CustomerTagId];
+ALTER TABLE [dbo].[CustomerTag] DROP CONSTRAINT [DF_CustomerTag_TagActive];
+ALTER TABLE [dbo].[CustomerTag] DROP CONSTRAINT [DF_CustomerTag_UpsertDateTime];
 
+ALTER INDEX ALL ON [dbo].[CustomerTag] DISABLE;
