@@ -1,4 +1,13 @@
+DROP TYPE IF EXISTS ConstraintListType;
+GO
 
+CREATE TYPE ConstraintListType AS TABLE
+(
+    ConstraintName SYSNAME,
+    ConstraintType VARCHAR(20),       -- 'PK' or 'DF'
+    ColumnName SYSNAME NULL,          -- Needed for default constraints
+    DefaultValue NVARCHAR(MAX) NULL   -- Needed for DF add
+);
 ==========================
 
 
