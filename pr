@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[usp_ManageConstraintsAndIndexes]
+CREATE OR ALTER PROCEDURE [dbo].[usp_ManageConstraintsAndIndexes]
     @SchemaName SYSNAME,
     @TableName SYSNAME,
     @Constraints ConstraintListTableType READONLY,
@@ -13,10 +13,10 @@ BEGIN
         @ConstraintType VARCHAR(20),
         @ColumnName SYSNAME,
         @DefaultValue NVARCHAR(MAX),
-        @Id INT = 0,
-        @Total INT = (SELECT COUNT(*) FROM @Constraints);
+        @RowNum INT = 0,
+        @TotalRows INT = (SELECT COUNT(*) FROM @Constraints);
 
-    WHILE @Id < @Total
+    WHILE @RowNum < @TotalRows
     BEGIN
         SELECT 
             @ConstraintName = ConstraintName,
@@ -25,7 +25,7 @@ BEGIN
             @DefaultValue = DefaultValue
         FROM @Constraints
         ORDER BY (SELECT NULL)
-        OFFSET @Id ROWS FETCH NEXT 1 ROWS ONLY;
+        OFFSET @RowNum ROWS FETCH NEXT 1 ROW ONLY;
 
         IF @Status = 'Drop'
         BEGIN
@@ -67,25 +67,49 @@ BEGIN
         BEGIN
             IF @ConstraintType = 'DF' AND @ColumnName IS NOT NULL AND @DefaultValue IS NOT NULL
             BEGIN
-                SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] ADD CONSTRAINT [' + @ConstraintName + '] DEFAULT ' + @DefaultValue + ' FOR [' + @ColumnName + ']';
-                EXEC sp_executesql @SQL;
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.default_constraints dc
+                    JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+                    JOIN sys.tables t ON c.object_id = t.object_id
+                    JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    WHERE dc.name = @ConstraintName
+                      AND t.name = @TableName
+                      AND s.name = @SchemaName
+                )
+                BEGIN
+                    SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] ADD CONSTRAINT [' + @ConstraintName + '] DEFAULT ' + @DefaultValue + ' FOR [' + @ColumnName + ']';
+                    EXEC sp_executesql @SQL;
+                END
             END
-            IF @ConstraintType = 'PK' 
+            ELSE IF @ConstraintType = 'PK' AND @ColumnName IS NOT NULL
             BEGIN
-                SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] ADD CONSTRAINT [' + @ConstraintName + '] PRIMARY KEY ([' + @ColumnName + '])';
-                EXEC sp_executesql @SQL;
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM sys.key_constraints kc
+                    JOIN sys.tables t ON kc.parent_object_id = t.object_id
+                    JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    WHERE kc.name = @ConstraintName
+                      AND t.name = @TableName
+                      AND s.name = @SchemaName
+                )
+                BEGIN
+                    SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] ADD CONSTRAINT [' + @ConstraintName + '] PRIMARY KEY ([' + @ColumnName + '])';
+                    EXEC sp_executesql @SQL;
+                END
             END
         END
-        
-        SET @Id += 1;
+
+        SET @RowNum += 1;
     END
 
-    -- Disable all non-PK indexes if dropping
-    DECLARE @DisableSQL NVARCHAR(MAX) = '';
+    -- Manage indexes
+    DECLARE @IndexSQL NVARCHAR(MAX) = '';
+
     IF @Status = 'Drop'
     BEGIN
-        SELECT @DisableSQL += 
-            'ALTER INDEX [' + i.name + '] ON [' + @SchemaName + '].[' + @TableName + '] DISABLE;'
+        SELECT @IndexSQL = STRING_AGG(
+            'ALTER INDEX [' + i.name + '] ON [' + @SchemaName + '].[' + @TableName + '] DISABLE', '; ')
         FROM sys.indexes i
         JOIN sys.tables t ON i.object_id = t.object_id
         JOIN sys.schemas s ON t.schema_id = s.schema_id
@@ -97,10 +121,9 @@ BEGIN
     END
     ELSE IF @Status = 'Add'
     BEGIN
-        SELECT @DisableSQL += 
-            'ALTER INDEX ALL ON [' + @SchemaName + '].[' + @TableName + '] REBUILD;'
+        SET @IndexSQL = 'ALTER INDEX ALL ON [' + @SchemaName + '].[' + @TableName + '] REBUILD;';
     END
-    
-    IF LEN(@DisableSQL) > 0
-       EXEC sp_executesql @DisableSQL;
+
+    IF LEN(@IndexSQL) > 0
+        EXEC sp_executesql @IndexSQL;
 END
