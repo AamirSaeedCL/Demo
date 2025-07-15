@@ -1,5 +1,138 @@
-ALTER TABLE [dbo].[CustomerTag] DROP CONSTRAINT [PK_CustomerTag_CustomerTagId];
-ALTER TABLE [dbo].[CustomerTag] DROP CONSTRAINT [DF_CustomerTag_TagActive];
-ALTER TABLE [dbo].[CustomerTag] DROP CONSTRAINT [DF_CustomerTag_UpsertDateTime];
+CREATE OR ALTER PROCEDURE usp_ManageConstraintsAndIndexes
+    @SchemaName SYSNAME,
+    @TableName SYSNAME,
+    @Constraints ConstraintListType READONLY,
+    @Status VARCHAR(10) -- 'Drop' or 'Add'
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-ALTER INDEX ALL ON [dbo].[CustomerTag] DISABLE;
+    DECLARE @SQL NVARCHAR(MAX);
+    DECLARE @ConstraintName SYSNAME, @ConstraintType VARCHAR(20), @ColumnName SYSNAME, @DefaultValue NVARCHAR(MAX);
+
+    DECLARE @Id INT = 1;
+    DECLARE @MaxId INT = (SELECT COUNT(*) FROM @Constraints);
+
+    ;WITH OrderedConstraints AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS RowNum,
+               ConstraintName, ConstraintType, ColumnName, DefaultValue
+        FROM @Constraints
+    )
+    WHILE @Id <= @MaxId
+    BEGIN
+        SELECT @ConstraintName = ConstraintName,
+               @ConstraintType = ConstraintType,
+               @ColumnName = ColumnName,
+               @DefaultValue = DefaultValue
+        FROM OrderedConstraints
+        WHERE RowNum = @Id;
+
+        IF @Status = 'Drop'
+        BEGIN
+            IF @ConstraintType = 'PK'
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.key_constraints kc
+                    JOIN sys.tables t ON kc.parent_object_id = t.object_id
+                    JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    WHERE kc.name = @ConstraintName
+                      AND t.name = @TableName
+                      AND s.name = @SchemaName
+                )
+                BEGIN
+                    SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] DROP CONSTRAINT [' + @ConstraintName + ']';
+                    EXEC sp_executesql @SQL;
+                END
+            END
+            ELSE IF @ConstraintType = 'DF'
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.default_constraints dc
+                    JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+                    JOIN sys.tables t ON c.object_id = t.object_id
+                    JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    WHERE dc.name = @ConstraintName
+                      AND t.name = @TableName
+                      AND s.name = @SchemaName
+                )
+                BEGIN
+                    SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] DROP CONSTRAINT [' + @ConstraintName + ']';
+                    EXEC sp_executesql @SQL;
+                END
+            END
+        END
+        ELSE IF @Status = 'Add'
+        BEGIN
+            IF @ConstraintType = 'DF' AND @ColumnName IS NOT NULL AND @DefaultValue IS NOT NULL
+            BEGIN
+                -- Add default constraint
+                SET @SQL = N'ALTER TABLE [' + @SchemaName + '].[' + @TableName + '] ADD CONSTRAINT [' + @ConstraintName + '] DEFAULT ' + @DefaultValue + ' FOR [' + @ColumnName + ']';
+                EXEC sp_executesql @SQL;
+            END
+            -- You can add logic here to recreate PKs or other constraint types as needed.
+        END
+
+        SET @Id += 1;
+    END
+
+    -- Disable indexes only on Drop
+    IF @Status = 'Drop'
+    BEGIN
+        DECLARE @DisableSQL NVARCHAR(MAX) = '';
+
+        SELECT @DisableSQL += 
+            'ALTER INDEX [' + i.name + '] ON [' + @SchemaName + '].[' + @TableName + '] DISABLE;'
+        FROM sys.indexes i
+        JOIN sys.tables t ON i.object_id = t.object_id
+        JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE t.name = @TableName
+          AND s.name = @SchemaName
+          AND i.type_desc <> 'HEAP'
+          AND i.is_primary_key = 0
+          AND i.name IS NOT NULL;
+
+        IF LEN(@DisableSQL) > 0
+            EXEC sp_executesql @DisableSQL;
+    END
+END
+
+
+
+==========================
+
+
+Drop constraints:
+ 
+DECLARE @Constraints ConstraintListType;
+
+INSERT INTO @Constraints (ConstraintName, ConstraintType)
+VALUES 
+    ('PK_CustomerTag_CustomerTagId', 'PK'),
+    ('DF_CustomerTag_TagActive', 'DF'),
+    ('DF_CustomerTag_UpsertDateTime', 'DF');
+
+EXEC usp_ManageConstraintsAndIndexes 
+    @SchemaName = 'dbo', 
+    @TableName = 'CustomerTag',
+    @Constraints = @Constraints,
+    @Status = 'Drop';
+
+
+==========================
+
+Add:
+
+DECLARE @Constraints ConstraintListType;
+
+INSERT INTO @Constraints (ConstraintName, ConstraintType, ColumnName, DefaultValue)
+VALUES 
+    ('DF_CustomerTag_TagActive', 'DF', 'TagActive', '((1))'),
+    ('DF_CustomerTag_UpsertDateTime', 'DF', 'UpsertDateTime', '(GETDATE())');
+
+EXEC usp_ManageConstraintsAndIndexes 
+    @SchemaName = 'dbo', 
+    @TableName = 'CustomerTag',
+    @Constraints = @Constraints,
+    @Status = 'Add';
