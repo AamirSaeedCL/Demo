@@ -1,3 +1,5 @@
+usp_Customer_Ingestion_CustomerOwnership
+
 UPDATE [C]
     SET 
         [C].[Ownership] = [CO].[Ownership],
