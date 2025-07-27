@@ -1,10 +1,1 @@
-WITH RankedData AS (
-  SELECT 
-    DebtorNo, Run_Date, DRS_V1_Score,
-    ROW_NUMBER() OVER (PARTITION BY DebtorNo ORDER BY Run_Date DESC) AS rn
-  FROM gold_modeloutputs.financial_strength_model_archive
-  WHERE Run_Date > '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}'
-)
-SELECT DebtorNo, Run_Date, DRS_V1_Score
-FROM RankedData
-WHERE rn = 1
+
