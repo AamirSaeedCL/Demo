@@ -1,1 +1,8 @@
 
+Failure happened on 'Sink' side. ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed. Please search error to get more details.,Source=Microsoft.DataTransfer.ClientLibrary,''Type=System.Data.SqlClient.SqlException,Message=Violation of PRIMARY KEY constraint 'PK_Score'. Cannot insert duplicate key in object 'stg.Score'. The duplicate key value is (1028370).
+The statement has been terminated.,Source=.Net SqlClient Data Provider,SqlErrorNumber=2627,Class=14,ErrorCode=-2146232060,State=1,Errors=[{Class=14,Number=2627,State=1,Message=Violation of PRIMARY KEY constraint 'PK_Score'. Cannot insert duplicate key in object 'stg.Score'. The duplicate key value is (1028370).,},{Class=0,Number=3621,State=0,Message=The statement has been terminated.,},],'
+
+
+SELECT DISTINCT DebtorNo, Run_Date,DRS_V1_Score
+FROM gold_modeloutputs.financial_strength_model_archive
+WHERE Run_Date > '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}'
