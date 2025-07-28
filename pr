@@ -1,8 +1,1 @@
 
-DECLARE LastRunDateTime DATETIME2 = TRY_CAST('2025-07-01' AS DATETIME2);
-
-SELECT DISTINCT STRING_AGG(c.[CustomerId],',') as CustomerId
-FROM [dbo].[Customer] c
-JOIN [dbo].[Score] s ON c.[LegacyId] = s.[LegacyId]
-WHERE 
-        s.UpsertDateTime> LastRunDateTime
