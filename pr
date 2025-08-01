@@ -1,11 +1,13 @@
-SELECT TOP (1000) [Id]
-      ,[Object_Name]
-      ,[Schema_Text]
-  FROM [dbo].[FileSchemaMetaData]
+SET IDENTITY_INSERT [dbo].[FileSchemaMetaData] ON
+GO
 
-
-  Id	Object_Name		Schema_Text
-  1		Fulfilment.json	[
+MERGE INTO [dbo].[FileSchemaMetaData] AS [Target]
+USING (
+    VALUES
+    (
+        1,
+        'Fulfilment.json',
+        '[
     {"name":"customerGroupID","type":"String"},
     {"name":"accountID","type":"String"},
     {"name":"InteractionID","type":"String"},
@@ -15,115 +17,21 @@ SELECT TOP (1000) [Id]
     {"name":"commsName","type":"String"},
     {"name":"customerID","type":"String"},
     {"name":"legacyID","type":"String"}
-  ]
-
-
-
-
-SET IDENTITY_INSERT [dbo].[DataFactoryPipeline] ON
-GO
-
-MERGE INTO [dbo].[DataFactoryPipeline] AS [Target]
-USING (
-VALUES
-    ( 1, 'Ingestion_Account_Pipeline_V1_Master', 0, 'DM', 'Account', '1.0')
-,   ( 2, 'Ingestion_AccountBalance_Pipeline_V1_Master', 0, 'DM', 'AccountBalance', '1.0')
-,   ( 3, 'Ingestion_AccountTag_Pipeline_V1_Master', 0, 'DM', 'AccountTag', '1.0')
-,   ( 4, 'Ingestion_CustomerAccount_Pipeline_V1_Master', 0, 'DM', 'CustomerAccount', '1.0')
-,   ( 5, 'Ingestion_Customer_Pipeline_V1_Master', 0, 'DM', 'Customer', '1.0')
-,   ( 6, 'Ingestion_CustomerAddress_Pipeline_V1_Master', 0, 'DM', 'CustomerAddress', '1.0')
-,   ( 7, 'Ingestion_CustomerPhone_Pipeline_V1_Master', 0, 'DM', 'CustomerPhone', '1.0')
-,   ( 8, 'Ingestion_CustomerTag_Pipeline_V1_Master', 0, 'DM', 'CustomerTag', '1.0')
-,   ( 9, 'Ingestion_CustomerWorkGroup_Pipeline_V1_Master', 0, 'DM', 'CustomerWorkGroup', '1.0')
-,   ( 10, 'Ingestion_Payment_Pipeline_V1_Master', 0, 'DM', 'Payment', '1.0')
-,   ( 11, 'Ingestion_PaymentPlan_Pipeline_V1_Master', 0, 'DM', 'PaymentPlan', '1.0')
-,   ( 12, 'Ingestion_UserAccount_Pipeline_V1_Master', 0, 'Digital', 'UserAccount', '1.0')
-,   ( 13, 'Ingestion_Bureau_Pipeline_V1_Master', 0, 'Eden', 'Bureau', '1.0')
-,   ( 14, 'Writeback_DirectMailFulfilment_Pipeline_V1_Master', 0, 'Pega', 'DirectMailFulfilment', '1.0')
-,   ( 15, 'Writeback_DialerFulfilment_Pipeline_V1_Master', 0, 'Pega', 'DialerFulfilment', '1.0')
-,   ( 16, 'Writeback_EmailFulfilment_Pipeline_V1_Master', 0, 'Pega', 'EmailFulfilment', '1.0')
-,   ( 17, 'Writeback_SMSFulfilment_Pipeline_V1_Master', 0, 'Pega', 'SMSFulfilment', '1.0')
-,   ( 18, 'Writeback_InteractionHistory_Pipeline_V1_Master', 0, 'Pega', 'InteractionHistory', '1.0')
-,   ( 19, 'Ingestion_SFS_Pipeline_V1_Master', 0, 'SFS', 'SFS', '1.0')
-,   ( 20, 'Ingestion_SalesForce_Pipeline_V1_Master', 0, 'Salesforce', 'SalesForce', '1.0')
-,   ( 21, 'Ingestion_CustomerScore_Pipeline_V1_Master', 0, 'Eden', 'CustomerScore', '1.0')
-,   ( 22, 'Ingestion_Pipeline_V1_Master', 0, 'Master', 'InitialIngestionMaster', '1.0')
-,   ( 23, 'Ingestion_ModelledNDI_Pipeline_V1_Master', 0, 'DM', 'ModelledNDI', '1.0')
-,   ( 24, 'Ingestion_CustomerFinancialStrength_Pipeline_V1_Master', 0, 'Eden', 'CustomerFinancialStrength', '1.0')
-,   ( 25, 'Ingestion_Blaze_Eligibility_Pipeline_V1_Master', 0, 'Blaze', 'BlazeEligibility', '1.0')
-,   ( 26, 'Initial-Ingestion_Customer_Pipeline_V1_Master', 0, 'Initial', 'Customer', '1.0')
-,   ( 27, 'Initial-Ingestion_CustomerPhone_Pipeline_V1_Master', 0, 'Initial', 'CustomerPhone', '1.0')
-,   ( 28, 'Initial-Ingestion_CustomerAddress_Pipeline_V1_Master', 0, 'Initial', 'CustomerAddress', '1.0')
-,   ( 29, 'Initial-Ingestion_ModelledNdi_Pipeline_V1_Master', 0, 'Initial', 'ModelledNDI', '1.0')
-,   ( 30, 'Initial-Ingestion_UserAccount_Pipeline_V1_Master', 0, 'Initial', 'UserAccount', '1.0')
-,   ( 31, 'Initial-Ingestion_SFS_Pipeline_V1_Master', 0, 'Initial', 'SFS', '1.0')
-,   ( 32, 'Initial-Ingestion_Payment_Pipeline_V1_Master', 0, 'Initial', 'Payment', '1.0')
-,   ( 33, 'Initial-Ingestion_PaymentPlan_Pipeline_V1_Master', 0, 'Initial', 'PaymentPlan', '1.0')
-,   ( 34, 'Initial-Ingestion_CustomerWorkGroup_Pipeline_V1_Master', 0, 'Initial', 'CustomerWorkGroup', '1.0')
-,   ( 35, 'Initial-Ingestion_Bureau_Pipeline_V1_Master', 0, 'Initial', 'Bureau', '1.0')
-,   ( 36, 'Initial-Ingestion_CustomerScore_Pipeline_V1_Master', 0, 'Initial', 'CustomerScore', '1.0')
-,   ( 37, 'Initial-Ingestion_AccountTag_Pipeline_V1_Master', 0, 'Initial', 'AccountTag', '1.0')
-,   ( 38, 'Initial-Ingestion_CustomerFinancialStrength_Pipeline_V1_Master', 0, 'Initial', 'CustomerFinancialStrength', '1.0')
-,   ( 39, 'Initial-Ingestion_SalesForce_Pipeline_V1_Master', 0, 'Initial', 'SalesForce', '1.0')
-,   ( 40, 'Initial-Ingestion_CustomerTag_Pipeline_V1_Master', 0, 'Initial', 'CustomerTag', '1.0')
-,   ( 41, 'Ingestion_Customer_Ownership_Pipeline_V1_Master', 0, 'DM', 'CustomerOwnership', '1.0')
-,   ( 42, 'Initial-Ingestion_CustomerAccount_Pipeline_V1_Master', 0, 'Initial', 'CustomerAccount', '1.0')
-,   ( 43, 'Initial-Ingestion_AccountBalance_Pipeline_V1_Master', 0, 'Initial', 'AccountBalance', '1.0')
-,   ( 44, 'Initial-Ingestion_Account_Pipeline_V1_Master', 0, 'Initial', 'Account', '1.0')
-,   ( 45, 'Initial-Ingestion_Blaze_Eligibility_Pipeline_V1_Master', 0, 'Initial', 'BlazeEligibility', '1.0')
-,   ( 46, 'Initial-Ingestion_Customer_Ownership_Pipeline_V1_Master', 0, 'Initial', 'CustomerOwnership', '1.0')
-,   ( 47, 'Ingestion_Email_Feedback_Pipeline_V1_Master', 0, 'Eden', 'EmailFeedback', '1.0')
-,   ( 48, 'Ingestion_SMS_Feedback_Pipeline_V1_Master', 0, 'Eden', 'SMSFeedback', '1.0')
-,   ( 49, 'Ingestion_SecureSMS_Feedback_Pipeline_V1_Master', 0, 'Eden', 'SecureSMSFeedback', '1.0')
-,   ( 50, 'Ingestion_OutboundDialler_Feedback_Pipeline_V1_Master', 0, 'Eden', 'OutboundDiallerFeedback', '1.0')
-,   ( 51, 'Pega_Customer_Initial_Files_Pipeline_V1_Master', 0, 'PegaFiles', 'PegaInitialFiles', '1.0')
-,   ( 52, 'Pega_CustomerTag_Initial_Files_Pipeline_V1_Master', 0, 'PegaFiles', 'PegaInitialFiles_CustomerTag', '1.0')
-,   ( 53, 'Pega_CustomerPhone_Initial_Files_Pipeline_V1_Master', 0, 'PegaFiles', 'PegaInitialFiles_CustomerPhone', '1.0')
-,   ( 54, 'Pega_Account_Initial_Files_Pipeline_V1_Master', 0, 'PegaFiles', 'PegaInitialFiles_Account', '1.0')
-,   ( 55, 'Pega_AccountTag_Initial_Files_Pipeline_V1_Master', 0, 'PegaFiles', 'PegaInitialFiles_AccountTag', '1.0')
-,   ( 56, 'Pega_SalesForceInteraction_Initial_Files_Pipeline_V1_Master', 0, 'PegaFiles', 'PegaInitialFiles_SalesForceInteraction', '1.0')
-,   ( 57, 'Ingestion_CustomerUpdateWorkGroup_Pipeline_V1_Master', 0, 'DM', 'CustomerUpdateWorkGroup', '1.0')
-,   ( 58, 'Initial-Ingestion_Account_Pipeline_V2_Master', 0, 'Initial', 'Account', '2.0')
-,   ( 59, 'Initial-Ingestion_CustomerTag_Pipeline_V2_Master', 0, 'DM', 'CustomerTag', '2.0')
-,   ( 60, 'Ingestion_Account_Pipeline_V2_Master', 0, 'DM', 'Account', '2.0')
-,   ( 61, 'Ingestion_Customer_Ownership_Pipeline_V2_Master', 0, 'DM', 'CustomerOwnership', '2.0')
-,   ( 62, 'Ingestion_Blaze_Eligibility_Pipeline_V2_Master', 0, 'DM', 'CustomerEligibility', '2.0')
-,   ( 63, 'Ingestion_CustomerScore_Pipeline_V2_Master', 0, 'DM', 'CustomerScore', '2.0')
-,   ( 64, 'Ingestion_CustomerPhone_Pipeline_V2_Master', 0, 'DM', 'CustomerPhone', '2.0')
-,   ( 65, 'Ingestion_Customer_Pipeline_V2_Master', 0, 'DM', 'Customer', '2.0')
+]'
+    )
 ) AS [Source] (
-	[PipelineId]
-,	[PipelineName]
-,	[IsAlreadyRunning]
-,	[Type]
-,	[PipelineGroup]
-,	[PipelineVersion]
+    [Id],
+    [Object_Name],
+    [Schema_Text]
 )
-ON ( [Target].[PipelineId] = [Source].[PipelineId] )
+ON ([Target].[Id] = [Source].[Id])
 WHEN MATCHED THEN
-UPDATE SET
-	[Target].[PipelineName] = [Source].[PipelineName]
-,	[Target].[IsAlreadyRunning] = [Source].[IsAlreadyRunning]
-,	[Target].[Type] = [Source].[Type]
-,	[Target].[PipelineGroup] = [Source].[PipelineGroup]
-,	[Target].[PipelineVersion] = [Source].[PipelineVersion]
+    UPDATE SET
+        [Target].[Object_Name] = [Source].[Object_Name],
+        [Target].[Schema_Text] = [Source].[Schema_Text]
 WHEN NOT MATCHED BY TARGET THEN
-INSERT (
-	[PipelineId]
-,	[PipelineName]
-,	[IsAlreadyRunning]
-,	[Type]
-,	[PipelineGroup]
-,	[PipelineVersion]
-)
-VALUES (
-	[Source].[PipelineId]
-,	[Source].[PipelineName]
-,	[Source].[IsAlreadyRunning]
-,	[Source].[Type]
-,	[Source].[PipelineGroup]
-,	[Source].[PipelineVersion]
-);
+    INSERT ([Id], [Object_Name], [Schema_Text])
+    VALUES ([Source].[Id], [Source].[Object_Name], [Source].[Schema_Text]);
 
-SET IDENTITY_INSERT [dbo].[DataFactoryPipeline] OFF
+SET IDENTITY_INSERT [dbo].[FileSchemaMetaData] OFF
 GO
