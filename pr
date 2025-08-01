@@ -1,1 +1,19 @@
+SELECT TOP (1000) [Id]
+      ,[Object_Name]
+      ,[Schema_Text]
+  FROM [dbo].[FileSchemaMetaData]
+
+
+  Id	Object_Name		Schema_Text
+  1		Fulfilment.json	[
+    {"name":"customerGroupID","type":"String"},
+    {"name":"accountID","type":"String"},
+    {"name":"InteractionID","type":"String"},
+    {"name":"InteractionDate","type":"String"},
+    {"name":"PegaEnabled","type":"Boolean"},
+    {"name":"channel","type":"String"},
+    {"name":"commsName","type":"String"},
+    {"name":"customerID","type":"String"},
+    {"name":"legacyID","type":"String"}
+  ]
 
