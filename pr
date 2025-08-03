@@ -1,1 +1,7 @@
 
+CAST(CASE
+             WHEN [C].[cnsmr_email_txt] IS NOT NULL
+                  AND [C].[cnsmr_email_txt] LIKE @EmailPattern
+                  AND ISNULL([C].[cnsmr_email_vldty_cd], 1) = 1 THEN 1
+             ELSE 0
+         END AS BIT) AS [IsValidEmail]
