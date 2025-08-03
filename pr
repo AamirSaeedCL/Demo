@@ -1,4 +1,4 @@
-
+DECLARE @EmailPattern VARCHAR(50) = '%_@__%.__%';
 CAST(CASE
              WHEN [C].[cnsmr_email_txt] IS NOT NULL
                   AND [C].[cnsmr_email_txt] LIKE @EmailPattern
