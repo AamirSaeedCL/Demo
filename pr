@@ -1,7 +1,7 @@
-DECLARE @EmailPattern VARCHAR(50) = '%_@__%.__%';
-CAST(CASE
-             WHEN [C].[cnsmr_email_txt] IS NOT NULL
-                  AND [C].[cnsmr_email_txt] LIKE @EmailPattern
-                  AND ISNULL([C].[cnsmr_email_vldty_cd], 1) = 1 THEN 1
-             ELSE 0
-         END AS BIT) AS [IsValidEmail]
+iif(
+    !isNull(cnsmr_email_txt) &&
+    cnsmr_email_txt =~ '[^@]+@[^@]+\.[^@]+' &&
+    (isNull(cnsmr_email_vldty_cd) ? true : cnsmr_email_vldty_cd == 1),
+    true,
+    false
+)
