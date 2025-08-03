@@ -1,48 +1,28 @@
--- Primary Key, Foreign Key, Unique Constraints
-SELECT 
-    tc.CONSTRAINT_NAME,
-    tc.CONSTRAINT_TYPE,
-    kcu.COLUMN_NAME,
-    ccu.TABLE_NAME AS REFERENCED_TABLE,
-    ccu.COLUMN_NAME AS REFERENCED_COLUMN
-FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
-LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS kcu
-    ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-LEFT JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS AS rc
-    ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-LEFT JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
-    ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
-WHERE tc.TABLE_NAME = 'Customer' AND tc.TABLE_SCHEMA = 'dbo';
+DECLARE @Constraints ConstraintListTableType;
 
--- Default Constraints
-SELECT 
-    dc.name AS Constraint_Name,
-    c.name AS Column_Name,
-    OBJECT_NAME(dc.parent_object_id) AS Table_Name,
-    dc.definition AS Default_Value
-FROM sys.default_constraints dc
-JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
-WHERE OBJECT_NAME(dc.parent_object_id) = 'Customer';
+INSERT INTO @Constraints (ConstraintName, ConstraintType, ColumnName, DefaultValue)
+VALUES 
+    ('PK_Customer_CustomerId', 'PK', 'CustomerId', NULL);
 
--- Check Constraints
-SELECT 
-    cc.name AS Constraint_Name,
-    c.name AS Column_Name,
-    OBJECT_NAME(cc.parent_object_id) AS Table_Name,
-    cc.definition AS Check_Clause
-FROM sys.check_constraints cc
-JOIN sys.columns c ON cc.parent_object_id = c.object_id
-WHERE OBJECT_NAME(cc.parent_object_id) = 'Customer';
 
--- Indexes
-SELECT 
-    i.name AS Index_Name,
-    i.type_desc AS Index_Type,
-    ic.index_column_id,
-    col.name AS Column_Name,
-    i.is_unique,
-    i.is_primary_key
-FROM sys.indexes i
-JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
-JOIN sys.columns col ON ic.object_id = col.object_id AND ic.column_id = col.column_id
-WHERE OBJECT_NAME(i.object_id) = 'Customer';
+Data:
+CONSTRAINT_NAME	CONSTRAINT_TYPE	COLUMN_NAME	REFERENCED_TABLE	REFERENCED_COLUMN
+PK_Customer_CustomerId	PRIMARY KEY	CustomerId	NULL	NULL
+
+DAta:
+
+Constraint_Name	Column_Name	Table_Name	Default_Value
+DF_Customer_UpsertDateTime	UpsertDateTime	Customer	(getdate())
+DF_Customer_IsBankHoliday	IsBankHoliday	Customer	((0))
+DF_Customer_IsValidEmail	IsValidEmail	Customer	((0))
+DF_Customer_IsValidMobile	IsValidMobile	Customer	((0))
+DF_Wrk_Customer_IsValidEmail	IsValidEmail	Customer	((0))
+DF_Customer_IsActive	IsActive	Customer	((0))
+DF_Wrk_Customer_UpsertDateTime	UpsertDateTime	Customer	(getdate())
+DF_Customer_IsMaster	IsMaster	Customer	((0))
+DF_Wrk_Customer_IsActive	IsActive	Customer	((0))
+DF_Wrk_Customer_IsMaster	IsMaster	Customer	((0))
+DF_Wrk_Customer_IsValidMobile	IsValidMobile	Customer	((0))
+DF_Wrk_Customer_IsBankHoliday	IsBankHoliday	Customer	((0))
+
+Generate the insert query based on this data?
