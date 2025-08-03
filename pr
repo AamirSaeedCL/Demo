@@ -1,15 +1,5 @@
-INSERT INTO @Constraints (ConstraintName, ConstraintType, ColumnName, DefaultValue)
-VALUES 
-    ('PK_Customer_CustomerId', 'PK', 'CustomerId', NULL),
-    ('DF_Customer_UpsertDateTime', 'DF', 'UpsertDateTime', '(getdate())'),
-    ('DF_Customer_IsBankHoliday', 'DF', 'IsBankHoliday', '((0))'),
-    ('DF_Customer_IsValidEmail', 'DF', 'IsValidEmail', '((0))'),
-    ('DF_Customer_IsValidMobile', 'DF', 'IsValidMobile', '((0))'),
-    ('DF_Wrk_Customer_IsValidEmail', 'DF', 'IsValidEmail', '((0))'),
-    ('DF_Customer_IsActive', 'DF', 'IsActive', '((0))'),
-    ('DF_Wrk_Customer_UpsertDateTime', 'DF', 'UpsertDateTime', '(getdate())'),
-    ('DF_Customer_IsMaster', 'DF', 'IsMaster', '((0))'),
-    ('DF_Wrk_Customer_IsActive', 'DF', 'IsActive', '((0))'),
-    ('DF_Wrk_Customer_IsMaster', 'DF', 'IsMaster', '((0))'),
-    ('DF_Wrk_Customer_IsValidMobile', 'DF', 'IsValidMobile', '((0))'),
-    ('DF_Wrk_Customer_IsBankHoliday', 'DF', 'IsBankHoliday', '((0))');
+iif(
+    !isNull(Email) && Email like "'%_@__%.__%'"
+    ,1
+    ,0
+)
