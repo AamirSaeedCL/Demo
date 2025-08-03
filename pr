@@ -1,7 +1,6 @@
 iif(
-    !isNull(cnsmr_email_txt) &&
-    cnsmr_email_txt =~ '[^@]+@[^@]+\.[^@]+' &&
-    (isNull(cnsmr_email_vldty_cd) ? true : cnsmr_email_vldty_cd == 1),
-    true,
-    false
-)
+    !isNull(Email) && Email == "[^@]+@[^@]+\.[^@]+"
+    &&
+    isNull(EmailValidityCode) ? true : EmailValidityCode == 1)
+    
+     ,1,0)
