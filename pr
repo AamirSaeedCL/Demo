@@ -1,33 +1,4 @@
-CREATE TABLE [dbo].[Customer] (
-    [CustomerId]         BIGINT           NOT NULL,
-    [CustomerGroupId]    UNIQUEIDENTIFIER NULL,
-    [Title]              VARCHAR (50)     NULL,
-    [FirstName]          VARCHAR (100)    NULL,
-    [LastName]           VARCHAR (150)    NULL,
-    [MiddleName]         VARCHAR (100)    NULL,
-    [CommercialName]     VARCHAR (150)    NULL,
-    [DateofBirth]        DATE             NULL,
-    [Email]              VARCHAR (200)    NULL,
-    [EmailConfirmedDate] DATETIME2 (7)    NULL,
-    [IsMaster]           BIT              CONSTRAINT [DF_Customer_IsMaster] DEFAULT ((0)) NOT NULL,
-    [IsActive]           BIT              CONSTRAINT [DF_Customer_IsActive] DEFAULT ((0)) NOT NULL,
-    [UpsertDateTime]     DATETIME2 (7)    CONSTRAINT [DF_Customer_UpsertDateTime] DEFAULT (getdate()) NULL,
-    [Ownership]          VARCHAR (10)     NULL,
-    [OwnershipDate]      DATETIME2 (7)    NULL,
-    [IsBankHoliday]      BIT              CONSTRAINT [DF_Customer_IsBankHoliday] DEFAULT ((0)) NULL,
-    [DayOfWeek]          VARCHAR (10)     NOT NULL,
-    [IsValidEmail]       BIT              CONSTRAINT [DF_Customer_IsValidEmail] DEFAULT ((0)) NULL,
-    [LegacyId]           VARCHAR (40)     NULL,
-    [IsValidMobile]      BIT              CONSTRAINT [DF_Customer_IsValidMobile] DEFAULT ((0)) NULL,
-    CONSTRAINT [PK_Customer_CustomerId] PRIMARY KEY CLUSTERED ([CustomerId] ASC)
-);
-GO
-
-CREATE NONCLUSTERED INDEX [NCI_Customer_UpsertDateTime] 
-    ON [dbo].[Customer] ([UpsertDateTime]) INCLUDE ([CustomerGroupId])
-GO
-
-
+-- Primary Key, Foreign Key, Unique Constraints
 SELECT 
     tc.CONSTRAINT_NAME,
     tc.CONSTRAINT_TYPE,
@@ -41,4 +12,37 @@ LEFT JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS AS rc
     ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
 LEFT JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
     ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
-WHERE tc.TABLE_NAME = 'Account' AND tc.TABLE_SCHEMA = 'dbo';
+WHERE tc.TABLE_NAME = 'Customer' AND tc.TABLE_SCHEMA = 'dbo';
+
+-- Default Constraints
+SELECT 
+    dc.name AS Constraint_Name,
+    c.name AS Column_Name,
+    OBJECT_NAME(dc.parent_object_id) AS Table_Name,
+    dc.definition AS Default_Value
+FROM sys.default_constraints dc
+JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+WHERE OBJECT_NAME(dc.parent_object_id) = 'Customer';
+
+-- Check Constraints
+SELECT 
+    cc.name AS Constraint_Name,
+    c.name AS Column_Name,
+    OBJECT_NAME(cc.parent_object_id) AS Table_Name,
+    cc.definition AS Check_Clause
+FROM sys.check_constraints cc
+JOIN sys.columns c ON cc.parent_object_id = c.object_id
+WHERE OBJECT_NAME(cc.parent_object_id) = 'Customer';
+
+-- Indexes
+SELECT 
+    i.name AS Index_Name,
+    i.type_desc AS Index_Type,
+    ic.index_column_id,
+    col.name AS Column_Name,
+    i.is_unique,
+    i.is_primary_key
+FROM sys.indexes i
+JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+JOIN sys.columns col ON ic.object_id = col.object_id AND ic.column_id = col.column_id
+WHERE OBJECT_NAME(i.object_id) = 'Customer';
