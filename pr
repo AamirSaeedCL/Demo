@@ -1,7 +1,5 @@
 iif(
-    !isNull(Email) &&
-    Email =~ '[^@]+@[^@]+\.[^@]+' &&
-    (isNull(EmailValidityCode) ? true : EmailValidityCode == 1),
+    !isNull(Email) && Email =~ '[^@]+@[^@]+\.[^@]+' && (isNull(EmailValidityCode) ? true : EmailValidityCode == 1),
     1,
     0
 )
