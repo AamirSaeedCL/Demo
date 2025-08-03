@@ -1,1 +1,44 @@
-iif(Email =~ '[^@]+@[^@]+\.[^@]+', 1, 0)
+CREATE TABLE [dbo].[Customer] (
+    [CustomerId]         BIGINT           NOT NULL,
+    [CustomerGroupId]    UNIQUEIDENTIFIER NULL,
+    [Title]              VARCHAR (50)     NULL,
+    [FirstName]          VARCHAR (100)    NULL,
+    [LastName]           VARCHAR (150)    NULL,
+    [MiddleName]         VARCHAR (100)    NULL,
+    [CommercialName]     VARCHAR (150)    NULL,
+    [DateofBirth]        DATE             NULL,
+    [Email]              VARCHAR (200)    NULL,
+    [EmailConfirmedDate] DATETIME2 (7)    NULL,
+    [IsMaster]           BIT              CONSTRAINT [DF_Customer_IsMaster] DEFAULT ((0)) NOT NULL,
+    [IsActive]           BIT              CONSTRAINT [DF_Customer_IsActive] DEFAULT ((0)) NOT NULL,
+    [UpsertDateTime]     DATETIME2 (7)    CONSTRAINT [DF_Customer_UpsertDateTime] DEFAULT (getdate()) NULL,
+    [Ownership]          VARCHAR (10)     NULL,
+    [OwnershipDate]      DATETIME2 (7)    NULL,
+    [IsBankHoliday]      BIT              CONSTRAINT [DF_Customer_IsBankHoliday] DEFAULT ((0)) NULL,
+    [DayOfWeek]          VARCHAR (10)     NOT NULL,
+    [IsValidEmail]       BIT              CONSTRAINT [DF_Customer_IsValidEmail] DEFAULT ((0)) NULL,
+    [LegacyId]           VARCHAR (40)     NULL,
+    [IsValidMobile]      BIT              CONSTRAINT [DF_Customer_IsValidMobile] DEFAULT ((0)) NULL,
+    CONSTRAINT [PK_Customer_CustomerId] PRIMARY KEY CLUSTERED ([CustomerId] ASC)
+);
+GO
+
+CREATE NONCLUSTERED INDEX [NCI_Customer_UpsertDateTime] 
+    ON [dbo].[Customer] ([UpsertDateTime]) INCLUDE ([CustomerGroupId])
+GO
+
+
+SELECT 
+    tc.CONSTRAINT_NAME,
+    tc.CONSTRAINT_TYPE,
+    kcu.COLUMN_NAME,
+    ccu.TABLE_NAME AS REFERENCED_TABLE,
+    ccu.COLUMN_NAME AS REFERENCED_COLUMN
+FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
+LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS kcu
+    ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+LEFT JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS AS rc
+    ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+LEFT JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
+    ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
+WHERE tc.TABLE_NAME = 'Account' AND tc.TABLE_SCHEMA = 'dbo';
