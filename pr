@@ -1,28 +1,15 @@
-DECLARE @Constraints ConstraintListTableType;
-
 INSERT INTO @Constraints (ConstraintName, ConstraintType, ColumnName, DefaultValue)
 VALUES 
-    ('PK_Customer_CustomerId', 'PK', 'CustomerId', NULL);
-
-
-Data:
-CONSTRAINT_NAME	CONSTRAINT_TYPE	COLUMN_NAME	REFERENCED_TABLE	REFERENCED_COLUMN
-PK_Customer_CustomerId	PRIMARY KEY	CustomerId	NULL	NULL
-
-DAta:
-
-Constraint_Name	Column_Name	Table_Name	Default_Value
-DF_Customer_UpsertDateTime	UpsertDateTime	Customer	(getdate())
-DF_Customer_IsBankHoliday	IsBankHoliday	Customer	((0))
-DF_Customer_IsValidEmail	IsValidEmail	Customer	((0))
-DF_Customer_IsValidMobile	IsValidMobile	Customer	((0))
-DF_Wrk_Customer_IsValidEmail	IsValidEmail	Customer	((0))
-DF_Customer_IsActive	IsActive	Customer	((0))
-DF_Wrk_Customer_UpsertDateTime	UpsertDateTime	Customer	(getdate())
-DF_Customer_IsMaster	IsMaster	Customer	((0))
-DF_Wrk_Customer_IsActive	IsActive	Customer	((0))
-DF_Wrk_Customer_IsMaster	IsMaster	Customer	((0))
-DF_Wrk_Customer_IsValidMobile	IsValidMobile	Customer	((0))
-DF_Wrk_Customer_IsBankHoliday	IsBankHoliday	Customer	((0))
-
-Generate the insert query based on this data?
+    ('PK_Customer_CustomerId', 'PK', 'CustomerId', NULL),
+    ('DF_Customer_UpsertDateTime', 'DF', 'UpsertDateTime', '(getdate())'),
+    ('DF_Customer_IsBankHoliday', 'DF', 'IsBankHoliday', '((0))'),
+    ('DF_Customer_IsValidEmail', 'DF', 'IsValidEmail', '((0))'),
+    ('DF_Customer_IsValidMobile', 'DF', 'IsValidMobile', '((0))'),
+    ('DF_Wrk_Customer_IsValidEmail', 'DF', 'IsValidEmail', '((0))'),
+    ('DF_Customer_IsActive', 'DF', 'IsActive', '((0))'),
+    ('DF_Wrk_Customer_UpsertDateTime', 'DF', 'UpsertDateTime', '(getdate())'),
+    ('DF_Customer_IsMaster', 'DF', 'IsMaster', '((0))'),
+    ('DF_Wrk_Customer_IsActive', 'DF', 'IsActive', '((0))'),
+    ('DF_Wrk_Customer_IsMaster', 'DF', 'IsMaster', '((0))'),
+    ('DF_Wrk_Customer_IsValidMobile', 'DF', 'IsValidMobile', '((0))'),
+    ('DF_Wrk_Customer_IsBankHoliday', 'DF', 'IsBankHoliday', '((0))');
