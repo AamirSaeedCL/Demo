@@ -1,6 +1,5 @@
 iif(
-    not(isNull(Email)) && rlike(Email, '%_@__%.__%') && iif(isNull(EmailValidityCode, 1) == 1 , 1
-             , 0),
+    not(isNull(Email)) && like(Email, '%_@__%.__%') && iif(isNull(EmailValidityCode), 1, EmailValidityCode) == 1,
     1,
     0
 )
