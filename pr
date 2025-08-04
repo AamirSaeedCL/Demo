@@ -1,5 +1,6 @@
 iif(
-    not(isNull(Email)) && regex(Email, '^[^@]+@[^@]+\\.[^@]+$'),
+    not(isNull(Email)) && rlike(Email, '%_@__%.__%') && iif(isNull(EmailValidityCode, 1) == 1 , 1
+             , 0),
     1,
     0
 )
