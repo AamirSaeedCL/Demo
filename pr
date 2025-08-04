@@ -1,5 +1,5 @@
 iif(
-    !isNull(Email) && Email like "'%_@__%.__%'"
-    ,1
-    ,0
+    not(isNull(Email)) && regex(Email, '^[^@]+@[^@]+\\.[^@]+$'),
+    1,
+    0
 )
