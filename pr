@@ -1,2 +1,9 @@
+DECLARE @from_lsn binary(10), @to_lsn binary(10);
 
-[cdc].[fn_cdc_get_net_changes_dbo_cnsmr_Phn]
+-- Get the min and max LSN
+SET @from_lsn = sys.fn_cdc_get_min_lsn('dbo_cnsmr_Phn');
+SET @to_lsn   = sys.fn_cdc_get_max_lsn();
+
+-- Query net changes
+SELECT *
+FROM cdc.fn_cdc_get_net_changes_dbo_cnsmr_Phn(@from_lsn, @to_lsn, 'all');
