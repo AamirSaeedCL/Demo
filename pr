@@ -3,11 +3,25 @@ CREATE PROCEDURE [dbo].[usp_Customer_Ingestion_UpdateCustomerIsValidEmail]
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    UPDATE c
-    SET 
-        c.IsValidEmail = 1
-    FROM dbo.Customer c
-    INNER JOIN @IsValidEmailData i ON c.CustomerId = i.CustomerId
-    
+    SET XACT_ABORT ON;  -- Automatically rolls back on runtime errors
+
+    BEGIN TRY
+        BEGIN TRAN;
+
+        -- Update customers' IsValidEmail flag to 1 where CustomerId matches
+        UPDATE c
+        SET c.IsValidEmail = 1
+        FROM dbo.Customer c
+        INNER JOIN @IsValidEmailData i ON c.CustomerId = i.CustomerId;
+
+        COMMIT TRAN;
+    END TRY
+    BEGIN CATCH
+        -- Rollback if any error occurs
+        IF XACT_STATE() <> 0
+            ROLLBACK TRAN;
+
+        -- Optional: re-throw or log error
+        THROW;
+    END CATCH
 END;
