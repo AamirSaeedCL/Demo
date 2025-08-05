@@ -1,1 +1,6 @@
-sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', CAST('2025-08-05T22:03:45.3166667' AS datetime2))
+Failure happened on 'Source' side. ErrorCode=UserErrorWriteFailedFileOperation,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=The file operation is failed, upload file failed at path: '30f43baf-3150-4d2a-bc03-5e20628c528c/data_30f43baf-3150-4d2a-bc03-5e20628c528c_92873056-2556-4190-a509-8f810f30c635.txt'.,Source=Microsoft.DataTransfer.Common,''Type=Microsoft.Data.SqlClient.SqlException,Message=An insufficient number of arguments were supplied for the procedure or function cdc.fn_cdc_get_net_changes_ ... .,Source=Framework Microsoft SqlClient Data Provider,'
+
+
+
+
+"SELECT\n    CP.cnsmr_id AS CustomerId,\n    CAST(MAX(CASE\n        WHEN CP.cnsmr_phn_typ_cd IN (0, 1, 3)\n             AND CP.cnsmr_phn_stts_cd IN (0, 1, 3)\n             AND CP.cnsmr_phn_sft_dlt_flg = 'N'\n             AND LEN(CP.cnsmr_phn_nmbr_txt) = 11\n             AND LEFT(CP.cnsmr_phn_nmbr_txt, 2) = '07' THEN 1\n        ELSE 0\n    END) AS BIT) AS IsValidMobile\nFROM cdc.fn_cdc_get_net_changes_dbo_cnsmr_Phn(\n        sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', CAST('2025-08-05T22:03:45.3166667Z' AS datetime2)),\n        sys.fn_cdc_get_max_lsn(),\n        'all'\n    ) AS C\nINNER JOIN dbo.cnsmr_Phn AS CP\n    ON C.cnsmr_id = CP.cnsmr_id\nWHERE C.__$operation IN (1, 2, 4)\nGROUP BY CP.cnsmr_id
