@@ -1,7 +1,19 @@
---- CDC operation constants\nDECLARE @SoftDeleteFlag CHAR(1) = 'N';\nDECLARE @MobilePrefix CHAR(2) = '07';\nDECLARE @ExpectedPhoneLength INT = 11;\n\n-- CDC Operation Variables\nDECLARE @CDC_OP_INSERT INT = 2;\nDECLARE @CDC_OP_UPDATE_AFTER INT = 4;\nDECLARE @CDC_OP_DELETE INT = 1;\n\nDECLARE @LastRunDateTime DATETIME2 = TRY_CAST(''2025-08-05T22:03:45.3166667Z'' AS DATETIME2);\n\nDECLARE @from_lsn AS BINARY(10) = [sys].[fn_cdc_map_time_to_lsn]('smallest greater than or equal', @LastRunDateTime);\nDECLARE @to_lsn AS BINARY(10) = [sys].[fn_cdc_get_max_lsn]();\n\n---- Data Query\nSELECT\n    [CP].[cnsmr_id] AS [CustomerId]\n,   CAST(MAX(CASE\n            WHEN [CP].[cnsmr_phn_typ_cd] IN (0, 1, 3) -- UNKNOWN, HOME, CELL\n                 AND [CP].[cnsmr_phn_stts_cd] IN (0, 1, 3) -- UNKNOWN, VALID, NEW \n                 AND [CP].[cnsmr_phn_sft_dlt_flg] = @SoftDeleteFlag\n                 AND LEN([CP].[cnsmr_phn_nmbr_txt]) = @ExpectedPhoneLength\n                 AND LEFT([CP].[cnsmr_phn_nmbr_txt], 2) = @MobilePrefix THEN 1\n            ELSE 0\n        END\n    ) AS BIT) AS [IsValidMobile]\nFROM [cdc].[fn_cdc_get_net_changes_dbo_cnsmr_Phn](@from_lsn, @to_lsn, 'all') AS [C]\nINNER JOIN [dbo].[cnsmr_Phn] AS [CP]\n    ON [C].[cnsmr_id] = [CP].[cnsmr_id]\nWHERE [C].[__$operation] IN (@CDC_OP_DELETE, @CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)\nGROUP BY [CP].[cnsmr_id]\n
-
-
-
-Failure happened on 'Source' side. 'Type=Microsoft.Data.SqlClient.SqlException,Message=Incorrect syntax near '2025'.
-Must declare the scalar variable "@LastRunDateTime".
-Must declare the scalar variable "@from_lsn".,Source=Framework Microsoft SqlClient Data Provider,'
+SELECT
+    CP.cnsmr_id AS CustomerId,
+    CAST(MAX(CASE
+        WHEN CP.cnsmr_phn_typ_cd IN (0, 1, 3)
+             AND CP.cnsmr_phn_stts_cd IN (0, 1, 3)
+             AND CP.cnsmr_phn_sft_dlt_flg = 'N'
+             AND LEN(CP.cnsmr_phn_nmbr_txt) = 11
+             AND LEFT(CP.cnsmr_phn_nmbr_txt, 2) = '07' THEN 1
+        ELSE 0
+    END) AS BIT) AS IsValidMobile
+FROM cdc.fn_cdc_get_net_changes_dbo_cnsmr_Phn(
+        sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', '2025-08-05T22:03:45.3166667'),
+        sys.fn_cdc_get_max_lsn(),
+        'all'
+    ) AS C
+INNER JOIN dbo.cnsmr_Phn AS CP
+    ON C.cnsmr_id = CP.cnsmr_id
+WHERE C.__$operation IN (1, 2, 4)
+GROUP BY CP.cnsmr_id;
