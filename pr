@@ -1,5 +1,13 @@
-iif(
-    not(isNull(Email)) && like(Email, '%_@__%.__%') && iif(isNull(EmailValidityCode), 1, EmailValidityCode) == 1,
-    1,
-    0
-)
+CREATE PROCEDURE [dbo].[usp_Customer_Ingestion_UpdateCustomerIsValidEmail]
+    @IsValidEmailData [dbo].[CustomerIsValidEmailTableType] READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    UPDATE c
+    SET 
+        c.IsValidEmail = 1
+    FROM dbo.Customer c
+    INNER JOIN @IsValidEmailData i ON c.CustomerId = i.CustomerId
+    
+END;
