@@ -1,2 +1,1 @@
-SELECT ...
-FROM cdc.fn_cdc_get_net_changes_...(0x0000003500000B260001, 0x0000003500000B3B0001, 'all')
+
