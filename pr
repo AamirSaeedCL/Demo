@@ -1,1 +1,7 @@
 
+I am unable to open a .NET project due to a version mismatch between the installed MSBuild and the required .NET SDK. The project uses .NET SDK version 6.0.428, which requires MSBuild version 17.0.1 or higher.
+
+Currently, my environment does not meet this requirement, likely due to an older version of Visual Studio being installed.
+
+Request:
+Please install Visual Studio 2022 (version 17.0 or later) on my machine to ensure compatibility with the required SDK and MSBuild version.
