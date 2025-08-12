@@ -1,91 +1,30 @@
-[OpenApiOperation(operationId: "getInteractions", tags: new[] { "Interactions" }, Description = "Get Interactions by Consumer ID with pagination.")]
-[OpenApiSecurity("getInteractions", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
-[OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
-[OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
-[OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
-[OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
-[OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
-[OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
-[OpenApiParameter(name: "skip", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **skip** parameter")]
-[OpenApiParameter(name: "take", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **take** parameter")]
-[OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<InteractionMinimisedModel>))]
-[Function("getInteractions")]
-public async Task<IActionResult> GetInteractionsAzure(
-    [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
-    HttpRequest request,
-    long consumerId,
-    int skip,
-    int take)
-{
-    var command = new InteractionsGetCommand
-    {
-        ConsumerID = consumerId,
-        Skip = skip,
-        Take = take
-    };
-
-    if (command is null)
-    {
-        var errorMessage = $"Argument '{nameof(command)}' cannot be NULL";
-        _logger.LogError(errorMessage);
-        return new BadRequestObjectResult(errorMessage);
-    }
-
-    _logger.LogDebug($"Invoked Method: {nameof(GetInteractionsAzure)}");
-    _logger.LogDebug($"Parsed Arguments: {JsonConvert.SerializeObject(command)}");
-
-    string cacheKey = $"GetInteractions-{command.ConsumerID}-{command.Skip}-{command.Take}";
-    var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromMinutes(60));
-    MemoryCache cachedItem;
-    List<InteractionMinimisedModel> cachedResult = new List<InteractionMinimisedModel>();
-    int adjustedSkip = command.Skip;
-
-    if (_interactionConfig.CacheResults)
-    {
-        if (_memoryCache.TryGetValue(cacheKey, out cachedItem))
+ [OpenApiOperation(operationId: "getInteractions", tags: new[] { "Interactions" }, Description = "Get Interactions by ConsumerId with pagination.")]
+        [OpenApiSecurity("getInteractions", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+        [OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+        [OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+        [OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+        [OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+        [OpenApiParameter(name: "skip", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **skip** parameter")]
+        [OpenApiParameter(name: "take", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **take** parameter")]
+        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<InteractionMinimisedModel>))]
+        [Function("getInteractions")]
+        public async Task<IActionResult> GetInteractions(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
+            HttpRequest request)
         {
-            cachedResult = (List<InteractionMinimisedModel>)cachedItem.Value;
-            if (cachedItem.IsFullDataSet)
+            var command = await request.As<InteractionsGetCommand>();
+
+            if (command.IsMissingMetaData(out string errorMessage))
+                return new BadRequestObjectResult(errorMessage);
+
+            using (var scope = _logger.BeginScope(command.CorrelationId))
             {
-                return new OkObjectResult(cachedResult);
+                return await _functionManager.ExecuteGet<InteractionsGetCommand, List<InteractionMinimisedModel>>(
+                    request.HttpContext,
+                    (cmd) => _client.GetInteractions(cmd)
+                );
             }
-            adjustedSkip += cachedResult.Count();
         }
     }
-
-    if (_interactionConfig.UseOLTP)
-    {
-        var sqlParameterConsumerID = new Microsoft.Data.SqlClient.SqlParameter("@consumerID", command.ConsumerID);
-        var sqlParameterSkip = new Microsoft.Data.SqlClient.SqlParameter("@skip", adjustedSkip);
-        var sqlParameterTake = new Microsoft.Data.SqlClient.SqlParameter("@take", command.Take);
-        var sqlParameterCatRules = new Microsoft.Data.SqlClient.SqlParameter("@CategoryRules", await GetCategoryRulesDataTable(false));
-        sqlParameterCatRules.TypeName = "dbo.tt_Interactions_CategoryRules";
-
-        var spResult = await _debtManagerContext.Interactions
-            .FromSqlRaw("EXEC CCM.usp_ObtainInteractions @consumerID, @skip, @take, @CategoryRules",
-                sqlParameterConsumerID, sqlParameterSkip, sqlParameterTake, sqlParameterCatRules)
-            .ToListAsync();
-
-        cachedResult.AddRange(spResult.Select(t => t.ToModel()));
-    }
-    else
-    {
-        var sqlParameterConsumerID = new Microsoft.Data.SqlClient.SqlParameter("@consumerID", command.ConsumerID);
-        var sqlParameterSkip = new Microsoft.Data.SqlClient.SqlParameter("@skip", adjustedSkip);
-        var sqlParameterTake = new Microsoft.Data.SqlClient.SqlParameter("@take", command.Take);
-
-        var spResult = await _interactionContext.Interactions
-            .FromSqlRaw("EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
-                sqlParameterConsumerID, sqlParameterSkip, sqlParameterTake)
-            .ToListAsync();
-
-        cachedResult.AddRange(spResult.Select(t => t.ToModel()));
-    }
-
-    if (_interactionConfig.CacheResults)
-    {
-        _memoryCache.Set(cacheKey, new MemoryCache(cachedResult, cachedResult.Count() == command.Take), cacheEntryOptions);
-    }
-
-    return new OkObjectResult(cachedResult);
-}
