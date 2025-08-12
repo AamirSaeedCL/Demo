@@ -1,1 +1,1 @@
-From the Data Management (DM) system, we are directly ingesting all data into the staging (stg) tables using a bulk insert process. Subsequently, all complex operations—such as upserts—are performed directly from the staging tables. This approach reduces processing time by executing all complex activities within the same database. The solution was implemented by Lee, following discussions with our in-house experts.
+
