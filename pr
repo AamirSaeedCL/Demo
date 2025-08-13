@@ -1,20 +1,33 @@
-public class InteractionMinimisedModel
-{
-    public string CategoryName { get; set; }
+using (var scope = _logger.BeginScope(command.CorrelationId))
+    {
+        // Hardcoded sample data for testing
+        var testData = new List<InteractionMinimisedModel>
+        {
+            new InteractionMinimisedModel
+            {
+                CategoryName = "Billing",
+                CategoryRuleDescription = "Customer inquired about an incorrect bill",
+                ActionCodeText = "Inquiry",
+                ResultCodeText = "Resolved",
+                IsRPC = false,
+                MaterialLogo = "https://example.com/images/billing.png",
+                ActionResultContent = "Explained billing adjustment and issued refund",
+                CreatedByUserName = "John Doe",
+                CreatedDateTime = DateTime.UtcNow.AddDays(-2)
+            },
+            new InteractionMinimisedModel
+            {
+                CategoryName = "Technical Support",
+                CategoryRuleDescription = "Assisted customer with device setup",
+                ActionCodeText = "Support",
+                ResultCodeText = "Completed",
+                IsRPC = true,
+                MaterialLogo = "https://example.com/images/techsupport.png",
+                ActionResultContent = "Guided through step-by-step configuration",
+                CreatedByUserName = "Jane Smith",
+                CreatedDateTime = DateTime.UtcNow.AddHours(-5)
+            }
+        };
 
-    public string CategoryRuleDescription { get; set; }
-
-    public string ActionCodeText { get; set; }
-
-    public string ResultCodeText { get; set; }
-
-    public bool IsRPC { get; set; }
-
-    public string MaterialLogo { get; set; }
-
-    public string ActionResultContent { get; set; }
-
-    public string CreatedByUserName { get; set; }
-
-    public DateTime? CreatedDateTime { get; set; }
-}
+        return new OkObjectResult(testData);
+    }
