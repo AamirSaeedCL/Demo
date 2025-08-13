@@ -1,15 +1,30 @@
-89 : LXXXIX
-   
-94 :IVC
-76 :LXXVI
-27 :XXVII
-29 :XXIX
-169 :CLXIX
-147 :CXLVII
-159 :CLIX
-178 :CLXXVIII
 
-172 :CLXXII
-135 :CXXXV
-199 :CXCIX
-200 :CC
+        [OpenApiOperation(operationId: "getInteractions", tags: new[] { "Interactions" }, Description = "Get Interactions by ConsumerId with pagination.")]
+        [OpenApiSecurity("getInteractions", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+        [OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+        [OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+        [OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+        [OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+        [OpenApiParameter(name: "skip", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **skip** parameter")]
+        [OpenApiParameter(name: "take", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **take** parameter")]
+        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<InteractionMinimisedModel>))]
+        [Function("getInteractions")]
+        public async Task<IActionResult> GetInteractions(
+           [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
+            HttpRequest request)
+        {
+            var command = await request.As<CallContext>();
+
+            if (command.IsMissingMetaData(out string errorMessage))
+                return new BadRequestObjectResult(errorMessage);
+
+            using (var scope = _logger.BeginScope(command.CorrelationId))
+            {
+                return await _functionManager.ExecuteGet<CallContext, List<InteractionMinimisedModel>>(
+                    request.HttpContext,
+                    (cmd) => _client.GetInteractions(cmd)
+                );
+            }
+        }
