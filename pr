@@ -1,32 +1,20 @@
-[Function("getInteractions")]
-public async Task<IActionResult> GetInteractions(
-    [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
-    HttpRequest request)
+public class InteractionMinimisedModel
 {
-    var command = await request.As<CallContext>();
+    public string CategoryName { get; set; }
 
-    if (command.IsMissingMetaData(out string errorMessage))
-        return new BadRequestObjectResult(errorMessage);
+    public string CategoryRuleDescription { get; set; }
 
-    using (var scope = _logger.BeginScope(command.CorrelationId))
-    {
-        // Hardcoded sample list for testing
-        var testData = new List<InteractionMinimisedModel>
-        {
-            new InteractionMinimisedModel
-            {
-                Id = 1,
-                Title = "Test Interaction 1",
-                CreatedDate = DateTime.UtcNow.AddDays(-1)
-            },
-            new InteractionMinimisedModel
-            {
-                Id = 2,
-                Title = "Test Interaction 2",
-                CreatedDate = DateTime.UtcNow
-            }
-        };
+    public string ActionCodeText { get; set; }
 
-        return new OkObjectResult(testData);
-    }
+    public string ResultCodeText { get; set; }
+
+    public bool IsRPC { get; set; }
+
+    public string MaterialLogo { get; set; }
+
+    public string ActionResultContent { get; set; }
+
+    public string CreatedByUserName { get; set; }
+
+    public DateTime? CreatedDateTime { get; set; }
 }
