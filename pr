@@ -1,33 +1,28 @@
-using (var scope = _logger.BeginScope(command.CorrelationId))
-    {
-        // Hardcoded sample data for testing
-        var testData = new List<InteractionMinimisedModel>
-        {
-            new InteractionMinimisedModel
-            {
-                CategoryName = "Billing",
-                CategoryRuleDescription = "Customer inquired about an incorrect bill",
-                ActionCodeText = "Inquiry",
-                ResultCodeText = "Resolved",
-                IsRPC = false,
-                MaterialLogo = "https://example.com/images/billing.png",
-                ActionResultContent = "Explained billing adjustment and issued refund",
-                CreatedByUserName = "John Doe",
-                CreatedDateTime = DateTime.UtcNow.AddDays(-2)
-            },
-            new InteractionMinimisedModel
-            {
-                CategoryName = "Technical Support",
-                CategoryRuleDescription = "Assisted customer with device setup",
-                ActionCodeText = "Support",
-                ResultCodeText = "Completed",
-                IsRPC = true,
-                MaterialLogo = "https://example.com/images/techsupport.png",
-                ActionResultContent = "Guided through step-by-step configuration",
-                CreatedByUserName = "Jane Smith",
-                CreatedDateTime = DateTime.UtcNow.AddHours(-5)
-            }
-        };
+[OpenApiOperation(operationId: "getInteractions", tags: new[] { "Interactions" }, Description = "Get Interactions by ConsumerId with pagination.")]
+[OpenApiSecurity("getInteractions", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+[OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+[OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+[OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+[OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+[OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+[OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+[OpenApiParameter(name: "skip", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **skip** parameter")]
+[OpenApiParameter(name: "take", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **take** parameter")]
+[OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<InteractionMinimisedModel>))]
+[Function("getInteractions")]
+public async Task<IActionResult> GetInteractions(
+   [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
+    HttpRequest request)
+{
+    var command = await request.As<CallContext>();
 
-        return new OkObjectResult(testData);
+    if (command.IsMissingMetaData(out string errorMessage))
+        return new BadRequestObjectResult(errorMessage);
+
+    using (var scope = _logger.BeginScope(command.CorrelationId))
+    {
+        return await _functionManager.ExecuteGet<CallContext, List<InteractionMinimisedModel>>(
+            request.HttpContext,
+            (cmd) => _client.GetInteractions(cmd)
+        );
     }
