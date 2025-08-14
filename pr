@@ -29,34 +29,31 @@ public async Task<ObjectResult> GetInteractions(GetInteractionsCommand command)
     return new OkObjectResult(mappedResult);
 }
 
+using CCM.DebtManager.ActionResult.Core.Entities;
+using CCM.DebtManager.ActionResult.Core.Models;
+using System;
 
-public async Task<ObjectResult> GetInteractions(GetInteractionsCommand command)
+namespace CCM.DebtManager.ActionResult.Subscriber.Mappers
 {
-    var sqlParameterConsumerID = new SqlParameter("@consumerID", command.ConsumerID);
-    var sqlParameterSkip = new SqlParameter("@skip", command.Skip);
-    var sqlParameterTake = new SqlParameter("@take", command.Take);
-
-    using var context = _contextFactory.CreateDbContext();
-
-    List<Interaction> spResult = new List<Interaction>();
-
-    try
+    public static class InteractionEntityToModelMapper
     {
-        spResult = await context.Interactions
-            .FromSqlRaw(
-                "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
-                sqlParameterConsumerID,
-                sqlParameterSkip,
-                sqlParameterTake
-            )
-            .ToListAsync();
-    }
-    catch (Exception ex)
-    {
-        return new ObjectResult("Unexpected error occurred") { StatusCode = 500 };
-    }
+        public static InteractionMinimisedModel ToModel(this Interaction entity)
+        {
+            if (entity is null)
+                throw new ArgumentNullException($"Ensure '{nameof(entity)}' entity is also provided");
 
-    var mappedResult = spResult.Select(t => t.ToModel()).ToList();
-
-    return new OkObjectResult(mappedResult);
+            return new InteractionMinimisedModel
+            {
+                CategoryName = entity.CategoryName,
+                CategoryRuleDescription = entity.CategoryRuleName,
+                ActionCodeText = entity.ActionCodeShortName,
+                ResultCodeText = entity.ResultCodeShortName,
+                IsRPC = entity.IsRPC,
+                MaterialLogo = entity.MaterialLogo,
+                ActionResultContent = entity.Message,
+                CreatedByUserName = entity.UpsertUserName,
+                CreatedDateTime = entity.UpsertDateTime
+            };
+        }
+    }
 }
