@@ -1,90 +1,12 @@
-public class Interaction
-{
-    public string CategoryName { get; set; }
-
-    public string MaterialLogo { get; set; }
-
-    public string CategoryRuleName { get; set; }
-
-    public bool IsRPC { get; set; }
-
-    public string ActionCodeShortName { get; set; }
-
-    public string ResultCodeShortName { get; set; }
-
-    public string Message { get; set; }
-
-    public DateTime UpsertDateTime { get; set; }
-
-    public string UpsertUserName { get; set; }
-}
-
-
-public class InteractionMinimisedModel
-{
-    public string CategoryName { get; set; }
-
-    public string CategoryRuleDescription { get; set; }
-
-    public string ActionCodeText { get; set; }
-
-    public string ResultCodeText { get; set; }
-
-    public bool IsRPC { get; set; }
-
-    public string MaterialLogo { get; set; }
-
-    public string ActionResultContent { get; set; }
-
-    public string CreatedByUserName { get; set; }
-
-    public DateTime? CreatedDateTime { get; set; }
-}
-
-
-
- public async Task<List<InteractionMinimisedModel>> GetInteractions(GetInteractionsCommand command)
- {
-     // return await _actionResultRepository.LogByUserActionConfig(command);
-
-     // Get Category Rules from Interactions DB
-     var sqlParameterConsumerID = new Microsoft.Data.SqlClient.SqlParameter("@consumerID", command.ConsumerID);
-     var sqlParameterSkip = new Microsoft.Data.SqlClient.SqlParameter("@skip", command.Skip);
-     var sqlParameterTake = new Microsoft.Data.SqlClient.SqlParameter("@take", command.Take);
-
-     List<Interaction> spResult = new List<Interaction>();
-     List<InteractionMinimisedModel> cachedResult = new List<InteractionMinimisedModel>();
-     using var context = _contextFactory.CreateDbContext();
-     try
-     {
-         spResult = await context.Interactions
-             .FromSqlRaw(
-                 "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
-                 sqlParameterConsumerID,
-                 sqlParameterSkip,
-                 sqlParameterTake
-             )
-             .ToListAsync();
-     }
-     catch (SqlException sqlEx)
-     {
-       //  _logger.LogError(sqlEx, "SQL error occurred while executing usp_ObtainInteractions for ConsumerID: {ConsumerId}", sqlParameterConsumerID.Value);
-     }
-     catch (Exception ex)
-     { 
-       //  _logger.LogError(ex, "Unexpected error occurred while fetching interactions");
-     }
-
-   //  cachedResult.AddRange((IEnumerable<InteractionMinimisedModel>)spResult.Select(t => t.ToModel()));
-
-     return spResult;
-
-     // return new OkObjectResult(null);
- }
-
-
-
-
-Cannot implicitly convert type 'System.Collections.Generic.List<CCM.DebtManager.Interaction.Core.Entities.Interaction>' to 'System.Collections.Generic.List<CCM.DebtManager.ActionResult.Core.Models.InteractionMinimisedModel>'
-
-
+return spResult.Select(t => new InteractionMinimisedModel
+    {
+        CategoryName = t.CategoryName,
+        CategoryRuleDescription = t.CategoryRuleName,
+        ActionCodeText = t.ActionCodeShortName,
+        ResultCodeText = t.ResultCodeShortName,
+        IsRPC = t.IsRPC,
+        MaterialLogo = t.MaterialLogo,
+        ActionResultContent = t.Message,
+        CreatedByUserName = t.UpsertUserName,
+        CreatedDateTime = t.UpsertDateTime
+    }).ToList();
