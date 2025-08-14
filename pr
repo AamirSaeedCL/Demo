@@ -1,4 +1,39 @@
-return spResult.Select(t => new InteractionMinimisedModel
+public async Task<ObjectResult> GetInteractions(GetInteractionsCommand command)
+{
+    var sqlParameterConsumerID = new SqlParameter("@consumerID", command.ConsumerID);
+    var sqlParameterSkip = new SqlParameter("@skip", command.Skip);
+    var sqlParameterTake = new SqlParameter("@take", command.Take);
+
+    using var context = _contextFactory.CreateDbContext();
+
+    List<Interaction> spResult = new();
+
+    try
+    {
+        spResult = await context.Interactions
+            .FromSqlRaw(
+                "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+                sqlParameterConsumerID,
+                sqlParameterSkip,
+                sqlParameterTake
+            )
+            .ToListAsync();
+    }
+    catch (SqlException sqlEx)
+    {
+        _logger.LogError(sqlEx,
+            "SQL error occurred while executing usp_ObtainInteractions for ConsumerID: {ConsumerId}",
+            sqlParameterConsumerID.Value);
+
+        return new ObjectResult("Database error occurred") { StatusCode = 500 };
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Unexpected error occurred while fetching interactions");
+        return new ObjectResult("Unexpected error occurred") { StatusCode = 500 };
+    }
+
+    var mappedResult = spResult.Select(t => new InteractionMinimisedModel
     {
         CategoryName = t.CategoryName,
         CategoryRuleDescription = t.CategoryRuleName,
@@ -10,3 +45,6 @@ return spResult.Select(t => new InteractionMinimisedModel
         CreatedByUserName = t.UpsertUserName,
         CreatedDateTime = t.UpsertDateTime
     }).ToList();
+
+    return new OkObjectResult(mappedResult);
+}
