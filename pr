@@ -1,4 +1,9 @@
-System.InvalidOperationException: 'Unable to resolve service for type 'CCM.DebtManager.Interaction.Core.InteractionContext' while attempting to activate 'CCM.DebtManager.ActionResult.Subscriber.Services.ActionResultCommandHandler'.'
+        services.AddDbContext<InteractionContext>(options =>
+        {
+            options.UseSqlServer(configuration.GetConnectionString("CabotApiInteractionStage"));
+        });
 
-
- services.AddScoped<InteractionContext>();
+        services.AddDbContext<DebtManagerContext>(options =>
+        {
+            options.UseSqlServer(configuration.GetConnectionString("DebtManagerOLTP"));
+        });
