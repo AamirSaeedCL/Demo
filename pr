@@ -1,17 +1,1 @@
-    internal class ActionResultCommandHandler : IActionResultCommandHandler
-    {
-        private readonly IActionResultRepository _actionResultRepository;
-        private readonly DebtManagerContext _debtManagerContext;
-        private readonly InteractionContext _interactionContext;
-
-        private readonly ILogger<ActionResultCommandHandler> _logger;
-
-        private readonly IMemoryCache _memoryCache;
-
-        public ActionResultCommandHandler(ILogger<ActionResultCommandHandler> logger,   InteractionContext interactionContext, DebtManagerContext debtManagerContext, IMemoryCache memoryCache)
-        {
-            _logger = logger;
-             _interactionContext = interactionContext;
-            _debtManagerContext = debtManagerContext;
-            _memoryCache = memoryCache;
-        }
+System.InvalidOperationException: 'Unable to resolve service for type 'CCM.DebtManager.Interaction.Core.InteractionContext' while attempting to activate 'CCM.DebtManager.ActionResult.Subscriber.Services.ActionResultCommandHandler'.'
