@@ -1,1 +1,48 @@
-"A second operation was started on this context instance before a previous operation completed. This is usually caused by different threads concurrently using the same instance of DbContext. For more information on how to avoid threading issues with DbContext, see https://go.microsoft.com/fwlink/?linkid=2097913."}
+
+
+
+
+
+  services.AddDbContext<InteractionContext>(options =>
+  {
+      options.UseSqlServer(configuration.GetConnectionString("CabotApiInteractionStage"));
+  });
+
+
+      public async Task<IEnumerable<InteractionMinimisedModel>> GetInteractions(GetInteractionsCommand command)
+      {
+          // return await _actionResultRepository.LogByUserActionConfig(command);
+
+          // Get Category Rules from Interactions DB
+          var sqlParameterConsumerID = new Microsoft.Data.SqlClient.SqlParameter("@consumerID", command.ConsumerID);
+          var sqlParameterSkip = new Microsoft.Data.SqlClient.SqlParameter("@skip", command.Skip);
+          var sqlParameterTake = new Microsoft.Data.SqlClient.SqlParameter("@take", command.Take);
+
+          List<Interaction> spResult = new List<Interaction>();
+          List<InteractionMinimisedModel> cachedResult = new List<InteractionMinimisedModel>();
+          try
+          {
+              spResult = await _interactionContext.Interactions
+                  .FromSqlRaw(
+                      "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+                      sqlParameterConsumerID,
+                      sqlParameterSkip,
+                      sqlParameterTake
+                  )
+                  .ToListAsync();
+          }
+          catch (SqlException sqlEx)
+          {
+            //  _logger.LogError(sqlEx, "SQL error occurred while executing usp_ObtainInteractions for ConsumerID: {ConsumerId}", sqlParameterConsumerID.Value);
+          }
+          catch (Exception ex)
+          { 
+            //  _logger.LogError(ex, "Unexpected error occurred while fetching interactions");
+          }
+
+          cachedResult.AddRange((IEnumerable<InteractionMinimisedModel>)spResult.Select(t => t.ToModel()));
+
+          return cachedResult;
+
+          // return new OkObjectResult(null);
+      }
