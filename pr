@@ -1,4 +1,70 @@
-     if (_actionResultConfiguration.UseOLTP != null && bool.Parse(_actionResultConfiguration.UseOLTP))
-     {
+using CCM.DebtManager.ActionResult.Subscriber.Configuration;
+using CCM.DebtManager.ActionResult.Subscriber.Contracts;
+using CCM.DebtManager.Interaction.Core;
+using CCM.DebtManager.Interaction.Core.Entities;
+using CCM.DebtManager.Interaction.Core.Extensions;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
 
-     }
+namespace CCM.DebtManager.ActionResult.Subscriber.Services.Repository
+{
+    public class InteractionRepository : IInteractionRepository
+    {
+        private readonly IDbContextFactory<InteractionContext> _contextFactoryInteraction;
+        private readonly IDbContextFactory<CCM.DebtManager.Interaction.Core.DebtManagerContext> _contextFactoryDebtManager;
+        private readonly ActionResultConfiguration _actionResultConfiguration;
+        public InteractionRepository(IDbContextFactory<InteractionContext> contextFactory, IDbContextFactory<CCM.DebtManager.Interaction.Core.DebtManagerContext> contextFactoryDebtManager, ActionResultConfiguration actionResultConfiguration)
+        {
+            _contextFactoryInteraction = contextFactory;
+            _actionResultConfiguration = actionResultConfiguration;
+            _contextFactoryDebtManager = contextFactoryDebtManager;
+        }
+
+        public async Task<List<CCM.DebtManager.Interaction.Core.Entities.Interaction>> GetInteractionsAsync(int consumerId, int skip, int take)
+        {
+            var sqlParameterConsumerID = new SqlParameter("@consumerID", consumerId);
+            var sqlParameterSkip = new SqlParameter("@skip", skip);
+            var sqlParameterTake = new SqlParameter("@take", take);
+          
+
+            if (_actionResultConfiguration.UseOLTP)
+            {
+                // Get Category Rules from Interactions DB
+                using var context = _contextFactoryDebtManager.CreateDbContext();
+                var sqlParameterCatRules = new Microsoft.Data.SqlClient.SqlParameter("@CategoryRules", await GetCategoryRulesDataTable(false));
+                sqlParameterCatRules.TypeName = "dbo.tt_Interactions_CategoryRules";
+                return await context.Interactions.FromSqlRaw("EXEC CCM.usp_ObtainInteractions @consumerID, @skip, @take, @CategoryRules", sqlParameterConsumerID, sqlParameterSkip, sqlParameterTake, sqlParameterCatRules).ToListAsync();
+             }
+            else
+            {
+                using var context = _contextFactoryInteraction.CreateDbContext();
+
+                return await context.Interactions
+                    .FromSqlRaw(
+                        "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+                        sqlParameterConsumerID,
+                        sqlParameterSkip,
+                        sqlParameterTake
+                    )
+                    .ToListAsync();
+            }
+        }
+
+       public async Task<DataTable> GetCategoryRulesDataTable(bool rPCOnly)
+        {
+            using var context = _contextFactoryInteraction.CreateDbContext();
+
+                var categoryRules = await context.CategoryRules.AsNoTracking()
+                    .Include(e => e.Category)
+                    .Where(t => rPCOnly == false || t.IsRPC == rPCOnly)
+                    .ToListAsync();
+
+                return categoryRules.ToDataTable(rPCOnly);
+        }
+
+    }
+}
