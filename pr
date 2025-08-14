@@ -1,42 +1,17 @@
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace CCM.DebtManager
-{
-    public partial class DebtManagerContext
+    internal class ActionResultCommandHandler : IActionResultCommandHandler
     {
-        /// <summary>
-        /// Executes a stored procedure that returns entities.
-        /// </summary>
-        /// <typeparam name="T">The entity type to map the result to.</typeparam>
-        /// <param name="storedProcName">The name of the stored procedure.</param>
-        /// <param name="parameters">The SQL parameters.</param>
-        public async Task<List<T>> ExecuteStoredProcAsync<T>(string storedProcName, params object[] parameters) where T : class
-        {
-            return await Set<T>().FromSqlRaw(BuildStoredProcCommand(storedProcName, parameters.Length), parameters).ToListAsync();
-        }
+        private readonly IActionResultRepository _actionResultRepository;
+        private readonly DebtManagerContext _debtManagerContext;
+        private readonly InteractionContext _interactionContext;
 
-        /// <summary>
-        /// Executes a stored procedure that does not return entities (e.g., insert/update/delete).
-        /// </summary>
-        /// <param name="storedProcName">The name of the stored procedure.</param>
-        /// <param name="parameters">The SQL parameters.</param>
-        public async Task<int> ExecuteStoredProcNonQueryAsync(string storedProcName, params object[] parameters)
-        {
-            return await Database.ExecuteSqlRawAsync(BuildStoredProcCommand(storedProcName, parameters.Length), parameters);
-        }
+        private readonly ILogger<ActionResultCommandHandler> _logger;
 
-        /// <summary>
-        /// Helper to build the EXEC statement with parameter placeholders.
-        /// </summary>
-        private static string BuildStoredProcCommand(string storedProcName, int paramCount)
-        {
-            if (paramCount == 0)
-                return $"EXEC {storedProcName}";
+        private readonly IMemoryCache _memoryCache;
 
-            var placeholders = string.Join(", ", Enumerable.Range(0, paramCount).Select(i => $"{{{i}}}"));
-            return $"EXEC {storedProcName} {placeholders}";
+        public ActionResultCommandHandler(ILogger<ActionResultCommandHandler> logger,   InteractionContext interactionContext, DebtManagerContext debtManagerContext, IMemoryCache memoryCache)
+        {
+            _logger = logger;
+             _interactionContext = interactionContext;
+            _debtManagerContext = debtManagerContext;
+            _memoryCache = memoryCache;
         }
-    }
-}
