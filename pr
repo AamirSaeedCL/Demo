@@ -1,9 +1,1 @@
-        services.AddDbContext<InteractionContext>(options =>
-        {
-            options.UseSqlServer(configuration.GetConnectionString("CabotApiInteractionStage"));
-        });
-
-        services.AddDbContext<DebtManagerContext>(options =>
-        {
-            options.UseSqlServer(configuration.GetConnectionString("DebtManagerOLTP"));
-        });
+var spResult = await _interactionContext.Interactions.FromSqlRaw("EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take", sqlParameterConsumerID, sqlParameterSkip, sqlParameterTake).ToListAsync();
