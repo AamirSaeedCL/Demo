@@ -1,48 +1,35 @@
+services.AddDbContextFactory<InteractionContext>(options =>
+{
+    options.UseSqlServer(configuration.GetConnectionString("CabotApiInteractionStage"));
+});
 
+public ActionResultCommandHandler(
+    ILogger<ActionResultCommandHandler> logger,
+    InteractionContext interactionContext, // ❌ remove this
+    IDbContextFactory<InteractionContext> contextFactory,
+    DebtManagerContext debtManagerContext,
+    IMemoryCache memoryCache)
+{
+    _logger = logger;
+    _contextFactory = contextFactory;
+    _debtManagerContext = debtManagerContext;
+    _memoryCache = memoryCache;
+}
+public async Task<IEnumerable<InteractionMinimisedModel>> GetInteractions(GetInteractionsCommand command)
+{
+    var sqlParameterConsumerID = new SqlParameter("@consumerID", command.ConsumerID);
+    var sqlParameterSkip = new SqlParameter("@skip", command.Skip);
+    var sqlParameterTake = new SqlParameter("@take", command.Take);
 
+    using var context = _contextFactory.CreateDbContext(); // ✅ new instance per request
 
+    var spResult = await context.Interactions
+        .FromSqlRaw(
+            "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+            sqlParameterConsumerID,
+            sqlParameterSkip,
+            sqlParameterTake)
+        .ToListAsync();
 
-
-  services.AddDbContext<InteractionContext>(options =>
-  {
-      options.UseSqlServer(configuration.GetConnectionString("CabotApiInteractionStage"));
-  });
-
-
-      public async Task<IEnumerable<InteractionMinimisedModel>> GetInteractions(GetInteractionsCommand command)
-      {
-          // return await _actionResultRepository.LogByUserActionConfig(command);
-
-          // Get Category Rules from Interactions DB
-          var sqlParameterConsumerID = new Microsoft.Data.SqlClient.SqlParameter("@consumerID", command.ConsumerID);
-          var sqlParameterSkip = new Microsoft.Data.SqlClient.SqlParameter("@skip", command.Skip);
-          var sqlParameterTake = new Microsoft.Data.SqlClient.SqlParameter("@take", command.Take);
-
-          List<Interaction> spResult = new List<Interaction>();
-          List<InteractionMinimisedModel> cachedResult = new List<InteractionMinimisedModel>();
-          try
-          {
-              spResult = await _interactionContext.Interactions
-                  .FromSqlRaw(
-                      "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
-                      sqlParameterConsumerID,
-                      sqlParameterSkip,
-                      sqlParameterTake
-                  )
-                  .ToListAsync();
-          }
-          catch (SqlException sqlEx)
-          {
-            //  _logger.LogError(sqlEx, "SQL error occurred while executing usp_ObtainInteractions for ConsumerID: {ConsumerId}", sqlParameterConsumerID.Value);
-          }
-          catch (Exception ex)
-          { 
-            //  _logger.LogError(ex, "Unexpected error occurred while fetching interactions");
-          }
-
-          cachedResult.AddRange((IEnumerable<InteractionMinimisedModel>)spResult.Select(t => t.ToModel()));
-
-          return cachedResult;
-
-          // return new OkObjectResult(null);
-      }
+    return spResult.Select(t => t.ToModel()).ToList();
+}
