@@ -1,1 +1,207 @@
+ 
 
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using CCM.DebtManager.Entity;
+using CCM.DebtManager.Entity.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+
+namespace CCM.DebtManager;
+
+public class DebtManagerContext : DbContext
+{
+    public DbSet<AgencyDefinedTable> AgencyDefinedTables { get; set; }
+
+    public DbSet<AgencyDefinedColumn> AgencyDefinedColumns { get; set; }
+
+    public DbSet<EntityAccessControlList> EntityAccessControlLists { get; set; }
+
+    public DbSet<ConfigItem> ConfigItems { get; set; }
+
+    public DbSet<BalanceName> BalanceNames { get; set; }
+
+    public DbSet<Consumer> Consumers { get; set; }
+
+    public DbSet<ConsumerAccount> ConsumerAccounts { get; set; }
+
+    public DbSet<ConsumerAccountBalance> ConsumerAccountBalances { get; set; }
+
+    public DbSet<ConsumerAccountOwners> ConsumerAccountOwners { get; set; }
+
+    public DbSet<ConsumerAccountSettlementGroup> ConsumerAccountSettlementGroups { get; set; }
+
+    public DbSet<ConsumerAccountTag> ConsumerAccountTags { get; set; }
+
+    public DbSet<ConsumerAddress> ConsumerAddresses { get; set; }
+
+    public DbSet<ConsumerAddressHistory> ConsumerAddressHistory { get; set; }
+
+    public DbSet<ConsumerHistoryRecord> ConsumerHistory { get; set; }
+
+    public DbSet<ConsumerPhone> ConsumerPhones { get; set; }
+
+    public DbSet<ConsumerTag> ConsumerTags { get; set; }
+
+    public DbSet<ConsumerWorkAction> ConsumerWorkActions { get; set; }
+
+    public DbSet<Creditor> Creditors { get; set; }
+
+    public DbSet<ActionCode> ActionCodes { get; set; }
+
+    public DbSet<Role> Roles { get; set; }
+
+    public DbSet<ResultCode> ResultCodes { get; set; }
+
+    public DbSet<RelatedPerson> RelatedPeople { get; set; }
+
+    public DbSet<User> Users { get; set; }
+
+    public DbSet<UserReminder> UserReminders { get; set; }
+
+    public DbSet<UserRole> UserRoles { get; set; }
+
+    public DbSet<ConsumerAccountActionResultLog> ConsumerAccountActionResultLogs { get; set; }
+
+    public DbSet<LinkedConsumer> LinkedConsumers { get; set; }
+
+    public DbSet<ReferenceEmailValidityCode> ReferenceEmailValidityCodes { get; set; }
+
+    public DbSet<ReferencePhoneSourceCode> ReferencePhoneSourceCodes { get; set; }
+
+    public DbSet<ReferencePhoneStatusCode> ReferencePhoneStatusCodes { get; set; }
+
+    public DbSet<ReferencePhoneTypeCode> ReferencePhoneTypeCodes { get; set; }
+
+    public DbSet<ReferencePhoneTechnologyTypeCode> ReferencePhoneTechnologyTypeCodes { get; set; }
+
+    public DbSet<ReferenceCountryCode> ReferenceCountryCodes { get; set; }
+
+    public DbSet<ReferenceAddressSourceCode> ReferenceAddressSourceCodes { get; set; }
+
+    public DbSet<ConsumerPaymentBatch> ConsumerPaymentBatch { get; set; }
+
+    public DbSet<ConsumerPaymentJournal> ConsumerPaymentJournal { get; set; }
+
+    public DbSet<ConsumerAccountPaymentJournal> ConsumerAccountPaymentJournal { get; set; }
+
+    public DbSet<FileRegistry> FileRegistry { get; set; }
+
+    public DbSet<PaymentMemo> PaymentMemos { get; set; }
+
+    public DbSet<ReferenceBucketTransactionTypeCode> ReferenceBucketTransactionTypeCodes { get; set; }
+
+    public DbSet<ReferenceFileTypeCode> ReferenceFileTypeCode { get; set; }
+
+    public DbSet<ReferenceFileStatusCode> ReferenceFileStatusCode { get; set; }
+
+    public DbSet<RefUdefDiallerDisposition> RefUdefDiallerDispositions { get; set; }
+
+    public DbSet<RefUdefDmcAddressRecords> RefUdefDmcAddressRecords { get; set; }
+
+    public DbSet<ReferencePaymentFrequencyCode> ReferencePaymentFrequencyCodes { get; set; }
+
+    public DbSet<ReferenceScheduledPaymentStatusCode> ReferenceScheduledPaymentStatusCodes { get; set; }
+
+    public DbSet<ReferenceSettlementOfferStatusCode> ReferenceSettlementOfferStatusCodes { get; set; }
+
+    public DbSet<ReferenceConsumerSettlementStatusCode> ReferenceConsumerSettlementStatusCodes { get; set; }
+
+    public DbSet<DocumentTemplate> DocumentTemplate { get; set; }
+
+    public DbSet<DocumentTemplateVersion> DocumentTemplateVersion { get; set; }
+
+    public DbSet<DocumentGroup> DocumentGroup { get; set; }
+
+    public DbSet<DocumentRequest> DocumentRequest { get; set; }
+
+    public DbSet<DocumentRequestSubjectRecord> DocumentRequestSubjectRecord { get; set; }
+
+    public DbSet<UdefConsumerPreference> UdefConsumerPreference { get; set; }
+
+    public DbSet<UdefCorrespondenceAddress> UdefCorrespondenceAddresses { get; set; }
+
+    public DbSet<UdefCPA_Details> UdefCPA_Details { get; set; }
+
+    public DbSet<UdefDirectDebit> UdefDirectDebits { get; set; }
+
+    public DbSet<UdefPaymentPlanLetterVariables> UdefPaymentPlanLetterVariables { get; set; }
+
+    public DbSet<ScheduledPaymentSummary> ScheduledPaymentSummary { get; set; }
+
+    public DbSet<ScheduledPaymentInstance> ScheduledPaymentInstances { get; set; }
+
+    public DbSet<UdefReview> UdefReviews { get; set; }
+
+    public DbSet<UdefThirdPartyDetails> UdefThirdPartyDetails { get; set; }
+
+    public DbSet<UdefValueList> UdefValueLists { get; set; }
+
+    public DbSet<UdefComplaintAndDispute> UdefComplaintsAndDisputes { get; set; }
+
+    public DbSet<UdefPreDefault> UdefPreDefaults { get; set; }
+
+    public DbSet<UdefLitigation> UdefLitigations { get; set; }
+
+    public DbSet<UdefPlanPaymentType> UdefPlanPaymentTypes { get; set; }
+
+    public DbSet<Workgroup> Workgroups { get; set; }
+
+    public DebtManagerContext(DbContextOptions<DebtManagerContext> options)
+        : base(options)
+    {
+    }
+
+    protected DebtManagerContext(DbContextOptions options)
+        : base(options)
+    {
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetAssembly(typeof(DebtManagerContext)));
+    }
+
+    public override int SaveChanges()
+    {
+        UpdateUpsertInfoColumns();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        UpdateUpsertInfoColumns();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default(CancellationToken))
+    {
+        UpdateUpsertInfoColumns();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default(CancellationToken))
+    {
+        UpdateUpsertInfoColumns();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void UpdateUpsertInfoColumns()
+    {
+        IEnumerable<EntityEntry> source = from e in ChangeTracker.Entries()
+                                          where e.Entity is IUpsertInfo
+                                          select e;
+        foreach (EntityEntry item in source.Where((EntityEntry e) => e.State == EntityState.Added))
+        {
+            (item.Entity as IUpsertInfo)?.SetInitialUpsertInfo();
+        }
+
+        foreach (EntityEntry item2 in source.Where((EntityEntry e) => e.State == EntityState.Modified))
+        {
+            (item2.Entity as IUpsertInfo)?.UpdateUpsertInfo();
+        }
+    }
+} 
