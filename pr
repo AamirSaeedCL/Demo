@@ -1,1 +1,28 @@
-var spResult = await _interactionContext.Interactions.FromSqlRaw("EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take", sqlParameterConsumerID, sqlParameterSkip, sqlParameterTake).ToListAsync();
+List<Interaction> spResult = new();
+
+try
+{
+    spResult = await _interactionContext.Interactions
+        .FromSqlRaw(
+            "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+            sqlParameterConsumerID,
+            sqlParameterSkip,
+            sqlParameterTake
+        )
+        .ToListAsync();
+}
+catch (SqlException sqlEx)
+{
+    _logger.LogError(sqlEx, "SQL error occurred while executing usp_ObtainInteractions for ConsumerID: {ConsumerId}", sqlParameterConsumerID.Value);
+    // handle DB-specific error (e.g., retry, default response, etc.)
+}
+catch (DbUpdateException dbEx)
+{
+    _logger.LogError(dbEx, "EF Core update error occurred while fetching interactions");
+    // handle EF Core-related issues
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Unexpected error occurred while fetching interactions");
+    // fallback handling
+}
