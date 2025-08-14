@@ -1,59 +1,79 @@
+using CCM.DebtManager.ActionResult.Core.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace CCM.DebtManager.ActionResult.Core.Repositories
+{
+    public interface IInteractionRepository
+    {
+        Task<List<Interaction>> GetInteractionsAsync(int consumerId, int skip, int take);
+    }
+}
+
+
+
+using CCM.DebtManager.ActionResult.Core.Entities;
+using CCM.DebtManager.ActionResult.Core.Repositories;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace CCM.DebtManager.ActionResult.Infrastructure.Repositories
+{
+    public class InteractionRepository : IInteractionRepository
+    {
+        private readonly IDbContextFactory<YourDbContext> _contextFactory;
+
+        public InteractionRepository(IDbContextFactory<YourDbContext> contextFactory)
+        {
+            _contextFactory = contextFactory;
+        }
+
+        public async Task<List<Interaction>> GetInteractionsAsync(int consumerId, int skip, int take)
+        {
+            var sqlParameterConsumerID = new SqlParameter("@consumerID", consumerId);
+            var sqlParameterSkip = new SqlParameter("@skip", skip);
+            var sqlParameterTake = new SqlParameter("@take", take);
+
+            using var context = _contextFactory.CreateDbContext();
+
+            return await context.Interactions
+                .FromSqlRaw(
+                    "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+                    sqlParameterConsumerID,
+                    sqlParameterSkip,
+                    sqlParameterTake
+                )
+                .ToListAsync();
+        }
+    }
+}
+
+
+
+
+private readonly IInteractionRepository _interactionRepository;
+
+public YourClassName(IInteractionRepository interactionRepository)
+{
+    _interactionRepository = interactionRepository;
+}
+
 public async Task<ObjectResult> GetInteractions(GetInteractionsCommand command)
 {
-    var sqlParameterConsumerID = new SqlParameter("@consumerID", command.ConsumerID);
-    var sqlParameterSkip = new SqlParameter("@skip", command.Skip);
-    var sqlParameterTake = new SqlParameter("@take", command.Take);
-
-    using var context = _contextFactory.CreateDbContext();
-
-    List<Interaction> spResult = new List<Interaction>();
+    List<Interaction> spResult;
 
     try
     {
-        spResult = await context.Interactions
-            .FromSqlRaw(
-                "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
-                sqlParameterConsumerID,
-                sqlParameterSkip,
-                sqlParameterTake
-            )
-            .ToListAsync();
+        spResult = await _interactionRepository
+            .GetInteractionsAsync(command.ConsumerID, command.Skip, command.Take);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
         return new ObjectResult("Unexpected error occurred") { StatusCode = 500 };
     }
 
     var mappedResult = spResult.Select(t => t.ToModel()).ToList();
-
     return new OkObjectResult(mappedResult);
-}
-
-using CCM.DebtManager.ActionResult.Core.Entities;
-using CCM.DebtManager.ActionResult.Core.Models;
-using System;
-
-namespace CCM.DebtManager.ActionResult.Subscriber.Mappers
-{
-    public static class InteractionEntityToModelMapper
-    {
-        public static InteractionMinimisedModel ToModel(this Interaction entity)
-        {
-            if (entity is null)
-                throw new ArgumentNullException($"Ensure '{nameof(entity)}' entity is also provided");
-
-            return new InteractionMinimisedModel
-            {
-                CategoryName = entity.CategoryName,
-                CategoryRuleDescription = entity.CategoryRuleName,
-                ActionCodeText = entity.ActionCodeShortName,
-                ResultCodeText = entity.ResultCodeShortName,
-                IsRPC = entity.IsRPC,
-                MaterialLogo = entity.MaterialLogo,
-                ActionResultContent = entity.Message,
-                CreatedByUserName = entity.UpsertUserName,
-                CreatedDateTime = entity.UpsertDateTime
-            };
-        }
-    }
 }
