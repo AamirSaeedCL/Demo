@@ -1,1 +1,115 @@
-System.InvalidCastException: 'The SqlParameterCollection only accepts non-null Microsoft.Data.SqlClient.SqlParameter type objects, not System.Data.SqlClient.SqlParameter objects.'
+using CCM.DebtManager.ActionResult.Core.Entities;
+using CCM.DebtManager.ActionResult.Core.Models;
+using System;
+using System.Linq;
+
+namespace CCM.DebtManager.ActionResult.Subscriber.Mappers
+{
+    public static class ConsumerActivityEntityToModelMapper
+    {
+        public static ConsumerActivityModel ToModel(this ConsumerActivity entity)
+        {
+            if (entity is null)
+                throw new ArgumentNullException($"Ensure '{nameof(entity)}' entity is also provided");
+
+
+            var model = new ConsumerActivityModel()
+            {
+                ConsumerActivityID = entity.ConsumerActivityID,
+                ActivityName = entity.Name,
+                ConsumerActivityIsActive = entity.IsActive,
+                ActionResultTemplates = entity.TemplateMappings.Select(e => e.ActionResultTemplate.ToModel())
+            };
+
+            return model;
+        }
+    }
+}
+
+Based on above class (follow it) , create the mapper for below models:  
+public async Task<ObjectResult> GetInteractions(GetInteractionsCommand command)
+{
+    var sqlParameterConsumerID = new SqlParameter("@consumerID", command.ConsumerID);
+    var sqlParameterSkip = new SqlParameter("@skip", command.Skip);
+    var sqlParameterTake = new SqlParameter("@take", command.Take);
+
+    using var context = _contextFactory.CreateDbContext();
+
+    List<Interaction> spResult = new List<Interaction>();
+
+    try
+    {
+        spResult = await context.Interactions
+            .FromSqlRaw(
+                "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+                sqlParameterConsumerID,
+                sqlParameterSkip,
+                sqlParameterTake
+            )
+            .ToListAsync();
+    }
+    catch (Exception ex)
+    {
+      //  _logger.LogError(ex, "Unexpected error occurred while fetching interactions");
+        return new ObjectResult("Unexpected error occurred") { StatusCode = 500 };
+    }
+
+ << Once create mapper class , use it here>>
+    var mappedResult = spResult.Select(t => new InteractionMinimisedModel
+    {
+        CategoryName = t.CategoryName,
+        CategoryRuleDescription = t.CategoryRuleName,
+        ActionCodeText = t.ActionCodeShortName,
+        ResultCodeText = t.ResultCodeShortName,
+        IsRPC = t.IsRPC,
+        MaterialLogo = t.MaterialLogo,
+        ActionResultContent = t.Message,
+        CreatedByUserName = t.UpsertUserName,
+        CreatedDateTime = t.UpsertDateTime
+    }).ToList();
+
+    return new OkObjectResult(mappedResult);
+}
+
+
+public class Interaction
+{
+    public string CategoryName { get; set; }
+
+    public string MaterialLogo { get; set; }
+
+    public string CategoryRuleName { get; set; }
+
+    public bool IsRPC { get; set; }
+
+    public string ActionCodeShortName { get; set; }
+
+    public string ResultCodeShortName { get; set; }
+
+    public string Message { get; set; }
+
+    public DateTime UpsertDateTime { get; set; }
+
+    public string UpsertUserName { get; set; }
+}
+
+public class InteractionMinimisedModel
+{
+    public string CategoryName { get; set; }
+
+    public string CategoryRuleDescription { get; set; }
+
+    public string ActionCodeText { get; set; }
+
+    public string ResultCodeText { get; set; }
+
+    public bool IsRPC { get; set; }
+
+    public string MaterialLogo { get; set; }
+
+    public string ActionResultContent { get; set; }
+
+    public string CreatedByUserName { get; set; }
+
+    public DateTime? CreatedDateTime { get; set; }
+}
