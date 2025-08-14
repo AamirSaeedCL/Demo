@@ -17,54 +17,68 @@ namespace CCM.DebtManager.ActionResult.Subscriber.Services.Repository
         private readonly IDbContextFactory<InteractionContext> _contextFactoryInteraction;
         private readonly IDbContextFactory<CCM.DebtManager.Interaction.Core.DebtManagerContext> _contextFactoryDebtManager;
         private readonly ActionResultConfiguration _actionResultConfiguration;
-        public InteractionRepository(IDbContextFactory<InteractionContext> contextFactory, IDbContextFactory<CCM.DebtManager.Interaction.Core.DebtManagerContext> contextFactoryDebtManager, ActionResultConfiguration actionResultConfiguration)
+
+        public InteractionRepository(
+            IDbContextFactory<InteractionContext> contextFactory,
+            IDbContextFactory<CCM.DebtManager.Interaction.Core.DebtManagerContext> contextFactoryDebtManager,
+            ActionResultConfiguration actionResultConfiguration)
         {
             _contextFactoryInteraction = contextFactory;
-            _actionResultConfiguration = actionResultConfiguration;
             _contextFactoryDebtManager = contextFactoryDebtManager;
+            _actionResultConfiguration = actionResultConfiguration;
         }
 
-        public async Task<List<CCM.DebtManager.Interaction.Core.Entities.Interaction>> GetInteractionsAsync(int consumerId, int skip, int take)
+        public async Task<List<Interaction>> GetInteractionsAsync(int consumerId, int skip, int take)
         {
             var sqlParameterConsumerID = new SqlParameter("@consumerID", consumerId);
             var sqlParameterSkip = new SqlParameter("@skip", skip);
             var sqlParameterTake = new SqlParameter("@take", take);
-          
 
             if (_actionResultConfiguration.UseOLTP)
             {
-                // Get Category Rules from Interactions DB
+                // Get Category Rules from DebtManager DB
                 using var context = _contextFactoryDebtManager.CreateDbContext();
-                var sqlParameterCatRules = new Microsoft.Data.SqlClient.SqlParameter("@CategoryRules", await GetCategoryRulesDataTable(false));
-                sqlParameterCatRules.TypeName = "dbo.tt_Interactions_CategoryRules";
-                return await context.Interactions.FromSqlRaw("EXEC CCM.usp_ObtainInteractions @consumerID, @skip, @take, @CategoryRules", sqlParameterConsumerID, sqlParameterSkip, sqlParameterTake, sqlParameterCatRules).ToListAsync();
-             }
+
+                var sqlParameterCatRules = new SqlParameter(
+                    "@CategoryRules",
+                    await GetCategoryRulesDataTable(false)
+                )
+                {
+                    TypeName = "dbo.tt_Interactions_CategoryRules"
+                };
+
+                return await context.Interactions.FromSqlRaw(
+                    "EXEC CCM.usp_ObtainInteractions @consumerID, @skip, @take, @CategoryRules",
+                    sqlParameterConsumerID,
+                    sqlParameterSkip,
+                    sqlParameterTake,
+                    sqlParameterCatRules
+                ).ToListAsync();
+            }
             else
             {
                 using var context = _contextFactoryInteraction.CreateDbContext();
 
-                return await context.Interactions
-                    .FromSqlRaw(
-                        "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
-                        sqlParameterConsumerID,
-                        sqlParameterSkip,
-                        sqlParameterTake
-                    )
-                    .ToListAsync();
+                return await context.Interactions.FromSqlRaw(
+                    "EXEC dbo.usp_ObtainInteractions @consumerID, @skip, @take",
+                    sqlParameterConsumerID,
+                    sqlParameterSkip,
+                    sqlParameterTake
+                ).ToListAsync();
             }
         }
 
-       public async Task<DataTable> GetCategoryRulesDataTable(bool rPCOnly)
+        public async Task<DataTable> GetCategoryRulesDataTable(bool rPCOnly)
         {
             using var context = _contextFactoryInteraction.CreateDbContext();
 
-                var categoryRules = await context.CategoryRules.AsNoTracking()
-                    .Include(e => e.Category)
-                    .Where(t => rPCOnly == false || t.IsRPC == rPCOnly)
-                    .ToListAsync();
+            var categoryRules = await context.CategoryRules
+                .AsNoTracking()
+                .Include(e => e.Category)
+                .Where(t => rPCOnly == false || t.IsRPC == rPCOnly)
+                .ToListAsync();
 
-                return categoryRules.ToDataTable(rPCOnly);
+            return categoryRules.ToDataTable(rPCOnly);
         }
-
     }
 }
