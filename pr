@@ -1,254 +1,137 @@
-using CCM.Auth.Contracts;
-using CCM.Core.Extensions;
-using CCM.Core.Models;
-using CCM.DebtManager.ActionResult.Core.Commands;
-using CCM.DebtManager.ActionResult.Core.Contracts;
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Net.Http;
-using System.Threading.Tasks;
-
-namespace CCM.DebtManager.ActionResult.Api.Client.Services
+namespace CCM.Api.Operations
 {
-    public class ActionResultApiClient : IActionResultApiClient
+    public class ActionResultOperations
     {
-        private readonly HttpClient _httpClient;
-        private readonly IAuthorise _authorise;
+        /*WARNING DM9 Entities referenced in the client project, no mapping from the Entity to the Model for ConsumerAccountActionResultLogDesc
+         I have left this in as it may impact consumers of this api if we change the entity to the model.
+         */
+        private readonly IActionResultApiClient _client;
+        private readonly IFunctionManager _functionManager;
+        private readonly ValidationMaxCodeConfiguration _validationMaxCodeConfiguration;
+        private readonly ILogger<ActionResultOperations> _logger;
 
-        public ActionResultApiClient(HttpClient httpClient, IAuthorise authorise)
+        public ActionResultOperations(IActionResultApiClient client, IFunctionManager functionManager, ValidationMaxCodeConfiguration validationMaxCodeConfiguration, ILogger<ActionResultOperations> logger)
         {
-            _httpClient = httpClient;
-            _authorise = authorise;
+            _client = client;
+            _functionManager = functionManager;
+            _validationMaxCodeConfiguration = validationMaxCodeConfiguration;
+            _logger = logger;
         }
 
-        public async Task<ObjectResult> GetActionResultLogRecords(GetActionResultLogRecordsCommand command)
-        {
-            if (command is null) 
-                throw new ArgumentNullException("command");
+      
 
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"search/{command.ConsumerId}/{command.ActionCodeShortValueText}/{command.ResultCodeShortValueText}/{command.MessagePart}/{command.Num}", command);
-            return response.ToObjectResult();
+        [OpenApiOperation(operationId: "getInteractions", tags: new[] { "Interactions" }, Description = "Get Interactions by ConsumerId with pagination.")]
+        [OpenApiSecurity("getInteractions", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+        [OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+        [OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+        [OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+        [OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+        [OpenApiParameter(name: "skip", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **skip** parameter")]
+        [OpenApiParameter(name: "take", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **take** parameter")]
+        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<InteractionMinimisedModel>))]
+        [Function("getInteractions")]
+        public async Task<IActionResult> GetInteractions(
+           [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
+            HttpRequest request)
+        {
+            var command = await request.As<GetInteractionsCommand>();
+
+            if (command.IsMissingMetaData(out string errorMessage))
+                return new BadRequestObjectResult(errorMessage);
+
+            if (!await command.Validate(out string validationErrorMessage))
+                return new BadRequestObjectResult(validationErrorMessage);
+
+            using (var scope = _logger.BeginScope(command.CorrelationId))
+            {
+                return await _functionManager.ExecuteGet<GetInteractionsCommand, List<InteractionMinimisedModel>>(
+                    request.HttpContext,
+                    (cmd) => _client.GetInteractions(cmd)
+                );
+            }
         }
 
-        public async Task<ObjectResult> GetARLogRecords(GetARLogRecordsCommand command)
+        [OpenApiOperation(operationId: "getLastRpc", tags: new[] { "Interactions" }, Description = "Get the most recent RPC interaction for a given ConsumerId.")]
+        [OpenApiSecurity("getLastRpc", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+        [OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+        [OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+        [OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+        [OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(InteractionMinimisedModel))]
+        [Function("getLastRpc")]
+        public async Task<IActionResult> GetLastRpc(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/last/rpc")]
+            HttpRequest request,
+            long consumerId)
         {
-            if (command is null) 
-                throw new ArgumentNullException("command");
+            var command = await request.As<GetConsumerCommand>();
+            command.ConsumerID = consumerId;
 
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"search/{command.ConsumerId}/action/{command.ActionCodeShortValueText}/result/{command.ResultCodeShortValueText}/take/{command.Take}/skip/{command.Skip}", command);
-            return response.ToObjectResult();
+            if (command.IsMissingMetaData(out string errorMessage))
+                return new BadRequestObjectResult(errorMessage);
+
+            if (!await command.Validate(out string validationErrorMessage))
+                return new BadRequestObjectResult(validationErrorMessage);
+
+            using (var scope = _logger.BeginScope(command.CorrelationId))
+            {
+                try
+                {
+                    return await _functionManager.ExecuteGet<GetConsumerCommand, InteractionMinimisedModel>(
+                        request.HttpContext,
+                        (cmd) => _client.GetLastRpcInteraction(cmd)
+                    );
+                }
+                catch (SqlException ex) when (ex.Number == -2)
+                {
+                    _logger.LogError(ex, $"SQL Timeout: {nameof(GetLastRpc)}");
+                    return new StatusCodeResult((int)HttpStatusCode.RequestTimeout);
+                }
+            }
         }
 
-        public async Task<ObjectResult> GetActionResultLogByConsumer(LinkedConsumerCallContext command)
+        [OpenApiOperation(operationId: "getLast", tags: new[] { "Interactions" }, Description = "Get the most recent interaction for a given ConsumerId.")]
+        [OpenApiSecurity("getLast", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+        [OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+        [OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+        [OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+        [OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+        [OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(InteractionMinimisedModel))]
+        [Function("getLast")]
+        public async Task<IActionResult> GetLast(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/last")]
+            HttpRequest request,
+            long consumerId)
         {
-            if (command is null)
-                throw new ArgumentNullException("command");
+            var command = await request.As<GetConsumerCommand>();
+            command.ConsumerID = consumerId;
 
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PutWithCCMHeadersAsync($"search/{command.ConsumerID}", command);
-            return response.ToObjectResult();
+            if (command.IsMissingMetaData(out string errorMessage))
+                return new BadRequestObjectResult(errorMessage);
+
+            if (!await command.Validate(out string validationErrorMessage))
+                return new BadRequestObjectResult(validationErrorMessage);
+
+            using (var scope = _logger.BeginScope(command.CorrelationId))
+            {
+                try
+                {
+                    return await _functionManager.ExecuteGet<GetConsumerCommand, InteractionMinimisedModel>(
+                        request.HttpContext,
+                        (cmd) => _client.GetLastInteraction(cmd)
+                    );
+                }
+                catch (SqlException ex) when (ex.Number == -2)
+                {
+                    _logger.LogError(ex, $"SQL Timeout: {nameof(GetLastRpc)}");
+                    return new StatusCodeResult((int)HttpStatusCode.RequestTimeout);
+                }
+            }
         }
-
-        public async Task<ObjectResult> GetActionResultLogByConsumerPaginated(PaginatedCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PutWithCCMHeadersAsync($"search/{command.ConsumerID}/take/{command.Take}/skip/{command.Skip}", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> Log(CreateActionResultLogCommand command)
-        {
-            if (command is null) 
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync("log", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> LogAccount(CreateActionResultLogAccountCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync("log/account", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> LogMultiple(CreateActionResultLogMultipleCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync("log/multiple", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> LogByActivity(CreateActionResultByActivityCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync($"log/activity/{command.ActivityName}", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> LogByTemplate(CreateActionResultByTemplateCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync($"log/template/{command.TemplateName}", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> GetActiveTemplates(CallContext callContext)
-        {
-            if (callContext is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(callContext);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"template/active", callContext);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> UpdateTemplate(UpdateActionResultTemplateCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PutWithCCMHeadersAsync($"template", command);
-            return response.ToObjectResult();
-        }
-
-        public async  Task<ObjectResult> InsertTemplate(UpdateActionResultTemplateCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync($"template", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> DeleteTemplate(DeleteActionResultTemplateCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.AddCCMHeaders(command).DeleteAsync($"template");
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> GetActiveActivities(CallContext callContext)
-        {
-            if (callContext is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(callContext);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"activity/active", callContext);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> UpdateActivity(UpdateConsumerActivityCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PutWithCCMHeadersAsync($"activity", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> InsertActivity(UpdateConsumerActivityCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync($"activity", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> DeleteActivity(DeleteConsumerActivityCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.AddCCMHeaders(command).DeleteAsync($"activity");
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> GetTemplateByName(GetActionResultTemplateCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"template/{command.TemplateName}", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> GetActivityByName(GetConsumerActivityCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"activity/{command.ActivityName}", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> GetAllTemplates(CallContext callContext)
-        {
-            if (callContext is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(callContext);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"template/all", callContext);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> GetAllActivities(CallContext callContext)
-        {
-            if (callContext is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(callContext);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"activity/all", callContext);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> ValidateCodes(ValidateActionAndResultCodesCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.GetWithCCMHeadersAsync($"consumerReference/{command.ConsumerReference}", command);
-            return response.ToObjectResult();
-        }
-
-        public async Task<ObjectResult> LogByUserActionConfig(CreateActionResultByUserActionConfigCommand command)
-        {
-            if (command is null)
-                throw new ArgumentNullException("command");
-
-            _httpClient.DefaultRequestHeaders.Authorization = await _authorise.GetAuthorisationHeader(command);
-            var response = await _httpClient.PostWithCCMHeadersAsync($"log/useractionconfig", command);
-            return response.ToObjectResult();
-        }
-    }
 }
