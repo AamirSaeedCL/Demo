@@ -1,1 +1,61 @@
 
+[OpenApiOperation(operationId: "getInteractions", tags: new[] { "Interactions" }, Description = "Get Interactions by ConsumerId with pagination.")]
+[OpenApiSecurity("getInteractions", SecuritySchemeType.OAuth2, Flows = typeof(ClientCredentialAuthFlow), Name = "authorization", In = OpenApiSecurityLocationType.Header)]
+[OpenApiParameter(name: "ocp-apim-subscription-key-south", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "south key header")]
+[OpenApiParameter(name: "ocp-apim-subscription-key-west", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "west key header")]
+[OpenApiParameter(name: "correlation-id", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "correlation-id header")]
+[OpenApiParameter(name: "username", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "username header")]
+[OpenApiParameter(name: "origin", In = ParameterLocation.Header, Required = true, Type = typeof(string), Description = "origin header")]
+[OpenApiParameter(name: "consumerId", In = ParameterLocation.Path, Required = true, Type = typeof(long), Description = "The **consumerId** parameter")]
+[OpenApiParameter(name: "skip", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **skip** parameter")]
+[OpenApiParameter(name: "take", In = ParameterLocation.Path, Required = true, Type = typeof(int), Description = "The **take** parameter")]
+[OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<InteractionMinimisedModel>))]
+[Function("getInteractions")]
+public async Task<IActionResult> GetInteractions(
+   [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consumer/{consumerId}/skip/{skip}/take/{take}")]
+    HttpRequest request)
+{
+    var command = await request.As<GetInteractionsCommand>();
+
+    if (command.IsMissingMetaData(out string errorMessage))
+        return new BadRequestObjectResult(errorMessage);
+
+    if (!await command.Validate(out string validationErrorMessage))
+        return new BadRequestObjectResult(validationErrorMessage);
+
+    using (var scope = _logger.BeginScope(command.CorrelationId))
+    {
+        return await _functionManager.ExecuteGet<GetInteractionsCommand, List<InteractionMinimisedModel>>(
+            request.HttpContext,
+            (cmd) => _client.GetInteractions(cmd)
+        );
+    }
+}
+
+Follow up and make a method for below:
+
+  [HttpGet("consumer/{consumerID}/last/rpc")]
+  [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(InteractionMinimisedModel))]
+  [ProducesResponseType(StatusCodes.Status400BadRequest)]
+  [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+  public async Task<ActionResult> GetLastRpc([FromRoute] long consumerID)
+  {
+      var command = await HttpContext.Request.As<ConsumerCommand>(); // This doesn't populate Route values
+      command.ConsumerID = consumerID;
+
+      if (command.IsMissingMetaData(out string errorMessage))
+          return new BadRequestObjectResult(errorMessage);
+      if (!await command.Validate(out string validationErrorMessage))
+          return new BadRequestObjectResult(validationErrorMessage);
+
+      try
+      {
+          var responseBody = await _interactionAcl.GetLastRpcInteraction(command);
+          return new OkObjectResult(responseBody);
+      }
+      catch (SqlException ex) when (ex.Number == -2)
+      {
+          _logger.LogError(ex, $"Sql Timeout: {nameof(GetLastRpc)}");
+          return new StatusCodeResult((int)HttpStatusCode.RequestTimeout);
+      }
+  }
