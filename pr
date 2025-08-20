@@ -1,1 +1,7 @@
-Do we need to implement unit tests for these endpoints? Please note that a unit test project has not yet been set up in the solution.
+Hi Mark,
+
+The tester has completed testing for the eligibility pipelines using two rows, focusing only on the update scenario. However, my concern is that we should test with one row, two rows, and more than two rows to ensure that all parts of our query are functioning correctly.
+
+As you know, our stored procedure uses a MERGE query with both update and insert operations. I’ve asked the testers to verify that if a row doesn’t exist in the DataMart database, the query should insert a new row, and if it does exist, it should update the existing row according to our logic.
+
+It appears that both insert and update cases are working as expected. The testers are currently validating all three pipelines for the same scenarios and will share their findings shortly.
