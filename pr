@@ -1,6 +1,14 @@
-
-Update DataFactoryPipelineLog 
-	SET StartDateTime = '1900-01-01', EndDateTime = '1900-01-01'
-	Where LogId =  (Select MAx(LogId) from DataFactoryPipelineLog Where PipelineId = 
-    (Select PipelineId from [dbo].[DataFactoryPipeline] 
-    Where PipelineName = 'Ingestion_CustomerScore_Pipeline_V1_Master'))
+;WITH Pipeline AS (
+    SELECT PipelineId
+    FROM dbo.DataFactoryPipeline
+    WHERE PipelineName = 'Ingestion_CustomerScore_Pipeline_V1_Master'
+),
+LatestLog AS (
+    SELECT MAX(LogId) AS LogId
+    FROM dbo.DataFactoryPipelineLog
+    WHERE PipelineId = (SELECT PipelineId FROM Pipeline)
+)
+UPDATE dbo.DataFactoryPipelineLog
+SET StartDateTime = '1900-01-01',
+    EndDateTime   = '1900-01-01'
+WHERE LogId = (SELECT LogId FROM LatestLog);
