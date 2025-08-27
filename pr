@@ -1,1 +1,6 @@
 
+Update DataFactoryPipelineLog 
+	SET StartDateTime = '1900-01-01', EndDateTime = '1900-01-01'
+	Where LogId =  (Select MAx(LogId) from DataFactoryPipelineLog Where PipelineId = 
+    (Select PipelineId from [dbo].[DataFactoryPipeline] 
+    Where PipelineName = 'Ingestion_CustomerScore_Pipeline_V1_Master'))
