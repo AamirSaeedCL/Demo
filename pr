@@ -1,1 +1,1 @@
-@greater(length(activity('Get Metadata1').output.childItems), 0)
+Moreover, made changes in Score, Ownership and Eligibility pipelines, move the copy activity and wait activities inside the IF Condition. i-e if file exists then do the copy activity and covert them into the objects and then do the pega wait for 15 mins.
