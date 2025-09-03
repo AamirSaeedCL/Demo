@@ -1,1 +1,1 @@
-Moreover, changes were made to the Score, Ownership, and Eligibility pipelines by moving the copy activity and wait activities inside the IF condition. Specifically, if the file exists, the copy activity is executed to convert the files into objects, followed by a 15-minute wait period in Pega
+
