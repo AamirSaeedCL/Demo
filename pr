@@ -1,5 +1,18 @@
 INSERT INTO @Constraints (ConstraintName, ConstraintType)
-VALUES 
-    ('PK_CustomerTag_CustomerTagId', 'PK'),
-    ('DF_CustomerTag_TagActive', 'DF'),
-    ('DF_CustomerTag_UpsertDateTime', 'DF');
+SELECT 
+    con.name AS ConstraintName,
+    CASE 
+        WHEN con.type_desc = 'PRIMARY_KEY_CONSTRAINT' THEN 'PK'
+        WHEN con.type_desc = 'DEFAULT_CONSTRAINT' THEN 'DF'
+        ELSE con.type_desc
+    END AS ConstraintType
+FROM 
+    sys.objects con
+INNER JOIN 
+    sys.schemas sch ON con.schema_id = sch.schema_id
+INNER JOIN 
+    sys.tables t ON t.object_id = con.parent_object_id
+WHERE 
+    sch.name = 'stg' 
+    AND t.name = 'PaymentPlan'
+    AND (con.name LIKE 'PK_%' OR con.name LIKE 'DK_%');
