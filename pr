@@ -1,6 +1,7 @@
-    [CreatedDate]           DATETIME2 (7)    NULL,
-    [UpsertDateTime]        DATETIME2 (7)    NULL,
-
-
-
-Table: [stg].[PaymentPlan]
+UPDATE [stg].[PaymentPlan]
+SET 
+    [CreatedDate] = ISNULL([CreatedDate], GETDATE()),
+    [UpsertDateTime] = ISNULL([UpsertDateTime], GETDATE())
+WHERE 
+    [CreatedDate] IS NULL
+    OR [UpsertDateTime] IS NULL;
