@@ -1,21 +1,5 @@
-SELECT 
-    con.name AS ConstraintName,
-    con.type_desc AS ConstraintType,
-    col.name AS ColumnName
-FROM 
-    sys.objects con
-INNER JOIN 
-    sys.schemas sch ON con.schema_id = sch.schema_id
-INNER JOIN 
-    sys.tables t ON t.object_id = con.parent_object_id
-LEFT JOIN 
-    sys.key_constraints kc ON kc.object_id = con.object_id
-LEFT JOIN 
-    sys.default_constraints dc ON dc.object_id = con.object_id
-LEFT JOIN 
-    sys.columns col ON col.object_id = t.object_id 
-                     AND (col.column_id = kc.unique_index_id OR col.column_id = dc.parent_column_id)
-WHERE 
-    sch.name = 'stg' 
-    AND t.name = 'PaymentPlan'
-    AND (con.name LIKE 'PK_%' OR con.name LIKE 'DK_%');
+INSERT INTO @Constraints (ConstraintName, ConstraintType)
+VALUES 
+    ('PK_CustomerTag_CustomerTagId', 'PK'),
+    ('DF_CustomerTag_TagActive', 'DF'),
+    ('DF_CustomerTag_UpsertDateTime', 'DF');
