@@ -1,1 +1,2 @@
-ALTER INDEX [NCI_Customer_UpsertDateTime] ON [dbo].[Customer] DISABLE;
+ALTER INDEX [NCI_Customer_UpsertDateTime] 
+ON [dbo].[Customer] REBUILD;
