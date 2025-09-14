@@ -1,30 +1,34 @@
-SELECT 
-    con.name AS ConstraintName,
-    t.name AS TableName,
-    col.name AS ColumnName,
-    CASE 
-        WHEN con.type_desc = 'PRIMARY_KEY_CONSTRAINT' THEN 'PK'
-        WHEN con.type_desc = 'DEFAULT_CONSTRAINT' THEN 'DF'
-        ELSE con.type_desc
-    END AS ConstraintType
-FROM 
-    sys.objects con
-INNER JOIN 
-    sys.schemas sch ON con.schema_id = sch.schema_id
-INNER JOIN 
-    sys.tables t ON t.object_id = con.parent_object_id
-LEFT JOIN 
-    sys.indexes i ON i.object_id = t.object_id AND i.name = con.name
-LEFT JOIN 
-    sys.index_columns ic ON ic.object_id = t.object_id AND ic.index_id = i.index_id
-LEFT JOIN 
-    sys.columns col ON col.object_id = t.object_id AND col.column_id = ic.column_id
--- for DEFAULT constraints
-LEFT JOIN 
-    sys.default_constraints dc ON dc.parent_object_id = t.object_id AND dc.object_id = con.object_id
-LEFT JOIN 
-    sys.columns col2 ON col2.object_id = t.object_id AND col2.column_id = dc.parent_column_id
-WHERE 
-    sch.name = 'dbo' 
-    AND t.name = 'Customer'
-    AND con.type_desc IN ('PRIMARY_KEY_CONSTRAINT','DEFAULT_CONSTRAINT','UNIQUE_CONSTRAINT')
+CREATE TABLE [dbo].[Customer] (
+    [CustomerId]         BIGINT           NOT NULL,
+    [CustomerGroupId]    UNIQUEIDENTIFIER NULL,
+    [Title]              VARCHAR (50)     NULL,
+    [FirstName]          VARCHAR (100)    NULL,
+    [LastName]           VARCHAR (150)    NULL,
+    [MiddleName]         VARCHAR (100)    NULL,
+    [CommercialName]     VARCHAR (150)    NULL,
+    [DateofBirth]        DATE             NULL,
+    [Email]              VARCHAR (200)    NULL,
+    [EmailConfirmedDate] DATETIME2 (7)    NULL,
+    [IsMaster]           BIT              CONSTRAINT [DF_Customer_IsMaster] DEFAULT ((0)) NOT NULL,
+    [IsActive]           BIT              CONSTRAINT [DF_Customer_IsActive] DEFAULT ((0)) NOT NULL,
+    [UpsertDateTime]     DATETIME2 (7)    CONSTRAINT [DF_Customer_UpsertDateTime] DEFAULT (getdate()) NULL,
+    [Ownership]          VARCHAR (10)     NULL,
+    [OwnershipDate]      DATETIME2 (7)    NULL,
+    [IsBankHoliday]      BIT              CONSTRAINT [DF_Customer_IsBankHoliday] DEFAULT ((0)) NULL,
+    [DayOfWeek]          VARCHAR (10)     NOT NULL,
+    [IsValidEmail]       BIT              CONSTRAINT [DF_Customer_IsValidEmail] DEFAULT ((0)) NULL,
+    [LegacyId]           VARCHAR (40)     NULL,
+    [IsValidMobile]      BIT              CONSTRAINT [DF_Customer_IsValidMobile] DEFAULT ((0)) NULL,
+    [IsPegaLive]         BIT              CONSTRAINT [DF_Customer_IsPegaLive] DEFAULT ((1)) NULL,
+    [PegaRemovalReason]  VARCHAR(MAX)     NULL,
+    [IsDeleted]          BIT              CONSTRAINT [DF_Customer_IsDeleted] DEFAULT ((0)) NULL,
+    [ValidPhoneNumber]           VARCHAR (1)      NULL,
+    [DaysTillStoredReviewDate]   INT              NULL,
+    [MonthsSinceReviewSetDate]   INT              NULL,
+    CONSTRAINT [PK_Customer_CustomerId] PRIMARY KEY CLUSTERED ([CustomerId] ASC)
+);
+GO
+
+CREATE NONCLUSTERED INDEX [NCI_Customer_UpsertDateTime] 
+    ON [dbo].[Customer] ([UpsertDateTime]) INCLUDE ([CustomerGroupId])
+GO
