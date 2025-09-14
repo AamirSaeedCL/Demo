@@ -1,5 +1,7 @@
 SELECT 
-    con.name AS ConstraintName, *,
+    con.name AS ConstraintName,
+    t.name AS TableName,
+    col.name AS ColumnName,
     CASE 
         WHEN con.type_desc = 'PRIMARY_KEY_CONSTRAINT' THEN 'PK'
         WHEN con.type_desc = 'DEFAULT_CONSTRAINT' THEN 'DF'
@@ -11,6 +13,18 @@ INNER JOIN
     sys.schemas sch ON con.schema_id = sch.schema_id
 INNER JOIN 
     sys.tables t ON t.object_id = con.parent_object_id
+LEFT JOIN 
+    sys.indexes i ON i.object_id = t.object_id AND i.name = con.name
+LEFT JOIN 
+    sys.index_columns ic ON ic.object_id = t.object_id AND ic.index_id = i.index_id
+LEFT JOIN 
+    sys.columns col ON col.object_id = t.object_id AND col.column_id = ic.column_id
+-- for DEFAULT constraints
+LEFT JOIN 
+    sys.default_constraints dc ON dc.parent_object_id = t.object_id AND dc.object_id = con.object_id
+LEFT JOIN 
+    sys.columns col2 ON col2.object_id = t.object_id AND col2.column_id = dc.parent_column_id
 WHERE 
     sch.name = 'dbo' 
     AND t.name = 'Customer'
+    AND con.type_desc IN ('PRIMARY_KEY_CONSTRAINT','DEFAULT_CONSTRAINT','UNIQUE_CONSTRAINT')
