@@ -1,2 +1,1 @@
-ALTER INDEX [NCI_Customer_UpsertDateTime] 
-ON [dbo].[Customer] REBUILD;
+
