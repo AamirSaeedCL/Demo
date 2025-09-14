@@ -1,6 +1,56 @@
-SELECT cnsmr_id
-	, DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (UDEFREV_DATE AS DATE)) AS daysTillStoredReviewDate
-	, DATEDIFF (MM,CAST (UDEFREV_SET AS DATE),CAST (GETDATE() AS DATE)) monthsSinceReviewSetDate
-FROM crs5_oltp.dbo.UDEFREVIEW
-WHERE UDEFREV_DATE IS NOT NULL
-OR UDEFREV_SET IS NOT NULL
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+DECLARE @CurrentDayOfWeek NVARCHAR(10) = DATENAME(WEEKDAY, GETDATE());
+
+;WITH ValidPhones AS (
+    SELECT 
+        cp.cnsmr_id
+    FROM crs5_oltp.dbo.cnsmr_Phn cp WITH (NOLOCK)
+    INNER JOIN crs5_oltp.dbo.Ref_phn_typ_cd rpt WITH (NOLOCK)
+        ON cp.cnsmr_phn_typ_cd = rpt.phn_typ_cd
+       AND rpt.phn_typ_val_txt IN ('HOME','WORK','CELL')
+    INNER JOIN crs5_oltp.dbo.Ref_phn_stts_cd rps WITH (NOLOCK)
+        ON cp.cnsmr_phn_stts_cd = rps.phn_stts_cd
+       AND rps.phn_stts_val_txt IN ('UNKNOWN','VALID','NEW')
+    WHERE cp.cnsmr_phn_sft_dlt_flg = 'N'
+      AND cp.cnsmr_phn_nmbr_txt NOT LIKE '00%'   -- better than LEFT(...,2) != '00'
+    GROUP BY cp.cnsmr_id
+),
+UdefReview AS (
+    SELECT 
+        ur.cnsmr_id,
+        DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(ur.UDEFREV_DATE AS DATE)) AS daysTillStoredReviewDate,
+        DATEDIFF(MONTH, CAST(ur.UDEFREV_SET AS DATE), CAST(GETDATE() AS DATE)) AS monthsSinceReviewSetDate
+    FROM crs5_oltp.dbo.UDEFREVIEW ur WITH (NOLOCK)
+    WHERE ur.UDEFREV_DATE IS NOT NULL
+       OR ur.UDEFREV_SET IS NOT NULL
+)
+SELECT
+    C.cnsmr_id AS CustomerId,
+    CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
+    C.cnsmr_nm_cmmrcl_txt AS CommercialName,
+    C.cnsmr_brth_dt AS DateOfBirth,
+    C.cnsmr_email_txt AS Email,
+    C.cnsmr_email_cnfrmtn_dt AS EmailConfirmedDate,
+    C.cnsmr_nm_frst_txt AS FirstName,
+    C.wrkgrp_id AS WorkGroupId,
+    C.cnsmr_nm_lst_txt AS LastName,
+    C.cnsmr_nm_mddl_txt AS MiddleName,
+    C.cnsmr_nm_prfx_txt AS Title,
+    C.upsrt_dttm AS UpsertDateTime,
+    CAST(0 AS BIT) AS IsMaster,
+    CAST(0 AS BIT) AS IsActive,
+    @CurrentDayOfWeek AS DayOfWeek,
+    CAST(NULL AS VARCHAR(50)) AS Ownership,
+    CAST(NULL AS DATETIME2) AS OwnershipDate,
+    CAST(0 AS BIT) AS IsBankHoliday,
+    CAST(0 AS BIT) AS IsValidMobile,
+    CAST(0 AS BIT) AS IsValidEmail,
+    C.cnsmr_idntfr_lgcy_txt AS LegacyId,
+    CASE WHEN vp.cnsmr_id IS NOT NULL THEN 'Y' ELSE 'N' END AS validPhoneNumber,
+    ur.daysTillStoredReviewDate,
+    ur.monthsSinceReviewSetDate
+FROM dbo.cnsmr AS C WITH (NOLOCK)
+LEFT JOIN ValidPhones vp ON C.cnsmr_id = vp.cnsmr_id
+LEFT JOIN UdefReview ur ON C.cnsmr_id = ur.cnsmr_id
+ORDER BY C.upsrt_dttm;
