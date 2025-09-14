@@ -1,18 +1,46 @@
-INSERT INTO @Constraints (ConstraintName, ConstraintType)
-SELECT 
-    con.name AS ConstraintName,
-    CASE 
-        WHEN con.type_desc = 'PRIMARY_KEY_CONSTRAINT' THEN 'PK'
-        WHEN con.type_desc = 'DEFAULT_CONSTRAINT' THEN 'DF'
-        ELSE con.type_desc
-    END AS ConstraintType
-FROM 
-    sys.objects con
-INNER JOIN 
-    sys.schemas sch ON con.schema_id = sch.schema_id
-INNER JOIN 
-    sys.tables t ON t.object_id = con.parent_object_id
-WHERE 
-    sch.name = 'stg' 
-    AND t.name = 'PaymentPlan'
-    AND (con.name LIKE 'PK_%' OR con.name LIKE 'DK_%');
+SELECT DISTINCT cp.cnsmr_id
+	, 'Y' AS validPhoneNumber
+INTO #validPhoneNumber
+FROM crs5_oltp.dbo.cnsmr_Phn cp
+INNER JOIN crs5_oltp.dbo.Ref_phn_typ_cd rpt
+ON cp.cnsmr_phn_typ_cd = rpt.phn_typ_cd
+AND rpt.phn_typ_val_txt IN ('HOME','WORK','CELL')
+INNER JOIN crs5_oltp.dbo.Ref_phn_stts_cd rps
+ON cp.cnsmr_phn_stts_cd = rps.phn_stts_cd
+AND rps.phn_stts_val_txt IN ('UNKNOWN','VALID','NEW')
+WHERE LEFT(cnsmr_phn_nmbr_txt,2) != '00'
+and cp.cnsmr_phn_sft_dlt_flg = 'N'
+GROUP BY cp.cnsmr_id
+
+=========================
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+DECLARE @CurrentDayOfWeek NVARCHAR(10) = DATENAME(WEEKDAY, GETDATE());
+
+-- Main query
+SELECT
+    DISTINCT
+    [C].[cnsmr_id] AS CustomerId,
+    CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
+    [C].[cnsmr_nm_cmmrcl_txt] AS CommercialName,
+    [C].[cnsmr_brth_dt] AS DateOfBirth,
+    [C].[cnsmr_email_txt] AS Email,
+    [C].[cnsmr_email_cnfrmtn_dt] AS EmailConfirmedDate,
+    [C].[cnsmr_nm_frst_txt] AS FirstName,
+    [C].[wrkgrp_id] AS WorkGroupId,
+    [C].[cnsmr_nm_lst_txt] AS LastName,
+    [C].[cnsmr_nm_mddl_txt] AS MiddleName,
+    [C].[cnsmr_nm_prfx_txt] AS Title,
+    [C].[upsrt_dttm] AS UpsertDateTime,
+    CAST(0 AS BIT) AS IsMaster,
+    CAST(0 AS BIT) AS IsActive,
+    @CurrentDayOfWeek AS DayOfWeek,
+    CAST(NULL AS VARCHAR(50)) AS Ownership,
+    CAST(NULL AS DATETIME2) AS OwnershipDate,
+    CAST(0 AS BIT) AS IsBankHoliday,
+    CAST(0 AS BIT) AS IsValidMobile,
+    CAST(0 AS BIT) AS IsValidEmail,
+    [C].[cnsmr_idntfr_lgcy_txt] AS LegacyId 
+FROM [dbo].[cnsmr] AS [C] WITH (NOLOCK)
+ORDER BY [C].[upsrt_dttm]
