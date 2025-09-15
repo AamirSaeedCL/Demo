@@ -1,10 +1,1 @@
-Can you please check Read-Committed Snapshot Isolation (RCSI) status?  
-
-SELECT name,
-       is_read_committed_snapshot_on,
-       snapshot_isolation_state_desc
-FROM sys.databases
-WHERE name = DB_NAME();
-
-
-If is_read_committed_snapshot_on = 1, RCSI is already ON.
+this behaviour  row versioning (a snapshot) instead of taking shared locks
