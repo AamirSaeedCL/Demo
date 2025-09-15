@@ -1,1 +1,14 @@
-
+-- see what session 127 is doing
+SELECT
+    s.session_id,
+    s.status,
+    s.login_name,
+    s.host_name,
+    s.program_name,
+    t.text AS query_text,
+    r.start_time,
+    r.command
+FROM sys.dm_exec_sessions s
+JOIN sys.dm_exec_requests r ON s.session_id = r.session_id
+CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) t
+WHERE s.session_id = 127;
