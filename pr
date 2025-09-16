@@ -1,1 +1,41 @@
+CREATE PROCEDURE [stg].[usp_Customer_UpdateIsActive]
+    @LastUpsertDateTime DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    BEGIN TRANSACTION;
+
+    UPDATE c
+    SET c.IsActive = t.NewIsActive
+    FROM stg.Customer c
+    INNER JOIN (
+        SELECT 
+            c.CustomerId,
+            MAX(CASE 
+                    WHEN wg.WorkGroupShortName NOT IN ('ZZZ', 'SDR')
+                     AND REPLACE(tag.TagShortName, 'S-', '') NOT IN ('80', '81', '61', '96')
+                     AND accBal.CurrentBalance > 0 
+                    THEN 1 
+                    ELSE 0 
+                END) AS NewIsActive
+        FROM stg.Customer c
+        LEFT JOIN dbo.WorkGroup wg ON c.customerid = wg.customerid
+        LEFT JOIN stg.CustomerTag tag ON c.customerid = tag.customerid
+        LEFT JOIN dbo.Account acc ON c.customerid = acc.customerid 
+        LEFT JOIN dbo.AccountBalance accBal ON acc.accountid = accBal.accountid 
+        WHERE (c.IsActive IS NULL 
+               OR c.IsActive <> 
+                    CASE 
+                        WHEN wg.WorkGroupShortName NOT IN ('ZZZ', 'SDR')
+                         AND REPLACE(tag.TagShortName, 'S-', '') NOT IN ('80', '81', '61', '96')
+                         AND accBal.CurrentBalance > 0 
+                        THEN 1 
+                        ELSE 0 
+                    END)
+          AND c.UpsertDateTime >= @LastUpsertDateTime
+        GROUP BY c.CustomerId
+    ) t ON c.CustomerId = t.CustomerId;
+
+    COMMIT TRANSACTION;
+END;
