@@ -1,5 +1,5 @@
 CREATE PROCEDURE [stg].[usp_Customer_UpdateIsActive]
-    @LastUpsertDateTime DATETIME
+    @LastUpsertDateTime DATETIME = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -33,7 +33,7 @@ BEGIN
                         THEN 1 
                         ELSE 0 
                     END)
-          AND c.UpsertDateTime >= @LastUpsertDateTime
+          AND (@LastUpsertDateTime IS NULL OR c.UpsertDateTime >= @LastUpsertDateTime)
         GROUP BY c.CustomerId
     ) t ON c.CustomerId = t.CustomerId;
 
