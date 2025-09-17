@@ -1,1 +1,1 @@
-Apart from the two pending column mappings, all pipelines are functioning correctly (including sub-pipelines such as isValidMobile, email, isMaster, holidays, etc.). Since this is a significant set of changes, would you recommend that I go ahead and raise a PR now? I’d prefer not to hold onto it for too long, and we could create a sub-ticket or smaller follow-up ticket to address the remaining minor changes once we have the required clarifications.
+
