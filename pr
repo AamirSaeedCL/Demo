@@ -1,1 +1,2 @@
 
+Delete  FROM [dbo].[CDHFulfilment] where channel = 'dialer'
