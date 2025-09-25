@@ -1,1 +1,1 @@
-@not(and(greaterOrEquals(int(formatDateTime(utcNow(),'HH')),int(pipeline().globalParameters.pDisabledHourFrom)), lessOrEquals(int(formatDateTime(utcNow(),'HH')),int(pipeline().globalParameters.pDisabledHourTo))))
+
