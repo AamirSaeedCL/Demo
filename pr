@@ -1,1 +1,1 @@
-
+As discussed this morning during the standup call, in case we are planning to trigger the customer initial or customer tags initial pipelines, please ensure that the incremental pipeline does not run simultaneously. The triggers associated with the incremental pipeline should be paused until the initial ingestion has been fully completed. This is to avoid any conflicts or data inconsistencies between the initial and incremental loads.
