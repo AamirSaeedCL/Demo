@@ -1,10 +1,1 @@
-LSN = Log Sequence Number -  Every transaction in SQL Server’s transaction log gets a unique, monotonically increasing LSN (like a "bookmark" in the log).
 
-CDC captures changes (INSERT/UPDATE/DELETE) from the transaction log, not directly from the table.
-To query CDC changes, we must tell SQL Server the range of log entries (by LSN) we are interested in.
-
-@from_lsn → the starting point (oldest LSN since last run).
-
-@to_lsn → the end point (latest available LSN now).
-
-This lets you fetch only the changes since your last ETL/pipeline run. We need to implement the Safety check: If our calculated from_lsn is too old (older than what CDC kept), you reset it to the minimum valid one. This prevents pipeline failure.
