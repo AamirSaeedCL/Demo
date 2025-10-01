@@ -1,1 +1,1 @@
-We can wait for MLP2. FYI, the error only appears when the from_lsn value is too old (older than what CDC has retained). If you turn CDC off and then back on, this issue can occur. However, I don’t think we will be turning off CDC on any table once it’s deployed in UAT.
+
