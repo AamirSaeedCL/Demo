@@ -1,13 +1,10 @@
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
+LSN = Log Sequence Number -  Every transaction in SQL Server’s transaction log gets a unique, monotonically increasing LSN (like a "bookmark" in the log).
 
-DECLARE @LastRunDateTimeCorrected DATETIME2 = CAST(@LastRunDateTime AT TIME ZONE 'UTC' AT TIME ZONE 'GMT Standard Time' AS DATETIME);
-DECLARE @from_lsn AS BINARY(10) = [sys].[fn_cdc_map_time_to_lsn]('smallest greater than or equal', @LastRunDateTimeCorrected);
-DECLARE @to_lsn AS BINARY(10) = [sys].[fn_cdc_get_max_lsn]();
-DECLARE @min_valid_lsn BINARY(10) = [sys].[fn_cdc_get_min_lsn]('dbo_cnsmr');
+CDC captures changes (INSERT/UPDATE/DELETE) from the transaction log, not directly from the table.
+To query CDC changes, we must tell SQL Server the range of log entries (by LSN) we are interested in.
 
--- If datetime based lsn is less than the minimum valid lsn then use minimum valid lsn
--- This is done to prevent error where changes to the CDC table reset the minimum valid lsn
-IF @from_lsn < @min_valid_lsn OR @from_lsn is NULL
-    SET @from_lsn = @min_valid_lsn;
+@from_lsn → the starting point (oldest LSN since last run).
+
+@to_lsn → the end point (latest available LSN now).
+
+This lets you fetch only the changes since your last ETL/pipeline run. We need to implement the Safety check: If our calculated from_lsn is too old (older than what CDC kept), you reset it to the minimum valid one. This prevents pipeline failure.
