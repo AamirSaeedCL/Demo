@@ -1,18 +1,1 @@
-SELECT cc.column_name,
-       cc.column_id,
-       cc.column_ordinal
-FROM cdc.captured_columns cc
-JOIN cdc.change_tables ct 
-     ON cc.object_id = ct.object_id
-WHERE ct.source_object_id = OBJECT_ID('dbo.YourTableName');
-
-
-
-SELECT s.name AS schema_name,
-       t.name AS table_name,
-       cdc.* 
-FROM sys.tables t
-JOIN sys.schemas s ON t.schema_id = s.schema_id
-JOIN cdc.change_tables cdc ON t.object_id = cdc.source_object_id
-WHERE t.name = 'YourTableName';
-
+I have merged the master branch into the 'release/mlp1.v1' branch.
