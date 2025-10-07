@@ -1,84 +1,9 @@
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SELECT cnsmr_id
+	, DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (UDEFREV_DATE AS DATE)) AS daysTillStoredReviewDate
+	, DATEDIFF (MM,CAST (UDEFREV_SET AS DATE),CAST (GETDATE() AS DATE)) monthsSinceReviewSetDate
+	, UDEFREV_DATE
+	, UDEFREV_SET
 
--- ======================================
--- Data Constants
--- ======================================
-DECLARE @CurrentDayOfWeek NVARCHAR(10) = DATENAME(WEEKDAY, GETDATE());
-DECLARE @EmailPattern VARCHAR(50) = '%_@__%.__%';
-
--- Phone constants
-DECLARE @PhoneTypeHome NVARCHAR(10) = 'HOME';
-DECLARE @PhoneTypeWork NVARCHAR(10) = 'WORK';
-DECLARE @PhoneTypeCell NVARCHAR(10) = 'CELL';
-
-DECLARE @PhoneStatusUnknown NVARCHAR(10) = 'UNKNOWN';
-DECLARE @PhoneStatusValid NVARCHAR(10) = 'VALID';
-DECLARE @PhoneStatusNew NVARCHAR(10) = 'NEW';
-
--- CDC Operation Variables
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
-
-DECLARE @LastRunDateTimeCorrected DATETIME2 = CAST(@LastRunDateTime AT TIME ZONE 'UTC' AT TIME ZONE 'GMT Standard Time' AS DATETIME);
-DECLARE @from_lsn AS BINARY(10) = [sys].[fn_cdc_map_time_to_lsn]('smallest greater than or equal', @LastRunDateTimeCorrected);
-DECLARE @to_lsn AS BINARY(10) = [sys].[fn_cdc_get_max_lsn]();
-DECLARE @min_valid_lsn BINARY(10) = [sys].[fn_cdc_get_min_lsn]('dbo_cnsmr');
-
--- Ensure valid LSN
-IF @from_lsn < @min_valid_lsn OR @from_lsn IS NULL
-    SET @from_lsn = @min_valid_lsn;
-
--- ======================================
--- CTE for valid phone numbers
--- ======================================
-WITH ValidPhones AS
-(
-    SELECT DISTINCT 
-        cp.cnsmr_id,
-        'Y' AS validPhoneNumber
-    FROM crs5_oltp.dbo.cnsmr_Phn cp
-    INNER JOIN crs5_oltp.dbo.Ref_phn_typ_cd rpt
-        ON cp.cnsmr_phn_typ_cd = rpt.phn_typ_cd
-       AND rpt.phn_typ_val_txt IN (@PhoneTypeHome, @PhoneTypeWork, @PhoneTypeCell)
-    INNER JOIN crs5_oltp.dbo.Ref_phn_stts_cd rps
-        ON cp.cnsmr_phn_stts_cd = rps.phn_stts_cd
-       AND rps.phn_stts_val_txt IN (@PhoneStatusUnknown, @PhoneStatusValid, @PhoneStatusNew)
-    WHERE LEFT(cp.cnsmr_phn_nmbr_txt,2) != '00'
-      AND cp.cnsmr_phn_sft_dlt_flg = 'N'
-)
-
--- ======================================
--- Main query joined with CTE
--- ======================================
-SELECT
-    C.[cnsmr_id] AS [CustomerId],
-    C.[cnsmr_nm_cmmrcl_txt] AS [CommercialName],
-    C.[cnsmr_brth_dt] AS [DateOfBirth],
-    C.[cnsmr_email_txt] AS [Email],
-    C.[cnsmr_email_cnfrmtn_dt] AS [EmailConfirmedDate],
-    C.[cnsmr_email_vldty_cd] AS [EmailValidityCode],
-    C.[cnsmr_nm_frst_txt] AS [FirstName],
-    C.[wrkgrp_id] AS [WorkGroupId],
-    C.[cnsmr_nm_lst_txt] AS [LastName],
-    C.[cnsmr_nm_mddl_txt] AS [MiddleName],
-    C.[cnsmr_nm_prfx_txt] AS [Title],
-    C.[upsrt_dttm] AS [UpsertDateTime],
-    CAST(0 AS BIT) AS [IsMaster],
-    CAST(0 AS BIT) AS [IsActive],
-    CAST(
-        CASE
-            WHEN C.[cnsmr_email_txt] IS NOT NULL
-             AND C.[cnsmr_email_txt] LIKE @EmailPattern
-             AND ISNULL(C.[cnsmr_email_vldty_cd], 1) = 1 
-            THEN 1
-            ELSE 0
-        END AS BIT
-    ) AS [IsValidEmail],
-    @CurrentDayOfWeek AS [DayOfWeek],
-    C.[cnsmr_idntfr_lgcy_txt] AS [LegacyId],
-    VP.validPhoneNumber
-FROM [cdc].[fn_cdc_get_net_changes_dbo_cnsmr](@from_lsn, @to_lsn, 'all') AS C
-LEFT JOIN ValidPhones AS VP
-    ON C.cnsmr_id = VP.cnsmr_id
-WHERE C.__$operation IN (@CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER);
+FROM crs5_oltp.dbo.UDEFREVIEW
+WHERE UDEFREV_DATE IS NOT NULL
+OR UDEFREV_SET IS NOT NULL
