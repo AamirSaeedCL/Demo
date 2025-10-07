@@ -1,6 +1,6 @@
 SELECT 
     p.ConsumerID,
-    STRING_AGG(p.PreferenceTypeName, ',') AS PreferenceTypeName
+    STRING_AGG(p.PreferenceTypeName, ',') AS ConsumerPreference
 FROM (
     SELECT DISTINCT
         ConsumerID,
