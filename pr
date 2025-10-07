@@ -1,16 +1,4 @@
-SELECT 
-    p.ConsumerID,
-    STRING_AGG(p.PreferenceTypeName, ',') AS PreferenceTypeName
-FROM (
-    SELECT DISTINCT
-        ConsumerID,
-        CASE 
-            WHEN PreferenceTypeCode = '1' THEN 'Email'
-            WHEN PreferenceTypeCode = '2' THEN 'SMS'
-            WHEN PreferenceTypeCode = '3' THEN 'Phone'
-            WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
-        END AS PreferenceTypeName
-    FROM [Nyx].[PC].[PCPreference]
-    WHERE PreferenceGroupCode = '2'
-) AS p
-GROUP BY p.ConsumerID;
+Re, consumerPreference field, in case customer has more then one preference i-e phone, sms etc - i-e 1997303 has three preference
+
+Image
+ should we show them in comma seperated string i-e
