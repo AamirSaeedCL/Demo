@@ -1,14 +1,2 @@
-SELECT 
-    ConsumerID,
-    STRING_AGG(DISTINCT
-        CASE 
-            WHEN PreferenceTypeCode = '1' THEN 'Email'
-            WHEN PreferenceTypeCode = '2' THEN 'SMS'
-            WHEN PreferenceTypeCode = '3' THEN 'Phone'
-            WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
-            ELSE NULL
-        END, ','
-    ) AS PreferenceTypeName
-FROM [Nyx].[PC].[PCPreference]
-WHERE PreferenceGroupCode = '2'
-GROUP BY ConsumerID;
+Msg 102, Level 15, State 1, Line 25
+Incorrect syntax near ','.
