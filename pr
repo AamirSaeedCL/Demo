@@ -1,4 +1,2 @@
-Re, consumerPreference field, in case customer has more then one preference i-e phone, sms etc - i-e 1997303 has three preference
-
-Image
- should we show them in comma seperated string i-e
+Regarding the consumerPreference field:
+If a customer has multiple preferences (e.g., phone, SMS, etc.) — for example, customer 1997303 has three preferences — should we display them as a comma-separated string (e.g., Phone, SMS, Email)?
