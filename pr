@@ -1,2 +1,16 @@
-Regarding the consumerPreference field:
-If a customer has multiple preferences (e.g., phone, SMS, etc.) — for example, customer 1997303 has three preferences — should we display them as a comma-separated string (e.g., Phone, SMS, Email)?
+SELECT 
+    p.ConsumerID,
+    STRING_AGG(p.PreferenceTypeName, ',') AS PreferenceTypeName
+FROM (
+    SELECT DISTINCT
+        ConsumerID,
+        CASE 
+            WHEN PreferenceTypeCode = '1' THEN 'Email'
+            WHEN PreferenceTypeCode = '2' THEN 'SMS'
+            WHEN PreferenceTypeCode = '3' THEN 'Phone'
+            WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
+        END AS PreferenceTypeName
+    FROM [Nyx].[PC].[PCPreference]
+    WHERE PreferenceGroupCode = '2'
+) AS p 
+GROUP BY p.ConsumerID;
