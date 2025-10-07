@@ -1,8 +1,12 @@
-Select ConsumerID,PreferenceTypeCode from [Nyx].[PC].[PCPreference]
-Where PreferenceGroupCode='2'
-
-
-PreferenceTypeCode = '1' then display 'Email'
-PreferenceTypeCode = '2' then display 'SMS'
-PreferenceTypeCode = '3' then display 'Phone'
-PreferenceTypeCode = NULL/empty then display null
+SELECT 
+    ConsumerID,
+    PreferenceTypeCode,
+    CASE 
+        WHEN PreferenceTypeCode = '1' THEN 'Email'
+        WHEN PreferenceTypeCode = '2' THEN 'SMS'
+        WHEN PreferenceTypeCode = '3' THEN 'Phone'
+        WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
+        ELSE NULL
+    END AS PreferenceTypeName
+FROM [Nyx].[PC].[PCPreference]
+WHERE PreferenceGroupCode = '2';
