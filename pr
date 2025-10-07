@@ -1,12 +1,14 @@
 SELECT 
     ConsumerID,
-    PreferenceTypeCode,
-    CASE 
-        WHEN PreferenceTypeCode = '1' THEN 'Email'
-        WHEN PreferenceTypeCode = '2' THEN 'SMS'
-        WHEN PreferenceTypeCode = '3' THEN 'Phone'
-        WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
-        ELSE NULL
-    END AS PreferenceTypeName
+    STRING_AGG(DISTINCT
+        CASE 
+            WHEN PreferenceTypeCode = '1' THEN 'Email'
+            WHEN PreferenceTypeCode = '2' THEN 'SMS'
+            WHEN PreferenceTypeCode = '3' THEN 'Phone'
+            WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
+            ELSE NULL
+        END, ','
+    ) AS PreferenceTypeName
 FROM [Nyx].[PC].[PCPreference]
-WHERE PreferenceGroupCode = '2';
+WHERE PreferenceGroupCode = '2'
+GROUP BY ConsumerID;
