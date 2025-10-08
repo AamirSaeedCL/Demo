@@ -1,19 +1,2 @@
-DECLARE @PREFERENCE_GROUP_CODE NVARCHAR(10) = '2';
-DECLARE @EMAIL_CODE NVARCHAR(10) = '1';
-DECLARE @SMS_CODE NVARCHAR(10) = '2';
-DECLARE @PHONE_CODE NVARCHAR(10) = '3';
- 
-SELECT 
-    p.ConsumerID,
-    STRING_AGG(DISTINCT
-        CASE 
-            WHEN p.PreferenceTypeCode = @EMAIL_CODE THEN 'Email'
-            WHEN p.PreferenceTypeCode = @SMS_CODE THEN 'SMS'
-            WHEN p.PreferenceTypeCode = @PHONE_CODE THEN 'Phone'
-        END, ',') AS ConsumerPreference
-FROM [Nyx].[PC].[PCPreference] AS p
-WHERE 
-    p.PreferenceGroupCode = @PREFERENCE_GROUP_CODE
-    AND LTRIM(RTRIM(ISNULL(p.PreferenceTypeCode, ''))) <> ''
-GROUP BY 
-    p.ConsumerID;
+Msg 102, Level 15, State 1, Line 37
+Incorrect syntax near ','.
