@@ -1,11 +1,5 @@
-CREATE TABLE [stg].[CustomerPreference] (
-    [CustomerId]             BIGINT         NOT NULL,
-    [PreferenceTypeNames]    VARCHAR (200)  NULL, 
-);
-GO
-
-CREATE TABLE [stg].[Customer] (
-    [CustomerId]             BIGINT         NOT NULL,
-    [PreferenceTypeNames]    VARCHAR (200)  NULL, 
-);
-GO
+UPDATE c
+SET c.PreferenceTypeNames = cp.PreferenceTypeNames
+FROM [stg].[Customer] AS c
+INNER JOIN [stg].[CustomerPreference] AS cp
+    ON c.CustomerId = cp.CustomerId;
