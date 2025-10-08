@@ -1,2 +1,25 @@
-Msg 102, Level 15, State 1, Line 37
-Incorrect syntax near ','.
+-- Define constants for preference codes
+DECLARE @PREFERENCE_GROUP_CODE NVARCHAR(10) = '2';
+DECLARE @EMAIL_CODE NVARCHAR(10) = '1';
+DECLARE @SMS_CODE NVARCHAR(10) = '2';
+DECLARE @PHONE_CODE NVARCHAR(10) = '3';
+
+-- Optimized query
+SELECT 
+    p.ConsumerID,
+    STRING_AGG(p.PreferenceTypeName, ',') AS ConsumerPreference
+FROM (
+    SELECT DISTINCT
+        ConsumerID,
+        CASE 
+            WHEN PreferenceTypeCode = @EMAIL_CODE THEN 'Email'
+            WHEN PreferenceTypeCode = @SMS_CODE THEN 'SMS'
+            WHEN PreferenceTypeCode = @PHONE_CODE THEN 'Phone'
+        END AS PreferenceTypeName
+    FROM [Nyx].[PC].[PCPreference]
+    WHERE 
+        PreferenceGroupCode = @PREFERENCE_GROUP_CODE
+        AND LTRIM(RTRIM(ISNULL(PreferenceTypeCode, ''))) <> ''
+) AS p
+GROUP BY 
+    p.ConsumerID;
