@@ -1,5 +1,7 @@
-UPDATE c
-SET c.PreferenceTypeNames = cp.PreferenceTypeNames
-FROM [stg].[Customer] AS c
-INNER JOIN [stg].[CustomerPreference] AS cp
-    ON c.CustomerId = cp.CustomerId;
+Select distinct ConsumerID, CASE 
+            WHEN PreferenceTypeCode = '1' THEN 'Email'
+            WHEN PreferenceTypeCode = '2' THEN 'SMS'
+            WHEN PreferenceTypeCode = '3' THEN 'Phone'
+            WHEN PreferenceTypeCode IS NULL OR LTRIM(RTRIM(PreferenceTypeCode)) = '' THEN NULL
+        END AS PreferenceTypeName, LastModifiedDateTime  from [Nyx].[PC].[PCPreference]
+Where PreferenceGroupCode='2'
