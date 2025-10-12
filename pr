@@ -1,213 +1,60 @@
-SELECT *
-FROM dbo.cnsmr
-WHERE cnsmr_id IN (
-    39424081,
-    14728198,
-    41530110,
-    39764386,
-    41435288,
-    36271488,
-    444365,
-    41609551,
-    15097597,
-    343318,
-    39406421,
-    41934012,
-    38629505,
-    39752128,
-    41475774,
-    39949347,
-    37344889,
-    26943579,
-    34695007,
-    41975618,
-    1741942,
-    37661430,
-    41596153,
-    39752109,
-    40457570,
-    41954219,
-    40143462,
-    41280047,
-    42019842,
-    41974259,
-    41980462,
-    39532636,
-    2226205,
-    41953162,
-    41739876,
-    38039619,
-    38913532,
-    41181559,
-    42088447,
-    41975753,
-    42038259,
-    35921128,
-    37368601,
-    41968234,
-    3107835,
-    41245945,
-    37612295,
-    40686324,
-    41980849,
-    40357273,
-    21734368,
-    41570847,
-    35650668,
-    3091122,
-    41935543,
-    42082734,
-    42037295,
-    39425544,
-    41819707,
-    1875636,
-    35456011,
-    40379559,
-    1851831,
-    36785389,
-    41981886,
-    41343910,
-    41780197,
-    41481906,
-    26911122,
-    15657172,
-    41983047,
-    41786711,
-    37618434,
-    563892,
-    38056472,
-    37192512,
-    32762809,
-    34275415,
-    35212035,
-    37516044,
-    37734956,
-    41081767,
-    36989205,
-    40377061,
-    38922014,
-    34579320,
-    40356987,
-    37319988,
-    40304447,
-    37504687,
-    15679957,
-    2778088,
-    37457317,
-    40310044,
-    583320,
-    41545508,
-    32298803,
-    38711450,
-    37723735,
-    12728352,
-    37947539,
-    40333304,
-    33302585,
-    40977803,
-    36185908,
-    42094754,
-    36509809,
-    41784308,
-    34480719,
-    34754520,
-    37608092,
-    41405534,
-    26910542,
-    38250147,
-    35482484,
-    42076468,
-    42103695,
-    36318040,
-    38281051,
-    39651551,
-    2635524,
-    41228946,
-    41807077,
-    38503710,
-    32236150,
-    42037300,
-    42089124,
-    42002247,
-    37528813,
-    639130,
-    41054818,
-    35571338,
-    37604879,
-    41307110,
-    594251,
-    35908861,
-    39753776,
-    35011107,
-    38677935,
-    35987616,
-    38448991,
-    41308850,
-    40283743,
-    37895546,
-    38122749,
-    36531592,
-    37822261,
-    3477006,
-    36616214,
-    37453225,
-    34844987,
-    37924231,
-    37785097,
-    3403141,
-    2256474,
-    42107884,
-    36181086,
-    38710854,
-    38398065,
-    34443087,
-    42014107,
-    38050759,
-    39197356,
-    32299233,
-    36901980,
-    42148126,
-    39342903,
-    670356,
-    40294847,
-    1979691,
-    38090919,
-    34232864,
-    32424996,
-    35542018,
-    40615305,
-    555224,
-    42053163,
-    36803843,
-    35946848,
-    41780969,
-    36412404,
-    41390932,
-    2137926,
-    41632775,
-    42030467,
-    41794286,
-    41933308,
-    34251198,
-    42160743,
-    34390128,
-    38380851,
-    34343069,
-    37922850,
-    1849985,
-    42028511,
-    38290835,
-    36430540,
-    34201865,
-    36810010,
-    41980498,
-    37800123,
-    36633212,
-    33400652,
-    41999134,
-    32453621,
-    40544561,
-    41676132,
-    15099934,
-    34494280
-);
+DROP TABLE IF EXISTS #tableA
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo
+INTO			#tableA 
+FROM			MarlinDW.dbo.account As a
+
+/* date last digital e&I */
+DROP TABLE IF EXISTS #Digital_EI_CF
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo,
+				MAX(b.CreatedDateTime) as Digital_EI
+INTO			#Digital_EI_CF 
+FROM			#tableA AS a
+INNER JOIN		MarlinDW..SFS_MASTER (nolock) AS b
+ON				A.AccountID  = B.AccountID 
+WHERE			b.CreatedBy IN ('CustomerWeb','Digital')
+GROUP BY		a.AccountID, a.DebtorNo
+
+DROP TABLE IF EXISTS #SF_CF
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo,
+				MAX(b.Open_Date) as SF
+INTO			#SF_CF 
+FROM			#tableA AS a
+INNER JOIN		DiallerOperation.dbo.Salesforce_Interactions_Master AS b 
+ON				a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
+GROUP BY		a.AccountID, a.DebtorNo
+
+DROP TABLE IF EXISTS #CubeDate_CF
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo,
+				MAX(b.DocumentDate) AS CubeDate
+INTO			#CubeDate_CF 
+FROM			#tableA AS a
+INNER JOIN		DiallerOperation.dbo.Cube_Transactions AS b 
+ON				a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
+WHERE			b.Channel in ('Post','Email') 
+AND				b.DocumentDate != '1900-01-01 00:00:00.000' 
+GROUP BY		a.AccountID, a.DebtorNo
+
+DROP TABLE IF EXISTS #Digital_Contact_Today
+SELECT			DISTINCT 
+				a.DebtorNo,
+				CASE WHEN CAST(ei.Digital_EI AS DATE) >= CAST(GETDATE()-1 AS DATE)
+					   OR CAST(sf.SF AS DATE) >= CAST(GETDATE()-1 AS DATE)		
+					   OR CAST(cf.CubeDate AS DATE) >= CAST(GETDATE()-1 AS DATE)
+					 THEN 1 ELSE 0
+				END AS DigitalContactToday		
+INTO			#Digital_Contact_Today
+FROM			#tableA AS a
+LEFT JOIN		#Digital_EI_CF AS ei
+ON				(a.AccountID = ei.AccountID)
+LEFT JOIN		#SF_CF AS sf
+ON				(a.AccountID = sf.AccountID)
+LEFT JOIN		#CubeDate_CF AS cf
+ON				(a.AccountID = cf.AccountID)
+
+SELECT			DebtorNo, DigitalContactToday
+FROM			#Digital_Contact_Today
+WHERE			DigitalContactToday = 1
