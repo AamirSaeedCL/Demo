@@ -1,4 +1,13 @@
+Hi Team,
+
+Could you please grant the permissions the user “CFSI\svcAgtPrtlUnisrchDev” permission on below objects?
+
 MarlinDW.account
 MarlinDW.SFS_MASTER
 DiallerOperation.Salesforce_Interactions_Master
 DiallerOperation.Cube_Transactions
+
+Moreover, copy the following tables from WH server to “SS2-SQL-D-02”.
+
+DiallerOperation.dbo.Salesforce_Interactions_Master 
+DiallerOperation.dbo.Cube_Transactions
