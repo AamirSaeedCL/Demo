@@ -1,47 +1,65 @@
-Data,item,name,Source,(table/column),Transformation?
-CustomerID,cnsmr.cnsmr_id,n/a
-LegacyID,cnsmr.cnsmr_idntfr_lgcy_txt,n/a
-DDTag,tag.tag_shrt_nm,WHERE,tagType,=,[DD_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DateDDTagAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DateDDTagRemoved,transformed,WHERE,tagType,=,[DD_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-DDTagActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-DialTag,tag.tag_shrt_nm,WHERE,tagType,=,[DIAL_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DateDialAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DateDialRemoved,transformed,WHERE,tagType,=,[DIAL_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-DialActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-DigitalTag,tag.tag_shrt_nm,WHERE,tagType,=,[DIGITAL_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DateDigitalAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DateDigitalRemoved,transformed,WHERE,tagType,=,[DIGITAL_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-DigitalActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-PayerPhaseTag,tag.tag_shrt_nm,WHERE,tagType,=,[PAYPHASE],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DatePayerPhaseAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DatePayerPhaseRemoved,transformed,WHERE,tagType,=,[PAYPHASE],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-PayerPhaseActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-PhaseTag,tag.tag_shrt_nm,WHERE,tagType,=,[PHASE_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DatePhaseAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DatePhaseRemoved,transformed,WHERE,tagType,=,[PHASE_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-PhaseActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-PlanTag,tag.tag_shrt_nm,WHERE,tagType,=,[PLAN_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DatePlanAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DatePlanRemoved,transformed,WHERE,tagType,=,[PLAN_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-PlanActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-PreDefTag,tag.tag_shrt_nm,WHERE,tagType,=,[PRE_DEF_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DatePreDefAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DatePreDefRemoved,transformed,WHERE,tagType,=,[PRE_DEF_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-PreDefActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-PreviousStatusTag,tag.tag_shrt_nm,WHERE,tagType,=,[PlatStat],-,use,Max,column,WHERE,cnsmr_tag_sft_delete_flg,=,Y
-DatePreviousStatusAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DatePreviousStatusRemoved,transformed,WHERE,tagType,=,[PREVIOUS_STATUS_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-PreviousStatusActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-RemediationTag,tag.tag_shrt_nm,WHERE,tagType,=,[REMEDIATION_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DateRemediationAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DateRemediationRemoved,transformed,WHERE,tagType,=,[REMEDIATION_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-RemediationActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-SMSTag,tag.tag_shrt_nm,WHERE,tagType,=,[SMS_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DateSMSAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DateSMSRemoved,transformed,WHERE,tagType,=,[SMS_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-SMSActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
-StatusTag,tag.tag_shrt_nm,WHERE,tagType,=,[STATUS_TAG],-,use,tag_id,to,define,tag,types,that,belong?,Or,tag_typ_id?
-DateStatusAssigned,cnsmr_Tag.cnsmr_tag_assgn_dt
-DateStatusRemoved,transformed,WHERE,tagType,=,[STATUS_TAG],and,cnsmr_tag_sft_delete_flg,=,"Y,",use,upsrt_dttm
-DateStatusActive,cnsmr_Tag.cnsmr_tag_sft_delete_flg,IF,cnsmr_tag_sft_delete_flg,=,Y,then,set,to,false?,(not,active)
+WITH TagData AS (
+    SELECT
+        c.cnsmr_id,
+        c.cnsmr_idntfr_lgcy_txt,
+        t.tag_typ_id,
+        t.tag_shrt_nm,
+        ct.cnsmr_tag_assgn_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active
+    FROM cnsmr c
+    LEFT JOIN cnsmr_tag ct
+        ON ct.cnsmr_id = c.cnsmr_id
+    LEFT JOIN tag t
+        ON t.tag_id = ct.tag_id
+    WHERE t.tag_typ_id IN (
+        '[DD_TAG]', '[DIAL_TAG]', '[DIGITAL_TAG]', '[PAYPHASE]', '[PHASE_TAG]', 
+        '[PLAN_TAG]', '[PRE_DEF_TAG]', '[STATUS_TAG]'
+    )
+)
+SELECT
+    td.cnsmr_id               AS CustomerID,
+    td.cnsmr_idntfr_lgcy_txt  AS LegacyID,
+
+    MAX(CASE WHEN tag_typ_id = '[DD_TAG]' THEN tag_shrt_nm END)               AS DDTag,
+    MAX(CASE WHEN tag_typ_id = '[DD_TAG]' THEN cnsmr_tag_assgn_dt END)        AS DateDDTagAssigned,
+    MAX(CASE WHEN tag_typ_id = '[DD_TAG]' THEN tag_removed_dt END)            AS DateDDTagRemoved,
+    MAX(CASE WHEN tag_typ_id = '[DD_TAG]' THEN tag_active END)                AS DDTagActive,
+
+    MAX(CASE WHEN tag_typ_id = '[DIAL_TAG]' THEN tag_shrt_nm END)             AS DialTag,
+    MAX(CASE WHEN tag_typ_id = '[DIAL_TAG]' THEN cnsmr_tag_assgn_dt END)      AS DateDialAssigned,
+    MAX(CASE WHEN tag_typ_id = '[DIAL_TAG]' THEN tag_removed_dt END)          AS DateDialRemoved,
+    MAX(CASE WHEN tag_typ_id = '[DIAL_TAG]' THEN tag_active END)              AS DialActive,
+
+    MAX(CASE WHEN tag_typ_id = '[DIGITAL_TAG]' THEN tag_shrt_nm END)          AS DigitalTag,
+    MAX(CASE WHEN tag_typ_id = '[DIGITAL_TAG]' THEN cnsmr_tag_assgn_dt END)   AS DateDigitalAssigned,
+    MAX(CASE WHEN tag_typ_id = '[DIGITAL_TAG]' THEN tag_removed_dt END)       AS DateDigitalRemoved,
+    MAX(CASE WHEN tag_typ_id = '[DIGITAL_TAG]' THEN tag_active END)           AS DigitalActive,
+
+    MAX(CASE WHEN tag_typ_id = '[PAYPHASE]' THEN tag_shrt_nm END)             AS PayerPhaseTag,
+    MAX(CASE WHEN tag_typ_id = '[PAYPHASE]' THEN cnsmr_tag_assgn_dt END)      AS DatePayerPhaseAssigned,
+    MAX(CASE WHEN tag_typ_id = '[PAYPHASE]' THEN tag_removed_dt END)          AS DatePayerPhaseRemoved,
+    MAX(CASE WHEN tag_typ_id = '[PAYPHASE]' THEN tag_active END)              AS PayerPhaseActive,
+
+    MAX(CASE WHEN tag_typ_id = '[PHASE_TAG]' THEN tag_shrt_nm END)            AS PhaseTag,
+    MAX(CASE WHEN tag_typ_id = '[PHASE_TAG]' THEN cnsmr_tag_assgn_dt END)     AS DatePhaseAssigned,
+    MAX(CASE WHEN tag_typ_id = '[PHASE_TAG]' THEN tag_removed_dt END)         AS DatePhaseRemoved,
+    MAX(CASE WHEN tag_typ_id = '[PHASE_TAG]' THEN tag_active END)             AS PhaseActive,
+
+    MAX(CASE WHEN tag_typ_id = '[PLAN_TAG]' THEN tag_shrt_nm END)             AS PlanTag,
+    MAX(CASE WHEN tag_typ_id = '[PLAN_TAG]' THEN cnsmr_tag_assgn_dt END)      AS DatePlanAssigned,
+    MAX(CASE WHEN tag_typ_id = '[PLAN_TAG]' THEN tag_removed_dt END)          AS DatePlanRemoved,
+    MAX(CASE WHEN tag_typ_id = '[PLAN_TAG]' THEN tag_active END)              AS PlanActive,
+
+    MAX(CASE WHEN tag_typ_id = '[PRE_DEF_TAG]' THEN tag_shrt_nm END)          AS PreDefTag,
+    MAX(CASE WHEN tag_typ_id = '[PRE_DEF_TAG]' THEN cnsmr_tag_assgn_dt END)   AS DatePreDefAssigned,
+    MAX(CASE WHEN tag_typ_id = '[PRE_DEF_TAG]' THEN tag_removed_dt END)       AS DatePreDefRemoved,
+    MAX(CASE WHEN tag_typ_id = '[PRE_DEF_TAG]' THEN tag_active END)           AS PreDefActive,
+
+    MAX(CASE WHEN tag_typ_id = '[STATUS_TAG]' THEN tag_shrt_nm END)           AS StatusTag,
+    MAX(CASE WHEN tag_typ_id = '[STATUS_TAG]' THEN cnsmr_tag_assgn_dt END)    AS DateStatusAssigned,
+    MAX(CASE WHEN tag_typ_id = '[STATUS_TAG]' THEN tag_removed_dt END)        AS DateStatusRemoved,
+    MAX(CASE WHEN tag_typ_id = '[STATUS_TAG]' THEN tag_active END)            AS StatusActive
+
+FROM TagData td
+GROUP BY td.cnsmr_id, td.cnsmr_idntfr_lgcy_txt;
