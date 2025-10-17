@@ -1,1 +1,91 @@
+Column names:
 
+CustomerTags.json Schema:
+
+ {
+        "version": "0.0.1",
+        "customerID": "68445644465452",
+        "DDTag": "TagName",
+        "DateDDTagAssigned": "29/07/2024 01:00",
+        "DateDDTagRemoved": null,
+        "DDTagActive": true,
+        "DialTag": "TagName",
+        "DateDialAssigned": "29/07/2024 01:00",
+        "DateDialRemoved": null,
+        "DialActive": true,
+        "DigitalTag": "TagName",
+        "DateDigitalAssigned": "29/07/2024 01:00",
+        "DateDigitalRemoved": null,
+        "DigitalActive": true,
+        "PayerPhaseTag": "TagName",
+        "DatePayerPhaseAssigned": "29/07/2024 01:00",
+        "DatePayerPhaseRemoved": null,
+        "PayerPhaseActive": ,
+        "PhaseTag": "TagName",
+        "DatePhaseAssigned": "29/07/2024 01:00",
+        "DatePhaseRemoved": null,
+        "PhaseActive": true,
+        "PlanTag": "TagName",
+        "DatePlanAssigned": "29/07/2024 01:00",
+        "DatePlanRemoved": null,
+        "PlanActive": true,
+        "PreDefTag": "TagName",
+        "DatePreDefAssigned": null,
+        "DatePreDefRemoved": "29/07/2024 01:00",
+        "PreDefActive": false,
+        "PreviousStatusTag": "TagName",
+        "DatePreviousStatusAssigned": null,
+        "DatePreviousStatusRemoved": "29/07/2024 01:00",
+        "PreviousStatusActive": false,
+        "RemediationTag": "TagName",
+        "DateRemediationAssigned": null,
+        "DateRemediationRemoved": "29/07/2024 01:00",
+        "RemediationActive": false,
+        "SMSTag": "TagName",
+        "DateSMSAssigned": null,
+        "DateSMSRemoved": "29/07/2024 01:00",
+        "SMSActive": false,
+        "StatusTag": "TagName",
+        "DateStatusAssigned": null,
+        "DateStatusRemoved": "29/07/2024 01:00",
+        "DateStatusActive": true
+    }
+]
+
+
+Query:
+WITH TagData AS (
+    SELECT
+        c.cnsmr_id,
+        c.cnsmr_idntfr_lgcy_txt,
+        t.tag_typ_id,
+        tt.tag_typ_shrt_nm,
+        ct.cnsmr_tag_assgn_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active
+    FROM cnsmr c
+    LEFT JOIN cnsmr_tag ct
+        ON ct.cnsmr_id = c.cnsmr_id
+    LEFT JOIN tag t
+        ON t.tag_id = ct.tag_id
+	LEFT JOIN tag_typ tt
+		ON t.tag_typ_id = tt.tag_typ_id
+    WHERE tt.tag_typ_shrt_nm IN (
+         'DDRETCD', 'DIAL_TAG', 'DIGITAL', 'PAYPHASE', 'PHASE', 
+         'PlanStat' , 'RMDTN', 'PreDef', 'SMS','PlatStat'
+    )
+)
+SELECT
+    td.cnsmr_id               AS CustomerID,
+    td.cnsmr_idntfr_lgcy_txt  AS LegacyID,
+
+    MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN tag_typ_shrt_nm END)           AS DDTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN cnsmr_tag_assgn_dt END)        AS DateDDTagAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN tag_removed_dt END)            AS DateDDTagRemoved,
+    MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN tag_active END)                AS DDTagActive
+
+   <Add all the above tags types ('DIAL_TAG', 'DIGITAL', 'PAYPHASE', 'PHASE', 
+         'PlanStat' , 'RMDTN', 'PreDef', 'SMS','PlatStat') here with the same arrouch>  , 4 columns per tag.  You can get the column name from the above json object.
+
+FROM TagData td
+GROUP BY td.cnsmr_id, td.cnsmr_idntfr_lgcy_txt;
