@@ -1,6 +1,8 @@
-
 DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
-DECLARE @LastRunDateTimeCorrected DATETIME2 = CAST(@LastRunDateTime AT TIME ZONE 'UTC' AT TIME ZONE 'GMT Standard Time' AS DATETIME);
+
+-- Convert UTC to GMT Standard Time correctly
+DECLARE @LastRunDateTimeLocal DATETIME2 =
+    CAST(SWITCHOFFSET(@LastRunDateTime AT TIME ZONE 'UTC', DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')) AS DATETIME2);
 
 WITH TagData AS (
     SELECT
@@ -11,7 +13,8 @@ WITH TagData AS (
         ct.cnsmr_tag_assgn_dt,
         CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
         CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active,
-        ct.cnsmr_tag_sft_delete_flg
+        ct.cnsmr_tag_sft_delete_flg,
+        ct.upsrt_dttm  -- added to filter later
     FROM cnsmr c WITH (NOLOCK)
     LEFT JOIN cnsmr_tag ct WITH (NOLOCK)
         ON ct.cnsmr_id = c.cnsmr_id
@@ -28,12 +31,12 @@ PreviousStatusData AS (
     SELECT
         c.cnsmr_id,
         MAX(ct.upsrt_dttm) AS latest_removed_dt
-    FROM cnsmr c
-    JOIN cnsmr_tag ct
+    FROM cnsmr c WITH (NOLOCK)
+    JOIN cnsmr_tag ct WITH (NOLOCK)
         ON ct.cnsmr_id = c.cnsmr_id
-    JOIN tag t
+    JOIN tag t WITH (NOLOCK)
         ON t.tag_id = ct.tag_id
-    JOIN tag_typ tt
+    JOIN tag_typ tt WITH (NOLOCK)
         ON t.tag_typ_id = tt.tag_typ_id
     WHERE UPPER(tt.tag_typ_shrt_nm) = 'PLATSTAT'
       AND ct.cnsmr_tag_sft_delete_flg = 'Y'
@@ -132,5 +135,5 @@ SELECT
 FROM TagData td
 LEFT JOIN PreviousStatusData ps
     ON td.cnsmr_id = ps.cnsmr_id
-WHERE ct.upsrt_dttm >= @LastRunDateTimeCorrected
+WHERE td.upsrt_dttm >= @LastRunDateTimeLocal
 GROUP BY td.cnsmr_id, td.cnsmr_idntfr_lgcy_txt;
