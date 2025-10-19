@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[usp_LoadCustomerTagFromStaging]
+CREATE OR ALTER PROCEDURE [dbo].[usp_LoadCustomerTagFromStaging]
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -6,56 +6,123 @@ BEGIN
 
     BEGIN TRY
         BEGIN TRANSACTION;
-       
-        MERGE dbo.CustomerTag WITH (HOLDLOCK) AS tgt
+
+        MERGE dbo.CustomerTag AS tgt
         USING (
-            SELECT
-                CustomerTagId,
-                CustomerGroupId,
+            SELECT 
                 CustomerId,
-                TagId,
-                TagName,
-                TagShortName,
-                TagAssignmentDate,
-                TagActive,
-                UpsertDateTime
+                LegacyId,
+                CustomerGroupId,
+
+                DDTag, DateDDAssigned, DateDDRemoved, DDActive,
+                DialTag, DateDialAssigned, DateDialRemoved, DialActive,
+                DigitalTag, DateDigitalAssigned, DateDigitalRemoved, DigitalActive,
+                PayerPhaseTag, DatePayerPhaseAssigned, DatePayerPhaseRemoved, PayerPhaseActive,
+                PhaseTag, DatePhaseAssigned, DatePhaseRemoved, PhaseActive,
+                PlanTag, DatePlanAssigned, DatePlanRemoved, PlanActive,
+                PreDefTag, DatePreDefAssigned, DatePreDefRemoved, PreDefActive,
+                RemediationTag, DateRemediationAssigned, DateRemediationRemoved, RemediationActive,
+                SMSTag, DateSMSAssigned, DateSMSRemoved, SMSActive,
+                StatusTag, DateStatusAssigned, DateStatusRemoved, StatusActive,
+                PreviousStatusTag, DatePreviousStatusAssigned, DatePreviousStatusRemoved, PreviousStatusActive
             FROM stg.CustomerTag
         ) AS src
-        ON tgt.CustomerTagId = src.CustomerTagId
+        ON  tgt.CustomerId = src.CustomerId
+        AND tgt.LegacyId   = src.LegacyId
 
         WHEN MATCHED THEN
             UPDATE SET
-                tgt.CustomerGroupId    = src.CustomerGroupId,
-                tgt.CustomerId         = src.CustomerId,
-                tgt.TagId              = src.TagId,
-                tgt.TagName            = src.TagName,
-                tgt.TagShortName       = src.TagShortName,
-                tgt.TagAssignmentDate  = src.TagAssignmentDate,               
-                tgt.TagActive          = ISNULL(src.TagActive, tgt.TagActive),              
-                tgt.UpsertDateTime     = src.UpsertDateTime
+                tgt.CustomerGroupId             = src.CustomerGroupId,
+
+                tgt.DDTag                       = src.DDTag,
+                tgt.DateDDAssigned              = src.DateDDAssigned,
+                tgt.DateDDRemoved               = src.DateDDRemoved,
+                tgt.DDActive                    = ISNULL(src.DDActive, tgt.DDActive),
+
+                tgt.DialTag                     = src.DialTag,
+                tgt.DateDialAssigned            = src.DateDialAssigned,
+                tgt.DateDialRemoved             = src.DateDialRemoved,
+                tgt.DialActive                  = ISNULL(src.DialActive, tgt.DialActive),
+
+                tgt.DigitalTag                  = src.DigitalTag,
+                tgt.DateDigitalAssigned         = src.DateDigitalAssigned,
+                tgt.DateDigitalRemoved          = src.DateDigitalRemoved,
+                tgt.DigitalActive               = ISNULL(src.DigitalActive, tgt.DigitalActive),
+
+                tgt.PayerPhaseTag               = src.PayerPhaseTag,
+                tgt.DatePayerPhaseAssigned      = src.DatePayerPhaseAssigned,
+                tgt.DatePayerPhaseRemoved       = src.DatePayerPhaseRemoved,
+                tgt.PayerPhaseActive            = ISNULL(src.PayerPhaseActive, tgt.PayerPhaseActive),
+
+                tgt.PhaseTag                    = src.PhaseTag,
+                tgt.DatePhaseAssigned           = src.DatePhaseAssigned,
+                tgt.DatePhaseRemoved            = src.DatePhaseRemoved,
+                tgt.PhaseActive                 = ISNULL(src.PhaseActive, tgt.PhaseActive),
+
+                tgt.PlanTag                     = src.PlanTag,
+                tgt.DatePlanAssigned            = src.DatePlanAssigned,
+                tgt.DatePlanRemoved             = src.DatePlanRemoved,
+                tgt.PlanActive                  = ISNULL(src.PlanActive, tgt.PlanActive),
+
+                tgt.PreDefTag                   = src.PreDefTag,
+                tgt.DatePreDefAssigned          = src.DatePreDefAssigned,
+                tgt.DatePreDefRemoved           = src.DatePreDefRemoved,
+                tgt.PreDefActive                = ISNULL(src.PreDefActive, tgt.PreDefActive),
+
+                tgt.RemediationTag              = src.RemediationTag,
+                tgt.DateRemediationAssigned     = src.DateRemediationAssigned,
+                tgt.DateRemediationRemoved      = src.DateRemediationRemoved,
+                tgt.RemediationActive           = ISNULL(src.RemediationActive, tgt.RemediationActive),
+
+                tgt.SMSTag                      = src.SMSTag,
+                tgt.DateSMSAssigned             = src.DateSMSAssigned,
+                tgt.DateSMSRemoved              = src.DateSMSRemoved,
+                tgt.SMSActive                   = ISNULL(src.SMSActive, tgt.SMSActive),
+
+                tgt.StatusTag                   = src.StatusTag,
+                tgt.DateStatusAssigned          = src.DateStatusAssigned,
+                tgt.DateStatusRemoved           = src.DateStatusRemoved,
+                tgt.StatusActive                = ISNULL(src.StatusActive, tgt.StatusActive),
+
+                tgt.PreviousStatusTag           = src.PreviousStatusTag,
+                tgt.DatePreviousStatusAssigned  = src.DatePreviousStatusAssigned,
+                tgt.DatePreviousStatusRemoved   = src.DatePreviousStatusRemoved,
+                tgt.PreviousStatusActive        = ISNULL(src.PreviousStatusActive, tgt.PreviousStatusActive)
 
         WHEN NOT MATCHED BY TARGET THEN
             INSERT (
-                CustomerTagId,
-                CustomerGroupId,
                 CustomerId,
-                TagId,
-                TagName,
-                TagShortName,
-                TagAssignmentDate,
-                TagActive,
-                UpsertDateTime
+                LegacyId,
+                CustomerGroupId,
+
+                DDTag, DateDDAssigned, DateDDRemoved, DDActive,
+                DialTag, DateDialAssigned, DateDialRemoved, DialActive,
+                DigitalTag, DateDigitalAssigned, DateDigitalRemoved, DigitalActive,
+                PayerPhaseTag, DatePayerPhaseAssigned, DatePayerPhaseRemoved, PayerPhaseActive,
+                PhaseTag, DatePhaseAssigned, DatePhaseRemoved, PhaseActive,
+                PlanTag, DatePlanAssigned, DatePlanRemoved, PlanActive,
+                PreDefTag, DatePreDefAssigned, DatePreDefRemoved, PreDefActive,
+                RemediationTag, DateRemediationAssigned, DateRemediationRemoved, RemediationActive,
+                SMSTag, DateSMSAssigned, DateSMSRemoved, SMSActive,
+                StatusTag, DateStatusAssigned, DateStatusRemoved, StatusActive,
+                PreviousStatusTag, DatePreviousStatusAssigned, DatePreviousStatusRemoved, PreviousStatusActive
             )
             VALUES (
-                src.CustomerTagId,
-                src.CustomerGroupId,
                 src.CustomerId,
-                src.TagId,
-                src.TagName,
-                src.TagShortName,
-                src.TagAssignmentDate,
-                ISNULL(src.TagActive, 0),  
-                src.UpsertDateTime                 
+                src.LegacyId,
+                src.CustomerGroupId,
+
+                src.DDTag, src.DateDDAssigned, src.DateDDRemoved, ISNULL(src.DDActive, 0),
+                src.DialTag, src.DateDialAssigned, src.DateDialRemoved, ISNULL(src.DialActive, 0),
+                src.DigitalTag, src.DateDigitalAssigned, src.DateDigitalRemoved, ISNULL(src.DigitalActive, 0),
+                src.PayerPhaseTag, src.DatePayerPhaseAssigned, src.DatePayerPhaseRemoved, ISNULL(src.PayerPhaseActive, 0),
+                src.PhaseTag, src.DatePhaseAssigned, src.DatePhaseRemoved, ISNULL(src.PhaseActive, 0),
+                src.PlanTag, src.DatePlanAssigned, src.DatePlanRemoved, ISNULL(src.PlanActive, 0),
+                src.PreDefTag, src.DatePreDefAssigned, src.DatePreDefRemoved, ISNULL(src.PreDefActive, 0),
+                src.RemediationTag, src.DateRemediationAssigned, src.DateRemediationRemoved, ISNULL(src.RemediationActive, 0),
+                src.SMSTag, src.DateSMSAssigned, src.DateSMSRemoved, ISNULL(src.SMSActive, 0),
+                src.StatusTag, src.DateStatusAssigned, src.DateStatusRemoved, ISNULL(src.StatusActive, 0),
+                src.PreviousStatusTag, src.DatePreviousStatusAssigned, src.DatePreviousStatusRemoved, ISNULL(src.PreviousStatusActive, 0)
             );
 
         COMMIT TRANSACTION;
@@ -68,84 +135,3 @@ BEGIN
     END CATCH
 END
 GO
-
-========
-Customer table table:
-
-
-CREATE TABLE [dbo].[CustomerTag] (
-    [CustomerId]          BIGINT           NOT NULL,
-    [LegacyId]            BIGINT           NOT NULL,
-    [CustomerGroupId]     UNIQUEIDENTIFIER NULL,
-        
-    -- DD Tag       
-    [DDTag]            VARCHAR (200)    NULL,
-    [DateDDAssigned]   DATETIME2 (7)    NULL,
-    [DateDDRemoved]    DATETIME2 (7)    NULL,
-    [DDActive]         BIT              NULL,
-    
-    -- Dial Tag 
-    [DialTag]             VARCHAR (200)    NULL,
-    [DateDialAssigned]        DATETIME2 (7)    NULL,
-    [DateDialRemoved]     DATETIME2 (7)    NULL,
-    [DialActive]          BIT              NULL,
-
-    -- Digital Tag 
-    [DigitalTag]             VARCHAR (200)    NULL,
-    [DateDigitalAssigned]        DATETIME2 (7)    NULL,
-    [DateDigitalRemoved]     DATETIME2 (7)    NULL,
-    [DigitalActive]          BIT              NULL,
-
-    -- PayerPhase Tag 
-    [PayerPhaseTag]          VARCHAR (200)    NULL,
-    [DatePayerPhaseAssigned]     DATETIME2 (7)    NULL,
-    [DatePayerPhaseRemoved]  DATETIME2 (7)    NULL,
-    [PayerPhaseActive]       BIT              NULL,
-
-    -- Phase Tag 
-    [PhaseTag]          VARCHAR (200)    NULL,
-    [DatePhaseAssigned]     DATETIME2 (7)    NULL,
-    [DatePhaseRemoved]  DATETIME2 (7)    NULL,
-    [PhaseActive]       BIT              NULL,
-
-    -- Plan Tag 
-    [PlanTag]          VARCHAR (200)    NULL,
-    [DatePlanAssigned]     DATETIME2 (7)    NULL,
-    [DatePlanRemoved]  DATETIME2 (7)    NULL,
-    [PlanActive]       BIT              NULL,
-
-    -- Pre Def Tag 
-    [PreDefTag]           VARCHAR (200)    NULL,
-    [DatePreDefAssigned]  DATETIME2 (7)    NULL,
-    [DatePreDefRemoved]   DATETIME2 (7)    NULL,
-    [PreDefActive]        BIT              NULL,
-
-    -- Remediation Tag 
-    [RemediationTag]           VARCHAR (200)    NULL,
-    [DateRemediationAssigned]  DATETIME2 (7)    NULL,
-    [DateRemediationRemoved]   DATETIME2 (7)    NULL,
-    [RemediationActive]        BIT              NULL,
-
-    -- SMS Tag 
-    [SMSTag]                   VARCHAR (200)    NULL,
-    [DateSMSAssigned]          DATETIME2 (7)    NULL,
-    [DateSMSRemoved]           DATETIME2 (7)    NULL,
-    [SMSActive]                BIT              NULL,
-
-    -- Status Tag 
-    [StatusTag]                VARCHAR (200)    NULL,
-    [DateStatusAssigned]       DATETIME2 (7)    NULL,
-    [DateStatusRemoved]        DATETIME2 (7)    NULL,
-    [StatusActive]             BIT              NULL,
-
-    -- Previous Status Tag 
-    [PreviousStatusTag]           VARCHAR (200)    NULL,
-    [DatePreviousStatusAssigned]  DATETIME2 (7)    NULL,
-    [DatePreviousStatusRemoved]   DATETIME2 (7)    NULL,
-    [PreviousStatusActive]        BIT              NULL,
-
-    
-);
-GO
-
-
