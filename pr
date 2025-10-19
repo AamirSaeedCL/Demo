@@ -1,3 +1,151 @@
-ALTER TABLE dbo.CustomerTag  
-ENABLE CHANGE_TRACKING  
-WITH (TRACK_COLUMNS_UPDATED = ON);
+CREATE PROCEDURE [dbo].[usp_LoadCustomerTagFromStaging]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+       
+        MERGE dbo.CustomerTag WITH (HOLDLOCK) AS tgt
+        USING (
+            SELECT
+                CustomerTagId,
+                CustomerGroupId,
+                CustomerId,
+                TagId,
+                TagName,
+                TagShortName,
+                TagAssignmentDate,
+                TagActive,
+                UpsertDateTime
+            FROM stg.CustomerTag
+        ) AS src
+        ON tgt.CustomerTagId = src.CustomerTagId
+
+        WHEN MATCHED THEN
+            UPDATE SET
+                tgt.CustomerGroupId    = src.CustomerGroupId,
+                tgt.CustomerId         = src.CustomerId,
+                tgt.TagId              = src.TagId,
+                tgt.TagName            = src.TagName,
+                tgt.TagShortName       = src.TagShortName,
+                tgt.TagAssignmentDate  = src.TagAssignmentDate,               
+                tgt.TagActive          = ISNULL(src.TagActive, tgt.TagActive),              
+                tgt.UpsertDateTime     = src.UpsertDateTime
+
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (
+                CustomerTagId,
+                CustomerGroupId,
+                CustomerId,
+                TagId,
+                TagName,
+                TagShortName,
+                TagAssignmentDate,
+                TagActive,
+                UpsertDateTime
+            )
+            VALUES (
+                src.CustomerTagId,
+                src.CustomerGroupId,
+                src.CustomerId,
+                src.TagId,
+                src.TagName,
+                src.TagShortName,
+                src.TagAssignmentDate,
+                ISNULL(src.TagActive, 0),  
+                src.UpsertDateTime                 
+            );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        THROW;
+    END CATCH
+END
+GO
+
+========
+Customer table table:
+
+
+CREATE TABLE [dbo].[CustomerTag] (
+    [CustomerId]          BIGINT           NOT NULL,
+    [LegacyId]            BIGINT           NOT NULL,
+    [CustomerGroupId]     UNIQUEIDENTIFIER NULL,
+        
+    -- DD Tag       
+    [DDTag]            VARCHAR (200)    NULL,
+    [DateDDAssigned]   DATETIME2 (7)    NULL,
+    [DateDDRemoved]    DATETIME2 (7)    NULL,
+    [DDActive]         BIT              NULL,
+    
+    -- Dial Tag 
+    [DialTag]             VARCHAR (200)    NULL,
+    [DateDialAssigned]        DATETIME2 (7)    NULL,
+    [DateDialRemoved]     DATETIME2 (7)    NULL,
+    [DialActive]          BIT              NULL,
+
+    -- Digital Tag 
+    [DigitalTag]             VARCHAR (200)    NULL,
+    [DateDigitalAssigned]        DATETIME2 (7)    NULL,
+    [DateDigitalRemoved]     DATETIME2 (7)    NULL,
+    [DigitalActive]          BIT              NULL,
+
+    -- PayerPhase Tag 
+    [PayerPhaseTag]          VARCHAR (200)    NULL,
+    [DatePayerPhaseAssigned]     DATETIME2 (7)    NULL,
+    [DatePayerPhaseRemoved]  DATETIME2 (7)    NULL,
+    [PayerPhaseActive]       BIT              NULL,
+
+    -- Phase Tag 
+    [PhaseTag]          VARCHAR (200)    NULL,
+    [DatePhaseAssigned]     DATETIME2 (7)    NULL,
+    [DatePhaseRemoved]  DATETIME2 (7)    NULL,
+    [PhaseActive]       BIT              NULL,
+
+    -- Plan Tag 
+    [PlanTag]          VARCHAR (200)    NULL,
+    [DatePlanAssigned]     DATETIME2 (7)    NULL,
+    [DatePlanRemoved]  DATETIME2 (7)    NULL,
+    [PlanActive]       BIT              NULL,
+
+    -- Pre Def Tag 
+    [PreDefTag]           VARCHAR (200)    NULL,
+    [DatePreDefAssigned]  DATETIME2 (7)    NULL,
+    [DatePreDefRemoved]   DATETIME2 (7)    NULL,
+    [PreDefActive]        BIT              NULL,
+
+    -- Remediation Tag 
+    [RemediationTag]           VARCHAR (200)    NULL,
+    [DateRemediationAssigned]  DATETIME2 (7)    NULL,
+    [DateRemediationRemoved]   DATETIME2 (7)    NULL,
+    [RemediationActive]        BIT              NULL,
+
+    -- SMS Tag 
+    [SMSTag]                   VARCHAR (200)    NULL,
+    [DateSMSAssigned]          DATETIME2 (7)    NULL,
+    [DateSMSRemoved]           DATETIME2 (7)    NULL,
+    [SMSActive]                BIT              NULL,
+
+    -- Status Tag 
+    [StatusTag]                VARCHAR (200)    NULL,
+    [DateStatusAssigned]       DATETIME2 (7)    NULL,
+    [DateStatusRemoved]        DATETIME2 (7)    NULL,
+    [StatusActive]             BIT              NULL,
+
+    -- Previous Status Tag 
+    [PreviousStatusTag]           VARCHAR (200)    NULL,
+    [DatePreviousStatusAssigned]  DATETIME2 (7)    NULL,
+    [DatePreviousStatusRemoved]   DATETIME2 (7)    NULL,
+    [PreviousStatusActive]        BIT              NULL,
+
+    
+);
+GO
+
+
