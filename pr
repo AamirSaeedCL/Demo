@@ -1,1 +1,1 @@
-
+MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN tag_active END)         AS DDActive
