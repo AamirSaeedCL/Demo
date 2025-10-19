@@ -1,1 +1,3 @@
-
+CREATE TABLE [dbo].[CustomerTag] (
+    [CustomerId]          BIGINT           NOT NULL,
+    [LegacyId]            BIGINT           NOT NULL,
