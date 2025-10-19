@@ -1,1 +1,3 @@
-CAST(MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN tag_active END) AS bit) AS DDActive
+ALTER TABLE dbo.CustomerTag  
+ENABLE CHANGE_TRACKING  
+WITH (TRACK_COLUMNS_UPDATED = ON);
