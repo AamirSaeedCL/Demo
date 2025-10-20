@@ -1,6 +1,3 @@
-I have made the following updates on the SQL side:
+Hi Team, Good morning. 
 
-The columns DateDDTagAssigned, DateDDTagRemoved, and DDTagActive have been renamed to DateDDAssigned, DateDDRemoved, and DDActive, respectively.
-This change removes the redundant “Tag” keyword to maintain consistency with the naming convention used for other tag-related fields.
-
-Similarly, the column DateStatusActive has been renamed to StatusActive for the same reason.
+Fyi, as a part of above PR, I've removed the one of the existing `NONCLUSTERED` index as it is no longer needed. Thanks.
