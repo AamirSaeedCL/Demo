@@ -1,3 +1,1 @@
-Hi Team, Good morning. 
-
-Fyi, as a part of above PR, I've removed the one of the existing `NONCLUSTERED` index as it is no longer needed. Thanks.
+as part of the above PR, I’ve removed one of the existing NONCLUSTERED indexes, as it is no longer required.
