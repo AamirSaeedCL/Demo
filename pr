@@ -1,27 +1,26 @@
-
 ALTER PROCEDURE [dbo].[usp_DataFactoryPipelineLog_GetLastRunDateTime]
-        @PipelineId INTEGER  -- Input parameter for PipelineId
+    @PipelineId INT  -- Input parameter for PipelineId
 AS
 BEGIN
-	DECLARE @DefaultDate DATETIME = '1900-01-01';
-	DECLARE @LastExecutionDateTime AS DATETIME2 = NULL;
-    SELECT TOP 1 
-        @LastExecutionDateTime = [StartDateTime] 
+    SET NOCOUNT ON;
+
+    DECLARE @DefaultDate DATETIME2 = '1900-01-01';
+    DECLARE @LastExecutionDateTime DATETIME2 = NULL;
+
+    -- Retrieve the most recent successful pipeline run
+    SELECT TOP (1)
+        @LastExecutionDateTime = StartDateTime
     FROM
-        [dbo].[DataFactoryPipelineLog] WITH (NOLOCK)
+        dbo.DataFactoryPipelineLog WITH (NOLOCK)  -- Use NOLOCK with caution; may read uncommitted data
     WHERE
         PipelineId = @PipelineId
         AND ErrorDescription IS NULL
-		AND [EndDateTime] IS NOT NULL
+        AND EndDateTime IS NOT NULL
     ORDER BY
-        LogId DESC;  -- Order by descending to get the most recent log
+        LogId DESC;
 
-	IF (@LastExecutionDateTime IS NULL)
-    BEGIN
-        SELECT @DefaultDate AS [LastRunDateTime];
-    END;
-	ELSE
-		SELECT @LastExecutionDateTime AS [LastRunDateTime];
-	END;
+    -- Return the last run date
+    SELECT 
+        ISNULL(@LastExecutionDateTime, @DefaultDate) AS LastRunDateTime;
 END;
 GO
