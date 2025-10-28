@@ -1,5 +1,6 @@
-SELECT COALESCE(STRING_AGG(c.CustomerId, ','), '') AS CustomerIds
+SELECT STRING_AGG(c.CustomerId, ',') AS CustomerIds
 FROM dbo.Customer c
 JOIN dbo.Score s ON c.LegacyId = s.LegacyId
 WHERE c.CustomerId IS NOT NULL
-  AND s.CustomerId IS NOT NULL;
+  AND s.CustomerId IS NOT NULL
+HAVING COUNT(*) > 0;
