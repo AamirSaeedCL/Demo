@@ -1,4 +1,4 @@
-SELECT STRING_AGG(DISTINCT c.CustomerId, ',') AS CustomerIds
+SELECT COALESCE(STRING_AGG(c.CustomerId, ','), '') AS CustomerIds
 FROM dbo.Customer c
 JOIN dbo.Score s ON c.LegacyId = s.LegacyId
 WHERE c.CustomerId IS NOT NULL
