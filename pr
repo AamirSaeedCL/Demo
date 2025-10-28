@@ -1,1 +1,69 @@
 
+DROP TABLE IF EXISTS #tableA
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo
+INTO			#tableA 
+FROM			MarlinDW.dbo.account As a
+
+/* date last digital e&I */
+DROP TABLE IF EXISTS #Digital_EI_CF
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo,
+				MAX(b.CreatedDateTime) as Digital_EI
+INTO			#Digital_EI_CF 
+FROM			#tableA AS a
+INNER JOIN		MarlinDW..SFS_MASTER (nolock) AS b
+ON				A.AccountID  = B.AccountID 
+WHERE			b.CreatedBy IN ('CustomerWeb','Digital')
+GROUP BY		a.AccountID, a.DebtorNo
+
+DROP TABLE IF EXISTS #SF_CF
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo,
+				MAX(b.Open_Date) as SF
+INTO			#SF_CF 
+FROM			#tableA AS a
+INNER JOIN		DiallerOperation.dbo.Salesforce_Interactions_Master AS b 
+ON				a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
+GROUP BY		a.AccountID, a.DebtorNo
+
+DROP TABLE IF EXISTS #CubeDate_CF
+SELECT DISTINCT	a.AccountID,
+				a.DebtorNo,
+				MAX(b.DocumentDate) AS CubeDate
+INTO			#CubeDate_CF 
+FROM			#tableA AS a
+INNER JOIN		DiallerOperation.dbo.Cube_Transactions AS b 
+ON				a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
+WHERE			b.Channel in ('Post','Email') 
+AND				b.DocumentDate != '1900-01-01 00:00:00.000' 
+GROUP BY		a.AccountID, a.DebtorNo
+
+DROP TABLE IF EXISTS #Digital_Contact_Today
+SELECT			DISTINCT 
+				a.DebtorNo,
+				CASE WHEN CAST(ei.Digital_EI AS DATE) >= CAST(GETDATE()-1 AS DATE)
+					   OR CAST(sf.SF AS DATE) >= CAST(GETDATE()-1 AS DATE)		
+					   OR CAST(cf.CubeDate AS DATE) >= CAST(GETDATE()-1 AS DATE)
+					 THEN 1 ELSE 0
+				END AS DigitalContactToday		
+INTO			#Digital_Contact_Today
+FROM			#tableA AS a
+LEFT JOIN		#Digital_EI_CF AS ei
+ON				(a.AccountID = ei.AccountID)
+LEFT JOIN		#SF_CF AS sf
+ON				(a.AccountID = sf.AccountID)
+LEFT JOIN		#CubeDate_CF AS cf
+ON				(a.AccountID = cf.AccountID)
+
+SELECT			DebtorNo, DigitalContactToday
+FROM			#Digital_Contact_Today
+WHERE			DigitalContactToday = 1
+
+
+
+AMR – We are reading the both daysTillStoredReviewDate and monthsSinceReviewSetDate from the `crs5_oltp.dbo.UDEFREVIEW` and they are available on SIT environment as well as you can see above. Moreover, query to fetch these columns are attached for your kind reference:
+
+AMR – The DigitalContactToday field is available in table and datatype is `bit. It will be up to Function App to pickup these fields and dump in to the json file. @Ekanath Reddy Gaddam , can confirm more on it. 
+
+AMR – Not all the data are fetched from the same database i-e as mentioned above digitalContactToday column we are fetching it from the three databases (MarlinDW..SFS_MASTER, DiallerOperation.dbo.Salesforce_Interactions_Master, DiallerOperation.dbo.Cube_Transactions etc)
