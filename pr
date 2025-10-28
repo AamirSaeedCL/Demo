@@ -1,69 +1,9 @@
-
-DROP TABLE IF EXISTS #tableA
-SELECT DISTINCT	a.AccountID,
-				a.DebtorNo
-INTO			#tableA 
-FROM			MarlinDW.dbo.account As a
-
-/* date last digital e&I */
-DROP TABLE IF EXISTS #Digital_EI_CF
-SELECT DISTINCT	a.AccountID,
-				a.DebtorNo,
-				MAX(b.CreatedDateTime) as Digital_EI
-INTO			#Digital_EI_CF 
-FROM			#tableA AS a
-INNER JOIN		MarlinDW..SFS_MASTER (nolock) AS b
-ON				A.AccountID  = B.AccountID 
-WHERE			b.CreatedBy IN ('CustomerWeb','Digital')
-GROUP BY		a.AccountID, a.DebtorNo
-
-DROP TABLE IF EXISTS #SF_CF
-SELECT DISTINCT	a.AccountID,
-				a.DebtorNo,
-				MAX(b.Open_Date) as SF
-INTO			#SF_CF 
-FROM			#tableA AS a
-INNER JOIN		DiallerOperation.dbo.Salesforce_Interactions_Master AS b 
-ON				a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
-GROUP BY		a.AccountID, a.DebtorNo
-
-DROP TABLE IF EXISTS #CubeDate_CF
-SELECT DISTINCT	a.AccountID,
-				a.DebtorNo,
-				MAX(b.DocumentDate) AS CubeDate
-INTO			#CubeDate_CF 
-FROM			#tableA AS a
-INNER JOIN		DiallerOperation.dbo.Cube_Transactions AS b 
-ON				a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
-WHERE			b.Channel in ('Post','Email') 
-AND				b.DocumentDate != '1900-01-01 00:00:00.000' 
-GROUP BY		a.AccountID, a.DebtorNo
-
-DROP TABLE IF EXISTS #Digital_Contact_Today
-SELECT			DISTINCT 
-				a.DebtorNo,
-				CASE WHEN CAST(ei.Digital_EI AS DATE) >= CAST(GETDATE()-1 AS DATE)
-					   OR CAST(sf.SF AS DATE) >= CAST(GETDATE()-1 AS DATE)		
-					   OR CAST(cf.CubeDate AS DATE) >= CAST(GETDATE()-1 AS DATE)
-					 THEN 1 ELSE 0
-				END AS DigitalContactToday		
-INTO			#Digital_Contact_Today
-FROM			#tableA AS a
-LEFT JOIN		#Digital_EI_CF AS ei
-ON				(a.AccountID = ei.AccountID)
-LEFT JOIN		#SF_CF AS sf
-ON				(a.AccountID = sf.AccountID)
-LEFT JOIN		#CubeDate_CF AS cf
-ON				(a.AccountID = cf.AccountID)
-
-SELECT			DebtorNo, DigitalContactToday
-FROM			#Digital_Contact_Today
-WHERE			DigitalContactToday = 1
+The query identifies which debtors have had any digital interaction since yesterday by consolidating data from multiple sources. It starts with the main account list from MarlinDW.dbo.account (#tableA), then fetches the latest digital e&I activity from MarlinDW..SFS_MASTER (#Digital_EI_CF), Salesforce interactions from DiallerOperation.dbo.Salesforce_Interactions_Master (#SF_CF), and Cube transactions from DiallerOperation.dbo.Cube_Transactions (#CubeDate_CF). These sources are joined and evaluated to flag debtors with recent digital contact (#Digital_Contact_Today), which is finally filtered to show only those with interactions today.
 
 
 
-AMR – We are reading the both daysTillStoredReviewDate and monthsSinceReviewSetDate from the `crs5_oltp.dbo.UDEFREVIEW` and they are available on SIT environment as well as you can see above. Moreover, query to fetch these columns are attached for your kind reference:
+AMR – We are retrieving both daysTillStoredReviewDate and monthsSinceReviewSetDate from the crs5_oltp.dbo.UDEFREVIEW table. These columns are available in the SIT environment, as can be observed above. For your convenience and reference, the query used to fetch these columns has been attached. Kindly review it and let us know if any further clarification or assistance is required.
 
-AMR – The DigitalContactToday field is available in table and datatype is `bit. It will be up to Function App to pickup these fields and dump in to the json file. @Ekanath Reddy Gaddam , can confirm more on it. 
+AMR – The DigitalContactToday field is available in the table, and its datatype is bit. It will be the responsibility of the Function App to retrieve these fields and populate them into the JSON file. @Ekanath Reddy Gaddam, you may provide further clarification or confirm the implementation details regarding this process.
 
-AMR – Not all the data are fetched from the same database i-e as mentioned above digitalContactToday column we are fetching it from the three databases (MarlinDW..SFS_MASTER, DiallerOperation.dbo.Salesforce_Interactions_Master, DiallerOperation.dbo.Cube_Transactions etc)
+AMR – Data Source Clarification: Not all data is retrieved from a single database. For instance, as mentioned above, the digitalContactToday column is populated using data from multiple sources, including MarlinDW.SFS_MASTER, DiallerOperation.dbo.Salesforce_Interactions_Master, and DiallerOperation.dbo.Cube_Transactions, among others. This ensures comprehensive coverage and accuracy by consolidating relevant information across these databases.
