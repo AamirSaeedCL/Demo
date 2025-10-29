@@ -1,1 +1,2 @@
 
+2025-10-29T14:22:37.2008234Z ##[error]Warning SQL72015: The column [dbo].[CustomerTag].[CustomerTagId] is being dropped, data loss could occur.
