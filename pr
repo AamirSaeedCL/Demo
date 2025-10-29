@@ -1,2 +1,6 @@
-
+Guys-Fyi, during the deployment, I got below error:
 2025-10-29T14:22:37.2008234Z ##[error]Warning SQL72015: The column [dbo].[CustomerTag].[CustomerTagId] is being dropped, data loss could occur.
+
+Reason: We have made changes in our CustomerTag table (Moved the tags records in terms of row to columns) so for that we have add/removed some columns.   
+
+To reolsve this issue, I have modified our release pipeline and add an additional Parameter (BlockOnPossibleDataLoss=false) - We may remove this paraemter for coming release. Only will add once we really need it.
