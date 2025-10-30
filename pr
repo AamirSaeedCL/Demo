@@ -1,14 +1,64 @@
 SELECT
     COALESCE(s.LegacyId, d.LegacyId) AS LegacyId,
-    *
+    s.*,
+    d.*,
+    LTRIM(
+        CONCAT(
+            CASE WHEN ISNULL(s.CustomerId, '') <> ISNULL(d.CustomerId, '') THEN ',CustomerId' ELSE '' END,
+            CASE WHEN ISNULL(s.CustomerGroupId, '') <> ISNULL(d.CustomerGroupId, '') THEN ',CustomerGroupId' ELSE '' END,
+            CASE WHEN ISNULL(s.DDTag, '') <> ISNULL(d.DDTag, '') THEN ',DDTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DateDDAssigned, '') <> ISNULL(d.DateDDAssigned, '') THEN ',DateDDAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DateDDRemoved, '') <> ISNULL(d.DateDDRemoved, '') THEN ',DateDDRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.DDActive, '') <> ISNULL(d.DDActive, '') THEN ',DDActive' ELSE '' END,
+            CASE WHEN ISNULL(s.DialTag, '') <> ISNULL(d.DialTag, '') THEN ',DialTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DateDialAssigned, '') <> ISNULL(d.DateDialAssigned, '') THEN ',DateDialAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DateDialRemoved, '') <> ISNULL(d.DateDialRemoved, '') THEN ',DateDialRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.DialActive, '') <> ISNULL(d.DialActive, '') THEN ',DialActive' ELSE '' END,
+            CASE WHEN ISNULL(s.DigitalTag, '') <> ISNULL(d.DigitalTag, '') THEN ',DigitalTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DateDigitalAssigned, '') <> ISNULL(d.DateDigitalAssigned, '') THEN ',DateDigitalAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DateDigitalRemoved, '') <> ISNULL(d.DateDigitalRemoved, '') THEN ',DateDigitalRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.DigitalActive, '') <> ISNULL(d.DigitalActive, '') THEN ',DigitalActive' ELSE '' END,
+            CASE WHEN ISNULL(s.PayerPhaseTag, '') <> ISNULL(d.PayerPhaseTag, '') THEN ',PayerPhaseTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePayerPhaseAssigned, '') <> ISNULL(d.DatePayerPhaseAssigned, '') THEN ',DatePayerPhaseAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePayerPhaseRemoved, '') <> ISNULL(d.DatePayerPhaseRemoved, '') THEN ',DatePayerPhaseRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.PayerPhaseActive, '') <> ISNULL(d.PayerPhaseActive, '') THEN ',PayerPhaseActive' ELSE '' END,
+            CASE WHEN ISNULL(s.PhaseTag, '') <> ISNULL(d.PhaseTag, '') THEN ',PhaseTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePhaseAssigned, '') <> ISNULL(d.DatePhaseAssigned, '') THEN ',DatePhaseAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePhaseRemoved, '') <> ISNULL(d.DatePhaseRemoved, '') THEN ',DatePhaseRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.PhaseActive, '') <> ISNULL(d.PhaseActive, '') THEN ',PhaseActive' ELSE '' END,
+            CASE WHEN ISNULL(s.PlanTag, '') <> ISNULL(d.PlanTag, '') THEN ',PlanTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePlanAssigned, '') <> ISNULL(d.DatePlanAssigned, '') THEN ',DatePlanAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePlanRemoved, '') <> ISNULL(d.DatePlanRemoved, '') THEN ',DatePlanRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.PlanActive, '') <> ISNULL(d.PlanActive, '') THEN ',PlanActive' ELSE '' END,
+            CASE WHEN ISNULL(s.PreDefTag, '') <> ISNULL(d.PreDefTag, '') THEN ',PreDefTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePreDefAssigned, '') <> ISNULL(d.DatePreDefAssigned, '') THEN ',DatePreDefAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePreDefRemoved, '') <> ISNULL(d.DatePreDefRemoved, '') THEN ',DatePreDefRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.PreDefActive, '') <> ISNULL(d.PreDefActive, '') THEN ',PreDefActive' ELSE '' END,
+            CASE WHEN ISNULL(s.RemediationTag, '') <> ISNULL(d.RemediationTag, '') THEN ',RemediationTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DateRemediationAssigned, '') <> ISNULL(d.DateRemediationAssigned, '') THEN ',DateRemediationAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DateRemediationRemoved, '') <> ISNULL(d.DateRemediationRemoved, '') THEN ',DateRemediationRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.RemediationActive, '') <> ISNULL(d.RemediationActive, '') THEN ',RemediationActive' ELSE '' END,
+            CASE WHEN ISNULL(s.SMSTag, '') <> ISNULL(d.SMSTag, '') THEN ',SMSTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DateSMSAssigned, '') <> ISNULL(d.DateSMSAssigned, '') THEN ',DateSMSAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DateSMSRemoved, '') <> ISNULL(d.DateSMSRemoved, '') THEN ',DateSMSRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.SMSActive, '') <> ISNULL(d.SMSActive, '') THEN ',SMSActive' ELSE '' END,
+            CASE WHEN ISNULL(s.StatusTag, '') <> ISNULL(d.StatusTag, '') THEN ',StatusTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DateStatusAssigned, '') <> ISNULL(d.DateStatusAssigned, '') THEN ',DateStatusAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DateStatusRemoved, '') <> ISNULL(d.DateStatusRemoved, '') THEN ',DateStatusRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.StatusActive, '') <> ISNULL(d.StatusActive, '') THEN ',StatusActive' ELSE '' END,
+            CASE WHEN ISNULL(s.PreviousStatusTag, '') <> ISNULL(d.PreviousStatusTag, '') THEN ',PreviousStatusTag' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePreviousStatusAssigned, '') <> ISNULL(d.DatePreviousStatusAssigned, '') THEN ',DatePreviousStatusAssigned' ELSE '' END,
+            CASE WHEN ISNULL(s.DatePreviousStatusRemoved, '') <> ISNULL(d.DatePreviousStatusRemoved, '') THEN ',DatePreviousStatusRemoved' ELSE '' END,
+            CASE WHEN ISNULL(s.PreviousStatusActive, '') <> ISNULL(d.PreviousStatusActive, '') THEN ',PreviousStatusActive' ELSE '' END,
+            CASE WHEN ISNULL(s.UpsertDateTime, '') <> ISNULL(d.UpsertDateTime, '') THEN ',UpsertDateTime' ELSE '' END
+        )
+    ) AS DifferentColumns
 FROM stg.CustomerTags s
 FULL OUTER JOIN dbo.CustomerTags d
     ON s.LegacyId = d.LegacyId
 WHERE
-    -- Find rows that exist only in one table
     s.LegacyId IS NULL
     OR d.LegacyId IS NULL
-    -- Or any column values differ
     OR ISNULL(s.CustomerId, '') <> ISNULL(d.CustomerId, '')
     OR ISNULL(s.CustomerGroupId, '') <> ISNULL(d.CustomerGroupId, '')
     OR ISNULL(s.DDTag, '') <> ISNULL(d.DDTag, '')
