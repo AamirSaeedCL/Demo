@@ -1,1 +1,19 @@
 
+PBI-1  (Modify the customer.json file through Function App)
+
+As the part of our PBI-211129, we have modified our existing customer incremental pipeline to get the values for below new columns
+
+isValidPhone - Does customer have a valid phone number
+daysStillStoredReviewDate - 	Days left till next review date
+monthsSinceReviewSetDate - 	How many months have elapsed since last account review date
+consumerPreference - 	Customer communication primary preference
+DigitalContactToday - 	determines if we have had contact today
+
+We need to update the functon APP code to bring these columns and dumps them in the Customer.Json File.
+
+
+PBI-2 (Create a new trigger for CustomerTags table)
+
+As the part of our PBI-223942, we have created a new pipeline to process the customer tags and convert them from rows to columns as per new archectutere. 
+For that, now we need to create a new trigger in Function App to pick up the new table and dump the rows in CustomerTags.Json file accordingly. Please note, 
+please de-activitate the existing CustomerTag trigger.
