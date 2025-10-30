@@ -1,2 +1,3 @@
-I have created a new pipelines for both initial ingestion + incremental for CustomerTags and leave the exisiting pipliens CustomerTag untouched - However, I have de-associated the trigger from the CustomerTag pipeline as it is no longer needed and created a new trigger
-"Pipeline_Scheduler_Realtime_CustomerTags_V2" for CustomerTags pipeline. We need to add this trigger in our triggers release and I will add it later tomorrow morniong.
+I have created new pipelines for both initial ingestion and incremental processing of CustomerTags, while keeping the existing CustomerTag pipelines unchanged. However, I have disassociated the trigger from the original CustomerTag pipeline, as it is no longer required, and have created a new trigger named “Pipeline_Scheduler_Realtime_CustomerTags_V2” for the updated CustomerTags pipeline.
+
+This new trigger needs to be included in our triggers release, and I will add it tomorrow morning.
