@@ -1,19 +1,51 @@
+PBI-1: Modify the Customer.json File through Azure Function App
 
-PBI-1  (Modify the customer.json file through Function App)
+Background:
+As part of PBI-211129, the existing Customer Incremental Pipeline has been enhanced to include additional derived fields that provide richer data insights for downstream systems and reporting.
 
-As the part of our PBI-211129, we have modified our existing customer incremental pipeline to get the values for below new columns
+New Columns Introduced:
 
-isValidPhone - Does customer have a valid phone number
-daysStillStoredReviewDate - 	Days left till next review date
-monthsSinceReviewSetDate - 	How many months have elapsed since last account review date
-consumerPreference - 	Customer communication primary preference
-DigitalContactToday - 	determines if we have had contact today
+isValidPhone – Indicates whether the customer has a valid and active phone number.
 
-We need to update the functon APP code to bring these columns and dumps them in the Customer.Json File.
+daysStillStoredReviewDate – Represents the number of days remaining until the next scheduled review date.
 
+monthsSinceReviewSetDate – Calculates how many months have elapsed since the last account review date.
 
-PBI-2 (Create a new trigger for CustomerTags table)
+consumerPreference – Captures the customer’s primary communication preference (e.g., email, phone, SMS).
 
-As the part of our PBI-223942, we have created a new pipeline to process the customer tags and convert them from rows to columns as per new archectutere. 
-For that, now we need to create a new trigger in Function App to pick up the new table and dump the rows in CustomerTags.Json file accordingly. Please note, 
-please de-activitate the existing CustomerTag trigger.
+digitalContactToday – Determines whether there has been any digital interaction with the customer on the current day.
+
+Technical Requirement:
+The Azure Function App responsible for generating and exporting the Customer.json file must be updated to:
+
+Ingest these newly introduced fields from the incremental pipeline output.
+
+Map and serialize them correctly into the Customer.json file structure.
+
+Validate data transformations and ensure schema consistency with the downstream consumers (e.g., Synapse, Power BI).
+
+Deploy and test the updated Function App in the staging environment prior to production deployment.
+
+Priority:
+This item should be treated as high priority, as QA testers are scheduled to begin validation soon. The update must be completed and deployed before testing commences.
+
+PBI-2: Create a New Trigger for CustomerTags Table
+
+Background:
+As part of PBI-223942, a new data pipeline has been developed to process the CustomerTags dataset. The updated architecture pivots the data transformation from a row-based structure to a columnar format to optimize query performance and simplify reporting.
+
+Technical Requirement:
+To support this architectural change:
+
+A new trigger must be created in the Azure Function App to detect and process changes in the CustomerTags table.
+
+The trigger should read the transformed data and export it to a new CustomerTags.json file.
+
+The existing CustomerTag trigger (legacy implementation) must be deactivated to prevent duplicate processing or conflicts.
+
+Ensure the new trigger adheres to best practices, including error handling, logging, and idempotent processing.
+
+Validate data output structure aligns with the downstream consumption requirements.
+
+Priority:
+This task can be scheduled after completion of PBI-1, as it is less time-sensitive.
