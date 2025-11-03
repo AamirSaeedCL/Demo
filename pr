@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- Declare Tag Variables
 -- ==========================================
@@ -19,56 +18,30 @@ DECLARE
 -- ==========================================
 DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
 DECLARE @LastRunDateTimeLocal DATETIME2 =
-    CAST(SWITCHOFFSET(@LastRunDateTime AT TIME ZONE 'UTC', DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')) AS DATETIME2);
+    CAST(SWITCHOFFSET(@LastRunDateTime AT TIME ZONE 'UTC', 
+         DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')) AS DATETIME2);
 
 -- ==========================================
--- Declare CDC Variables
+-- Tag Data Extraction
 -- ==========================================
-DECLARE @from_lsn BINARY(10);
-DECLARE @to_lsn   BINARY(10);
-DECLARE @min_valid_lsn BINARY(10) = sys.fn_cdc_get_min_lsn('dbo_cnsmr_tag');
-
--- Initialize LSN window
-SET @from_lsn = sys.fn_cdc_get_min_lsn('dbo_cnsmr_tag');
-SET @to_lsn   = sys.fn_cdc_get_max_lsn();
-
--- Ensure valid LSN
-IF @from_lsn IS NULL OR @from_lsn < @min_valid_lsn
-    SET @from_lsn = @min_valid_lsn;
-
--- ==========================================
--- CDC Data Extraction
--- ==========================================
-WITH CDCData AS (
-    SELECT 
-        ct.cnsmr_id,
-        ct.tag_id,
-        ct.cnsmr_tag_assgn_dt,
-        ct.cnsmr_tag_sft_delete_flg,
-        ct.upsrt_dttm,
-        ct.__$operation,
-        ct.__$start_lsn
-    FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag(@from_lsn, @to_lsn, 'all') AS ct
-    WHERE ct.__$operation IN (2, 4)  -- Inserts (2) or Updates (4)
-),
-TagData AS (
+WITH TagData AS (
     SELECT
         c.cnsmr_id,
         c.cnsmr_idntfr_lgcy_txt,
         t.tag_typ_id,
         UPPER(tt.tag_typ_shrt_nm) AS tag_typ_shrt_nm,
-        CDC.cnsmr_tag_assgn_dt,
-        CASE WHEN CDC.cnsmr_tag_sft_delete_flg = 'Y' THEN CDC.upsrt_dttm END AS tag_removed_dt,
-        CASE WHEN CDC.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active,
-        CDC.cnsmr_tag_sft_delete_flg,
-        CDC.upsrt_dttm,
-        CDC.tag_id AS cnsmr_tag_id
-    FROM cnsmr c WITH (NOLOCK)
-    LEFT JOIN CDCData CDC
-        ON CDC.cnsmr_id = c.cnsmr_id
-    LEFT JOIN tag t WITH (NOLOCK)
-        ON t.tag_id = CDC.tag_id
-    LEFT JOIN tag_typ tt WITH (NOLOCK)
+        ct.cnsmr_tag_assgn_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active,
+        ct.cnsmr_tag_sft_delete_flg,
+        ct.upsrt_dttm,
+        ct.tag_id AS cnsmr_tag_id
+    FROM dbo.cnsmr c WITH (NOLOCK)
+    LEFT JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
+        ON ct.cnsmr_id = c.cnsmr_id
+    LEFT JOIN dbo.tag t WITH (NOLOCK)
+        ON t.tag_id = ct.tag_id
+    LEFT JOIN dbo.tag_typ tt WITH (NOLOCK)
         ON t.tag_typ_id = tt.tag_typ_id
     WHERE UPPER(tt.tag_typ_shrt_nm) IN (
         @TAG_DDRETCD, @TAG_DIAL, @TAG_DIGITAL, @TAG_PAYPHASE, 
@@ -80,17 +53,18 @@ PreviousStatusData AS (
     SELECT
         c.cnsmr_id,
         MAX(ct.upsrt_dttm) AS latest_removed_dt
-    FROM cnsmr c WITH (NOLOCK)
-    JOIN cnsmr_tag ct WITH (NOLOCK)
+    FROM dbo.cnsmr c WITH (NOLOCK)
+    JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
         ON ct.cnsmr_id = c.cnsmr_id
-    JOIN tag t WITH (NOLOCK)
+    JOIN dbo.tag t WITH (NOLOCK)
         ON t.tag_id = ct.tag_id
-    JOIN tag_typ tt WITH (NOLOCK)
+    JOIN dbo.tag_typ tt WITH (NOLOCK)
         ON t.tag_typ_id = tt.tag_typ_id
     WHERE UPPER(tt.tag_typ_shrt_nm) = @TAG_PLATSTAT
       AND ct.cnsmr_tag_sft_delete_flg = 'Y'
     GROUP BY c.cnsmr_id
 )
+
 -- ==========================================
 -- Final Select
 -- ==========================================
