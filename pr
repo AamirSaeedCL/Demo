@@ -1,1 +1,92 @@
+-- ==========================================
+-- Declare Tag Variables
+-- ==========================================
+DECLARE 
+    @TAG_DDRETCD   NVARCHAR(20) = 'DDRETCD',
+    @TAG_DIAL      NVARCHAR(20) = 'DIAL_TAG',
+    @TAG_DIGITAL   NVARCHAR(20) = 'DIGITAL',
+    @TAG_PAYPHASE  NVARCHAR(20) = 'PAYPHASE',
+    @TAG_PHASE     NVARCHAR(20) = 'PHASE',
+    @TAG_PLANSTAT  NVARCHAR(20) = 'PLANSTAT',
+    @TAG_PREDEF    NVARCHAR(20) = 'PREDEF',
+    @TAG_RMDTN     NVARCHAR(20) = 'RMDTN',
+    @TAG_SMS       NVARCHAR(20) = 'SMS',
+    @TAG_PLATSTAT  NVARCHAR(20) = 'PLATSTAT';
+
+-- ==========================================
+-- Pipeline Variables
+-- ==========================================
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
+DECLARE @LastRunDateTimeLocal DATETIME2 =
+    CAST(SWITCHOFFSET(@LastRunDateTime AT TIME ZONE 'UTC', 
+         DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')) AS DATETIME2);
+
+-- ==========================================
+-- Tag Data Extraction
+-- ==========================================
+WITH TagData AS (
+    SELECT
+        c.cnsmr_id,
+        c.cnsmr_idntfr_lgcy_txt,
+        t.tag_typ_id,
+        UPPER(tt.tag_typ_shrt_nm) AS tag_typ_shrt_nm,
+        ct.cnsmr_tag_assgn_dt,
+        CASE WHEN UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
+        CASE WHEN UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y' THEN 0 ELSE 1 END AS tag_active,
+        UPPER(ct.cnsmr_tag_sft_delete_flg) AS cnsmr_tag_sft_delete_flg,
+        ct.upsrt_dttm,
+        ct.tag_id AS cnsmr_tag_id
+    FROM dbo.cnsmr c WITH (NOLOCK)
+    INNER JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
+        ON ct.cnsmr_id = c.cnsmr_id
+    INNER JOIN dbo.tag t WITH (NOLOCK)
+        ON t.tag_id = ct.tag_id
+    INNER JOIN dbo.tag_typ tt WITH (NOLOCK)
+        ON t.tag_typ_id = tt.tag_typ_id
+    WHERE UPPER(tt.tag_typ_shrt_nm) IN (
+        @TAG_DDRETCD, @TAG_DIAL, @TAG_DIGITAL, @TAG_PAYPHASE, 
+        @TAG_PHASE, @TAG_PLANSTAT, @TAG_RMDTN, @TAG_PREDEF, 
+        @TAG_SMS, @TAG_PLATSTAT
+    )
+),
+PreviousStatusData AS (
+    SELECT
+        c.cnsmr_id,
+        MAX(ct.upsrt_dttm) AS latest_removed_dt
+    FROM dbo.cnsmr c WITH (NOLOCK)
+    JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
+        ON ct.cnsmr_id = c.cnsmr_id
+    JOIN dbo.tag t WITH (NOLOCK)
+        ON t.tag_id = ct.tag_id
+    JOIN dbo.tag_typ tt WITH (NOLOCK)
+        ON t.tag_typ_id = tt.tag_typ_id
+    WHERE UPPER(tt.tag_typ_shrt_nm) = @TAG_PLATSTAT
+      AND UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y'
+    GROUP BY c.cnsmr_id
+)
+
+-- ==========================================
+-- Final Select (No Aggregation)
+-- ==========================================
+SELECT
+    td.cnsmr_id AS CustomerId,
+    td.cnsmr_idntfr_lgcy_txt AS LegacyId,
+    td.cnsmr_tag_id AS ConsumerTagId,
+    td.tag_typ_shrt_nm AS TagType,
+    td.cnsmr_tag_assgn_dt AS TagAssignedDate,
+    td.tag_removed_dt AS TagRemovedDate,
+    td.tag_active AS TagActive,
+    td.cnsmr_tag_sft_delete_flg AS SoftDeleteFlag,
+    td.upsrt_dttm AS UpsertDateTime,
+    CASE 
+        WHEN td.tag_typ_shrt_nm = @TAG_PLATSTAT 
+             AND UPPER(td.cnsmr_tag_sft_delete_flg) = 'Y'
+             AND td.tag_removed_dt = ps.latest_removed_dt
+        THEN 1 ELSE 0
+    END AS IsPreviousStatusTag
+FROM TagData td
+LEFT JOIN PreviousStatusData ps
+    ON td.cnsmr_id = ps.cnsmr_id
+WHERE td.upsrt_dttm >= @LastRunDateTimeLocal
+ORDER BY td.cnsmr_id, td.upsrt_dttm DESC;
 
