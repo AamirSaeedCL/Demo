@@ -1,1 +1,1 @@
-
+Question - Are we sue the grouping is the fastest way of getting this information, should we not use one SP to get the latest., that you then pass the tag short name too, loop through these in the master pipeline (which means we can inject them in from an ADF variable)?
