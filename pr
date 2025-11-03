@@ -31,9 +31,9 @@ WITH TagData AS (
         t.tag_typ_id,
         UPPER(tt.tag_typ_shrt_nm) AS tag_typ_shrt_nm,
         ct.cnsmr_tag_assgn_dt,
-        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
-        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active,
-        ct.cnsmr_tag_sft_delete_flg,
+        CASE WHEN UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
+        CASE WHEN UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y' THEN 0 ELSE 1 END AS tag_active,
+        UPPER(ct.cnsmr_tag_sft_delete_flg) AS cnsmr_tag_sft_delete_flg,
         ct.upsrt_dttm,
         ct.tag_id AS cnsmr_tag_id
     FROM dbo.cnsmr c WITH (NOLOCK)
@@ -61,7 +61,7 @@ PreviousStatusData AS (
     JOIN dbo.tag_typ tt WITH (NOLOCK)
         ON t.tag_typ_id = tt.tag_typ_id
     WHERE UPPER(tt.tag_typ_shrt_nm) = @TAG_PLATSTAT
-      AND ct.cnsmr_tag_sft_delete_flg = 'Y'
+      AND UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y'
     GROUP BY c.cnsmr_id
 )
 
@@ -136,25 +136,25 @@ SELECT
     -- Previous Status Tag (latest deleted PlatStat)
     MAX(CASE 
             WHEN tag_typ_shrt_nm = @TAG_PLATSTAT 
-                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND UPPER(td.cnsmr_tag_sft_delete_flg) = 'Y'
                  AND td.tag_removed_dt = ps.latest_removed_dt
             THEN tag_typ_shrt_nm
         END) AS PreviousStatusTag,
     MAX(CASE 
             WHEN tag_typ_shrt_nm = @TAG_PLATSTAT
-                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND UPPER(td.cnsmr_tag_sft_delete_flg) = 'Y'
                  AND td.tag_removed_dt = ps.latest_removed_dt
             THEN cnsmr_tag_assgn_dt
         END) AS DatePreviousStatusAssigned,
     MAX(CASE 
             WHEN tag_typ_shrt_nm = @TAG_PLATSTAT
-                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND UPPER(td.cnsmr_tag_sft_delete_flg) = 'Y'
                  AND td.tag_removed_dt = ps.latest_removed_dt
             THEN tag_removed_dt
         END) AS DatePreviousStatusRemoved,
     CAST(MAX(CASE 
             WHEN tag_typ_shrt_nm = @TAG_PLATSTAT
-                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND UPPER(td.cnsmr_tag_sft_delete_flg) = 'Y'
                  AND td.tag_removed_dt = ps.latest_removed_dt
             THEN 0
         END) AS bit) AS PreviousStatusActive
