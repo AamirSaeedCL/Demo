@@ -16,7 +16,7 @@ DECLARE
 -- ==========================================
 -- Pipeline Variables
 -- ==========================================
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('@{activity('Lookup the pipeline log table to fetch lastrundatetime').output.value[0].LastRunDateTime}' AS DATETIME2);
 DECLARE @LastRunDateTimeLocal DATETIME2 =
     CAST(SWITCHOFFSET(@LastRunDateTime AT TIME ZONE 'UTC', 
          DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')) AS DATETIME2);
@@ -31,17 +31,17 @@ WITH TagData AS (
         t.tag_typ_id,
         UPPER(tt.tag_typ_shrt_nm) AS tag_typ_shrt_nm,
         ct.cnsmr_tag_assgn_dt,
-        CASE WHEN UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
-        CASE WHEN UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y' THEN 0 ELSE 1 END AS tag_active,
-        UPPER(ct.cnsmr_tag_sft_delete_flg) AS cnsmr_tag_sft_delete_flg,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN ct.upsrt_dttm END AS tag_removed_dt,
+        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active,
+        ct.cnsmr_tag_sft_delete_flg,
         ct.upsrt_dttm,
         ct.tag_id AS cnsmr_tag_id
     FROM dbo.cnsmr c WITH (NOLOCK)
-    INNER JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
+    LEFT JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
         ON ct.cnsmr_id = c.cnsmr_id
-    INNER JOIN dbo.tag t WITH (NOLOCK)
+    LEFT JOIN dbo.tag t WITH (NOLOCK)
         ON t.tag_id = ct.tag_id
-    INNER JOIN dbo.tag_typ tt WITH (NOLOCK)
+    LEFT JOIN dbo.tag_typ tt WITH (NOLOCK)
         ON t.tag_typ_id = tt.tag_typ_id
     WHERE UPPER(tt.tag_typ_shrt_nm) IN (
         @TAG_DDRETCD, @TAG_DIAL, @TAG_DIGITAL, @TAG_PAYPHASE, 
@@ -61,32 +61,106 @@ PreviousStatusData AS (
     JOIN dbo.tag_typ tt WITH (NOLOCK)
         ON t.tag_typ_id = tt.tag_typ_id
     WHERE UPPER(tt.tag_typ_shrt_nm) = @TAG_PLATSTAT
-      AND UPPER(ct.cnsmr_tag_sft_delete_flg) = 'Y'
+      AND ct.cnsmr_tag_sft_delete_flg = 'Y'
     GROUP BY c.cnsmr_id
 )
 
 -- ==========================================
--- Final Select (No Aggregation)
+-- Final Select
 -- ==========================================
 SELECT
-    td.cnsmr_id AS CustomerId,
-    td.cnsmr_idntfr_lgcy_txt AS LegacyId,
-    td.cnsmr_tag_id AS ConsumerTagId,
-    td.tag_typ_shrt_nm AS TagType,
-    td.cnsmr_tag_assgn_dt AS TagAssignedDate,
-    td.tag_removed_dt AS TagRemovedDate,
-    td.tag_active AS TagActive,
-    td.cnsmr_tag_sft_delete_flg AS SoftDeleteFlag,
-    td.upsrt_dttm AS UpsertDateTime,
-    CASE 
-        WHEN td.tag_typ_shrt_nm = @TAG_PLATSTAT 
-             AND UPPER(td.cnsmr_tag_sft_delete_flg) = 'Y'
-             AND td.tag_removed_dt = ps.latest_removed_dt
-        THEN 1 ELSE 0
-    END AS IsPreviousStatusTag
+    td.cnsmr_id       AS CustomerId,
+    td.cnsmr_idntfr_lgcy_txt   AS LegacyId,
+    MAX(td.upsrt_dttm)     AS UpsertDateTime,
+
+    -- DD Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DDRETCD THEN tag_typ_shrt_nm END)   AS DDTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DDRETCD THEN cnsmr_tag_assgn_dt END)  AS DateDDAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DDRETCD THEN tag_removed_dt END)   AS DateDDRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DDRETCD THEN tag_active END) AS bit) AS DDActive,
+
+    -- Dial Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIAL THEN tag_typ_shrt_nm END)  AS DialTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIAL THEN cnsmr_tag_assgn_dt END)  AS DateDialAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIAL THEN tag_removed_dt END)   AS DateDialRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIAL THEN tag_active END) AS bit)  AS DialActive,
+
+    -- Digital Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIGITAL THEN tag_typ_shrt_nm END)     AS DigitalTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIGITAL THEN cnsmr_tag_assgn_dt END)  AS DateDigitalAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIGITAL THEN tag_removed_dt END)      AS DateDigitalRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_DIGITAL THEN tag_active END) AS bit)  AS DigitalActive,
+
+    -- Payer Phase Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PAYPHASE THEN tag_typ_shrt_nm END)    AS PayerPhaseTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PAYPHASE THEN cnsmr_tag_assgn_dt END) AS DatePayerPhaseAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PAYPHASE THEN tag_removed_dt END)     AS DatePayerPhaseRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PAYPHASE THEN tag_active END) AS bit)  AS PayerPhaseActive,
+
+    -- Phase Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PHASE THEN tag_typ_shrt_nm END)       AS PhaseTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PHASE THEN cnsmr_tag_assgn_dt END)    AS DatePhaseAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PHASE THEN tag_removed_dt END)        AS DatePhaseRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PHASE THEN tag_active END) AS bit)  AS PhaseActive,
+
+    -- Plan Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLANSTAT THEN tag_typ_shrt_nm END)    AS PlanTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLANSTAT THEN cnsmr_tag_assgn_dt END) AS DatePlanAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLANSTAT THEN tag_removed_dt END)     AS DatePlanRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLANSTAT THEN tag_active END) AS bit) AS PlanActive,
+
+    -- PreDef Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PREDEF THEN tag_typ_shrt_nm END)      AS PreDefTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PREDEF THEN cnsmr_tag_assgn_dt END)   AS DatePreDefAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PREDEF THEN tag_removed_dt END)       AS DatePreDefRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PREDEF THEN tag_active END) AS bit) AS PreDefActive,
+
+    -- Remediation Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_RMDTN THEN tag_typ_shrt_nm END)       AS RemediationTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_RMDTN THEN cnsmr_tag_assgn_dt END)    AS DateRemediationAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_RMDTN THEN tag_removed_dt END)        AS DateRemediationRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_RMDTN THEN tag_active END) AS bit)  AS RemediationActive,
+
+    -- SMS Tag
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_SMS THEN tag_typ_shrt_nm END)         AS SMSTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_SMS THEN cnsmr_tag_assgn_dt END)      AS DateSMSAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_SMS THEN tag_removed_dt END)          AS DateSMSRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_SMS THEN tag_active END) AS bit) AS SMSActive,
+
+    -- Current Status Tag (PlatStat)
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLATSTAT THEN tag_typ_shrt_nm END)    AS StatusTag,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLATSTAT THEN cnsmr_tag_assgn_dt END) AS DateStatusAssigned,
+    MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLATSTAT THEN tag_removed_dt END)     AS DateStatusRemoved,
+    CAST(MAX(CASE WHEN tag_typ_shrt_nm = @TAG_PLATSTAT THEN tag_active END) AS bit) AS StatusActive,
+
+    -- Previous Status Tag (latest deleted PlatStat)
+    MAX(CASE 
+            WHEN tag_typ_shrt_nm = @TAG_PLATSTAT 
+                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND td.tag_removed_dt = ps.latest_removed_dt
+            THEN tag_typ_shrt_nm
+        END) AS PreviousStatusTag,
+    MAX(CASE 
+            WHEN tag_typ_shrt_nm = @TAG_PLATSTAT
+                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND td.tag_removed_dt = ps.latest_removed_dt
+            THEN cnsmr_tag_assgn_dt
+        END) AS DatePreviousStatusAssigned,
+    MAX(CASE 
+            WHEN tag_typ_shrt_nm = @TAG_PLATSTAT
+                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND td.tag_removed_dt = ps.latest_removed_dt
+            THEN tag_removed_dt
+        END) AS DatePreviousStatusRemoved,
+    CAST(MAX(CASE 
+            WHEN tag_typ_shrt_nm = @TAG_PLATSTAT
+                 AND td.cnsmr_tag_sft_delete_flg = 'Y'
+                 AND td.tag_removed_dt = ps.latest_removed_dt
+            THEN 0
+        END) AS bit) AS PreviousStatusActive
+
 FROM TagData td
 LEFT JOIN PreviousStatusData ps
     ON td.cnsmr_id = ps.cnsmr_id
 WHERE td.upsrt_dttm >= @LastRunDateTimeLocal
-ORDER BY td.cnsmr_id, td.upsrt_dttm DESC;
-
+GROUP BY td.cnsmr_id, td.cnsmr_idntfr_lgcy_txt;
