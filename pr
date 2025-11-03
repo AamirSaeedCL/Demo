@@ -1,1 +1,1 @@
-I understand that the grouped query may take some time to execute, but looping through stored procedures in ADF introduces significant overhead due to multiple executions, which reduces SQL’s set-based processing efficiency. Additionally, it requires complex control logic for parameter passing and result merging, and may lead to inconsistent column mappings across iterations—since each loop iteration could produce different schema outputs—resulting in higher complexity
+
