@@ -1,16 +1,14 @@
-CREATE TABLE [dbo].[Eligibility] (
-    [CustomerId]          BIGINT           NOT NULL,
-    [CustomerGroupId]     UNIQUEIDENTIFIER NULL,
-    [LitigationMentioned] INT              NULL,
-    [Reconnect]           INT              NULL,    
-    [PayerSegment]        VARCHAR(20)      NULL,
-    [JourneySegment]      VARCHAR(18)      NULL,
-    [UpsertDateTime]      DATETIME2 (7)    NOT NULL,
-    [LegacyId]            VARCHAR(40)      NOT NULL,
-    CONSTRAINT [PK_Eligibility_CustomerId] PRIMARY KEY CLUSTERED ([CustomerId])
+CREATE TABLE [dbo].[Score] (
+    [CustomerId]      BIGINT           NOT NULL,
+    [CustomerGroupId] UNIQUEIDENTIFIER NULL,
+    [StrategyScore]   INT              NULL,
+    [DRS_V1_Score]    INT              NULL,
+    [UpsertDateTime]  DATETIME2 (7)    CONSTRAINT [DF_Score_UpsertDateTime] DEFAULT (getdate()) NOT NULL,
+    [LegacyId] VARCHAR(40) NOT NULL,
+    CONSTRAINT [PK_Score] PRIMARY KEY ([CustomerId])
 );
 GO
-
-CREATE NONCLUSTERED INDEX [NCI_Eligibility_LegacyId]
-    ON [dbo].[Eligibility] ([LegacyId]);
+ 
+CREATE NONCLUSTERED INDEX [NCI_Score_CustomerId] 
+    ON [dbo].[Score] ([CustomerId])
 GO
