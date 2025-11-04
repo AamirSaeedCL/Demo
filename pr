@@ -1,14 +1,1 @@
-CREATE TABLE [dbo].[Score] (
-    [CustomerId]      BIGINT           NOT NULL,
-    [CustomerGroupId] UNIQUEIDENTIFIER NULL,
-    [StrategyScore]   INT              NULL,
-    [DRS_V1_Score]    INT              NULL,
-    [UpsertDateTime]  DATETIME2 (7)    CONSTRAINT [DF_Score_UpsertDateTime] DEFAULT (getdate()) NOT NULL,
-    [LegacyId]        VARCHAR(40)      NOT NULL,
-    CONSTRAINT [PK_Score_CustomerId] PRIMARY KEY CLUSTERED ([CustomerId])
-);
-GO
 
-CREATE NONCLUSTERED INDEX [NCI_Score_LegacyId]
-    ON [dbo].[Score] ([LegacyId]);
-GO
