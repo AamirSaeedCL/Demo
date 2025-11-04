@@ -4,13 +4,13 @@ CREATE TABLE [dbo].[Eligibility] (
     [LitigationMentioned] INT              NULL,
     [Reconnect]           INT              NULL,    
     [PayerSegment]        VARCHAR(20)      NULL,
-	[JourneySegment]      VARCHAR(18)      NULL,
+    [JourneySegment]      VARCHAR(18)      NULL,
     [UpsertDateTime]      DATETIME2 (7)    NOT NULL,
     [LegacyId]            VARCHAR(40)      NOT NULL,
-    CONSTRAINT [PK_Eligibility_LegacyId] PRIMARY KEY CLUSTERED ([CustomerId])   
+    CONSTRAINT [PK_Eligibility_CustomerId] PRIMARY KEY CLUSTERED ([CustomerId])
 );
 GO
 
-CREATE NONCLUSTERED INDEX [NCI_Eligibility_CustomerId]
-    ON [dbo].[Eligibility] ([CustomerId])
+CREATE NONCLUSTERED INDEX [NCI_Eligibility_LegacyId]
+    ON [dbo].[Eligibility] ([LegacyId]);
 GO
