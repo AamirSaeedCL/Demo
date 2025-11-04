@@ -1,2 +1,1 @@
 
-you also create another nonclustered index on CustomerId, which is redundant — because the primary key already creates an index (clustered, in this case).
