@@ -1,18 +1,1 @@
-SELECT 
-    k.[AccountID],
-    k.[Debtorno] AS [LegacyId],
-    MAX(CAST(NULL AS UNIQUEIDENTIFIER)) AS [CustomerGroupId],
-    MAX(k.[LitMention]) AS [LitigationMentioned],
-    MAX(k.[Reconnect]) AS [Reconnect],
-    MAX(CAST(GETDATE() AS DATETIME)) AS [UpsertDateTime],
-    MAX(a.[PayerSegment]) AS [PayerSegment],
-    MAX(a.[Journey]) AS [JourneySegment]
-FROM 
-    [Insight].[dbo].[K_Blaze_Eligibility] AS k
-LEFT JOIN 
-    [Insight].[dbo].[275AssessmentHub] AS a
-    ON k.[Debtorno] = a.[Debtorno]
-WHERE 
-    k.[Debtorno] IS NOT NULL
-GROUP BY 
-    k.[AccountID], k.[Debtorno];
+
