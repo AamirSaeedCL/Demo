@@ -1,7 +1,1 @@
-I have implemented several changes, with the most important ones listed below:
-
-Removed the placeholder "%%_CustomerScore_V2_%%" as discussed earlier.
-
-Refactored the Customer Eligibility pipeline by combining the two activities into a single query. Since both activities were querying the same database against two different tables and then merging the results, this approach was inefficient. The new consolidated query improves performance and has been fully tested — everything is working as expected.
-
-Enabled Change Data Capture (CDC) on the Eligibility table within the stored procedure. (Note: We should re-enable it once all constraints and related configurations have been activated.)
+As initially suggested by Mark, we agreed to ignore all rows where the LegacyId is null. I had a discussion today with India, and she confirmed that the business is happy with this development approach. Accordingly, I have implemented the logic and set CustomerId as the primary key in both the Score and Eligibility tables. In our queries, we are now excluding all rows where LegacyId is null.
