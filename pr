@@ -1,44 +1,18 @@
-WITH KBlazeEligibilityCTE AS (
-    SELECT 
-        [AccountID],
-        [Debtorno] AS LegacyId,
-        CAST(NULL AS UNIQUEIDENTIFIER) AS CustomerGroupId,
-        [LitMention] AS LitigationMentioned,
-        [Reconnect],
-        CAST(GETDATE() AS DATETIME) AS UpsertDateTime
-    FROM [Insight].[dbo].[K_Blaze_Eligibility]
-    WHERE [Debtorno] IS NOT NULL
-)
-
 SELECT 
-    AccountID, 
-    LegacyId, 
-    MAX(LitigationMentioned) AS LitigationMentioned, 
-    MAX(Reconnect) AS Reconnect,
-    MAX(CustomerGroupId) AS CustomerGroupId, 
-    MAX(UpsertDateTime) AS UpsertDateTime
+    k.[AccountID],
+    k.[Debtorno] AS [LegacyId],
+    MAX(CAST(NULL AS UNIQUEIDENTIFIER)) AS [CustomerGroupId],
+    MAX(k.[LitMention]) AS [LitigationMentioned],
+    MAX(k.[Reconnect]) AS [Reconnect],
+    MAX(CAST(GETDATE() AS DATETIME)) AS [UpsertDateTime],
+    MAX(a.[PayerSegment]) AS [PayerSegment],
+    MAX(a.[Journey]) AS [JourneySegment]
 FROM 
-    KBlazeEligibilityCTE
+    [Insight].[dbo].[K_Blaze_Eligibility] AS k
+LEFT JOIN 
+    [Insight].[dbo].[275AssessmentHub] AS a
+    ON k.[Debtorno] = a.[Debtorno]
+WHERE 
+    k.[Debtorno] IS NOT NULL
 GROUP BY 
-    AccountID, LegacyId;
-
-Query 2:
-
-
-WITH AssessmentHubCTE AS (
-    SELECT        
-        [Debtorno] AS LegacyId,        
-        [PayerSegment] AS PayerSegment,
-        [Journey] AS JourneySegment        
-    FROM [Insight].[dbo].[275AssessmentHub]
-    WHERE [Debtorno] IS NOT NULL
-)
-
-SELECT    
-    LegacyId, 
-    MAX(PayerSegment) AS PayerSegment, 
-    MAX(JourneySegment) AS JourneySegment   
-FROM 
-    AssessmentHubCTE 
-GROUP BY 
-    LegacyId;
+    k.[AccountID], k.[Debtorno];
