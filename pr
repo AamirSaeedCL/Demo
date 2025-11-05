@@ -1,1 +1,7 @@
+I have implemented several changes, with the most important ones listed below:
 
+Removed the placeholder "%%_CustomerScore_V2_%%" as discussed earlier.
+
+Refactored the Customer Eligibility pipeline by combining the two activities into a single query. Since both activities were querying the same database against two different tables and then merging the results, this approach was inefficient. The new consolidated query improves performance and has been fully tested — everything is working as expected.
+
+Enabled Change Data Capture (CDC) on the Eligibility table within the stored procedure. (Note: We should re-enable it once all constraints and related configurations have been activated.)
