@@ -1,1 +1,1 @@
-As initially suggested by Mark, we agreed to ignore all rows where the LegacyId is null. I had a discussion today with India, and she confirmed that the business is happy with this development approach. Accordingly, I have implemented the logic and set CustomerId as the primary key in both the Score and Eligibility tables. In our queries, we are now excluding all rows where LegacyId is null.
+
