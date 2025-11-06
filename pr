@@ -1,3 +1,11 @@
+As per the PBI description,
+This PBI focuses solely on the ingestion process for two new additional files related to customer-paymentplan.
+Could you please clarify which two specific files you are referring to? Additionally, please upload their corresponding JSON formats.
+
+Lastly, could you confirm whether the required changes should be applied to the initial ingestion pipeline as well, or only to the incremental pipeline?
+
+
+
 Extend it with professional English:
 
 As per the PBI description,  
