@@ -1,7 +1,7 @@
-Query 1:
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+DECLARE @STATUS_CODE INT = 9;
 
 WITH FirstInstalment AS (
     SELECT
@@ -17,7 +17,7 @@ WITH FirstInstalment AS (
                 PARTITION BY schdld_pymnt_smmry_id 
                 ORDER BY schdld_pymnt_instnc_dttm ASC
             ) AS rn
-        FROM [dbo].[schdld_pymnt_instnc] WITH (NOLOCK)
+        FROM dbo.schdld_pymnt_instnc WITH (NOLOCK)
     ) AS ranked
     WHERE rn = 1
 ),
@@ -32,8 +32,25 @@ PaymentPlan AS (
     FROM dbo.Ref_pymnt_frqncy_cd f WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
+),
+CustomerPlanExtra AS (
+    SELECT 
+          sps.cnsmr_id,
+          DATEDIFF(DD, CAST(sps.schdld_pymnt_smmry_crt_dttm AS DATE), CAST(GETDATE() AS DATE)) AS daysSincePlanCreationDate,
+          sps.schdld_pymnt_smmry_crt_dttm AS PaymentPlanCreationDate,
+          DATEDIFF(DD, CAST(GETDATE() AS DATE), CAST(sps.schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate,
+          sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
+          rpr.pymnt_rsn_val_txt AS PaymentPlanType
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
+    LEFT JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr
+            ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
+    WHERE sps.schdld_pymnt_smmry_stts_cd = @STATUS_CODE
 )
+
 SELECT DISTINCT TOP 10 
+    ---------------------------  
+    -- Query 1 Columns  
+    ---------------------------
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
     summary.cnsmr_id AS CustomerId,
     CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
@@ -56,32 +73,30 @@ SELECT DISTINCT TOP 10
     ref.schdld_pymnt_stts_val_txt AS PlanStatusText,
     CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
     summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
-    summary.upsrt_dttm AS UpsertDateTime
-FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
-LEFT JOIN FirstInstalment fi ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK) 
-    ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-JOIN PaymentPlan ref ON 
-    ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
-    AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
-    AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+    summary.upsrt_dttm AS UpsertDateTime,
+
+    ---------------------------  
+    -- Query 2 Columns  
+    ---------------------------
+    ce.daysSincePlanCreationDate,
+    ce.PaymentPlanCreationDate,
+    ce.daysTillCurrentPlanEndDate,
+    ce.PaymentPlanEndDate,
+    ce.PaymentPlanType
+
+FROM dbo.schdld_pymnt_smmry summary WITH (NOLOCK)
+LEFT JOIN FirstInstalment fi 
+        ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN dbo.cnsmr_accnt_sttlmnt settlement WITH (NOLOCK) 
+        ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+JOIN PaymentPlan ref 
+        ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
+       AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
+       AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+
+LEFT JOIN CustomerPlanExtra ce   -- ⭐ Added Query 2 join
+       ON ce.cnsmr_id = summary.cnsmr_id
+
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-Query 2:
-
-DECLARE @STATUS_CODE INT = 9;
-
-SELECT 
-      sps.cnsmr_id,
-      DATEDIFF(DD, CAST(sps.schdld_pymnt_smmry_crt_dttm AS DATE), CAST(GETDATE() AS DATE)) AS daysSincePlanCreationDate,
-      sps.schdld_pymnt_smmry_crt_dttm AS PaymentPlanCreationDate,
-      DATEDIFF(DD, CAST(GETDATE() AS DATE), CAST(sps.schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate,
-      sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
-      rpr.pymnt_rsn_val_txt AS PaymentPlanType
-FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
-LEFT JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr
-        ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
-WHERE sps.schdld_pymnt_smmry_stts_cd = @STATUS_CODE;
