@@ -1,4 +1,26 @@
-Msg 207, Level 16, State 1, Line 153
-Invalid column name 'v'.
-Msg 207, Level 16, State 1, Line 153
-Invalid column name 'u'.
+-- CTE: Last Dates comparison
+LastDates AS (
+    SELECT
+        aa.*,
+        CASE 
+            WHEN jaopay.LastJAOPAYDate >= plan.LatestActivePlanDate
+            THEN 1
+            ELSE 0
+        END AS JAOPAYAfterPlan
+    FROM (
+        SELECT
+            cnsmr_accnt_id, Consumer_P1, Consumer_S1, Consumer_S2, Consumer_S3, Consumer_S4,
+            ActivePlan_P1, ActivePlan_S1, ActivePlan_S2, ActivePlan_S3, ActivePlan_S4,
+            ActivePlanDate_P1, ActivePlanDate_S1, ActivePlanDate_S2, ActivePlanDate_S3, ActivePlanDate_S4,
+            LastJAOPAY_P1, LastJAOPAY_S1, LastJAOPAY_S2, LastJAOPAY_S3, LastJAOPAY_S4
+        FROM AllAccounts
+    ) aa
+    CROSS APPLY (
+        SELECT MAX(d) AS LatestActivePlanDate
+        FROM (VALUES (aa.ActivePlanDate_P1),(aa.ActivePlanDate_S1),(aa.ActivePlanDate_S2),(aa.ActivePlanDate_S3),(aa.ActivePlanDate_S4)) AS plan(d)
+    ) plan
+    CROSS APPLY (
+        SELECT MAX(d) AS LastJAOPAYDate
+        FROM (VALUES (aa.LastJAOPAY_P1),(aa.LastJAOPAY_S1),(aa.LastJAOPAY_S2),(aa.LastJAOPAY_S3),(aa.LastJAOPAY_S4)) AS jaopay(d)
+    ) jaopay
+)
