@@ -1,25 +1,39 @@
-/* All Joint Accounts & Active Plans */
-IF OBJECT_ID('tempdb..#JA') IS NOT NULL DROP TABLE #JA
-SELECT		cao.cnsmr_accnt_id, cao.cnsmr_id, sps.PlanStatus
-INTO		#JA
-FROM		(
-			SELECT		DISTINCT cao.cnsmr_accnt_id
-			FROM		cnsmr_accnt_ownrs AS cao
-			WHERE		cnsmr_accnt_ownrshp_typ_cd = 2
-			) AS ja
-INNER JOIN	cnsmr_accnt_ownrs AS cao 
-ON			ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-LEFT JOIN	(
-			SELECT		sps.cnsmr_id, CASE WHEN sps.schdld_pymnt_smmry_stts_cd = 9 THEN 'ACTIVE' ELSE 'NONE' END AS PlanStatus
-			FROM		schdld_pymnt_smmry AS sps 
-			WHERE		sps.schdld_pymnt_smmry_stts_cd = 9	
-			) AS sps
-ON			cao.cnsmr_id = sps.cnsmr_id
+/* Refactored: All Joint Accounts & Active Plans with Constants and NOLOCK */
 
-/* Show Plan Status for Other Joint Party */
-SELECT		ja1.cnsmr_id, ja2.PlanStatus AS OtherCustomerPlan
-FROM		#JA AS ja1
-INNER JOIN	#JA AS ja2
-ON			ja1.cnsmr_accnt_id = ja2.cnsmr_accnt_id
-WHERE		ja1.cnsmr_id <> ja2.cnsmr_id	
-ORDER BY	ja1.cnsmr_id, OtherCustomerPlan
+-- Declare constants
+DECLARE @JOINT_ACCOUNT_TYPE INT = 2;   -- Joint account ownership type
+DECLARE @ACTIVE_PLAN_STATUS_CD INT = 9; -- Active plan status code
+DECLARE @ACTIVE_PLAN_TEXT VARCHAR(10) = 'ACTIVE';
+DECLARE @NONE_PLAN_TEXT VARCHAR(10) = 'NONE';
+
+-- CTE: Get all joint accounts
+WITH JointAccounts AS (
+    SELECT DISTINCT cao.cnsmr_accnt_id
+    FROM cnsmr_accnt_ownrs AS cao WITH (NOLOCK)
+    WHERE cao.cnsmr_accnt_ownrshp_typ_cd = @JOINT_ACCOUNT_TYPE
+),
+-- CTE: Get joint account owners with plan status
+JointAccountsWithStatus AS (
+    SELECT 
+        cao.cnsmr_accnt_id,
+        cao.cnsmr_id,
+        CASE 
+            WHEN sps.schdld_pymnt_smmry_stts_cd = @ACTIVE_PLAN_STATUS_CD 
+            THEN @ACTIVE_PLAN_TEXT
+            ELSE @NONE_PLAN_TEXT
+        END AS PlanStatus
+    FROM cnsmr_accnt_ownrs AS cao WITH (NOLOCK)
+    INNER JOIN JointAccounts ja ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    LEFT JOIN schdld_pymnt_smmry AS sps WITH (NOLOCK)
+        ON cao.cnsmr_id = sps.cnsmr_id
+        AND sps.schdld_pymnt_smmry_stts_cd = @ACTIVE_PLAN_STATUS_CD
+)
+-- Final Query: Show Plan Status for Other Joint Party
+SELECT 
+    ja1.cnsmr_id,
+    ja2.PlanStatus AS OtherCustomerPlan
+FROM JointAccountsWithStatus AS ja1
+INNER JOIN JointAccountsWithStatus AS ja2
+    ON ja1.cnsmr_accnt_id = ja2.cnsmr_accnt_id
+WHERE ja1.cnsmr_id <> ja2.cnsmr_id
+ORDER BY ja1.cnsmr_id, OtherCustomerPlan;
