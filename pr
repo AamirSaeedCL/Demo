@@ -1,5 +1,3 @@
-Query 1:
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -9,6 +7,9 @@ SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 DECLARE @STATUS_CODE INT = 9;
 DECLARE @BALANCE_NAME VARCHAR(50) = 'CurrentBalance';
 DECLARE @BALANCE_THRESHOLD MONEY = 50;
+DECLARE @JOINT_ACCOUNT_TYPE INT = 2;
+DECLARE @ACTIVE_PLAN_TEXT VARCHAR(10) = 'ACTIVE';
+DECLARE @NONE_PLAN_TEXT VARCHAR(10) = 'NONE';
 
 -- Load Balance Name ID
 DECLARE @BALANCE_NAME_ID INT;
@@ -114,6 +115,25 @@ CurrentBalance AS (
        AND cab.bal_nm_id = @BALANCE_NAME_ID
     GROUP BY cao.cnsmr_id
     HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
+),
+JointAccounts AS (
+    SELECT DISTINCT cnsmr_accnt_id
+    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs WITH (NOLOCK)
+    WHERE cnsmr_accnt_ownrshp_typ_cd = @JOINT_ACCOUNT_TYPE
+),
+JointAccountsWithStatus AS (
+    SELECT 
+        cao.cnsmr_accnt_id,
+        cao.cnsmr_id,
+        CASE 
+            WHEN sps.schdld_pymnt_smmry_stts_cd = @STATUS_CODE THEN @ACTIVE_PLAN_TEXT
+            ELSE @NONE_PLAN_TEXT
+        END AS PlanStatus
+    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    INNER JOIN JointAccounts ja ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    LEFT JOIN crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+        ON sps.cnsmr_id = cao.cnsmr_id
+        AND sps.schdld_pymnt_smmry_stts_cd = @STATUS_CODE
 )
 
 SELECT TOP 1000
@@ -151,10 +171,11 @@ SELECT TOP 1000
         WHEN ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @BALANCE_THRESHOLD)
             THEN 1 
             ELSE 0 
-    END AS PlanBalanceRemaining
-FROM dbo.schdld_pymnt_smmry s WITH (NOLOCK)
+    END AS PlanBalanceRemaining,
+    ja2.PlanStatus AS OtherCustomerPlan
+FROM crs5_oltp.dbo.schdld_pymnt_smmry s WITH (NOLOCK)
 LEFT JOIN FirstInstalment fi ON fi.schdld_pymnt_smmry_id = s.schdld_pymnt_smmry_id
-LEFT JOIN dbo.cnsmr_accnt_sttlmnt st WITH (NOLOCK) ON st.schdld_pymnt_smmry_id = s.schdld_pymnt_smmry_id
+LEFT JOIN crs5_oltp.dbo.cnsmr_accnt_sttlmnt st WITH (NOLOCK) ON st.schdld_pymnt_smmry_id = s.schdld_pymnt_smmry_id
 JOIN PaymentPlan pp
     ON pp.pymnt_frqncy_cd = s.schdld_pymnt_smmry_frqncy_cd
    AND pp.schdld_pymnt_stts_cd = s.schdld_pymnt_smmry_stts_cd
@@ -164,48 +185,9 @@ LEFT JOIN PlanTypeDescription ptd ON ptd.cnsmr_id = s.cnsmr_id
 LEFT JOIN LatestPlanStatus lps ON lps.cnsmr_id = s.cnsmr_id
 LEFT JOIN ActivePlanInstData ap ON ap.cnsmr_id = s.cnsmr_id
 LEFT JOIN CurrentBalance cb ON cb.cnsmr_id = s.cnsmr_id
+LEFT JOIN JointAccountsWithStatus ja2
+    ON ja2.cnsmr_accnt_id = st.cnsmr_accnt_sttlmnt_id -- Adjust join based on actual account id field
+   AND ja2.cnsmr_id <> s.cnsmr_id
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-Query 2:
-
-/* Refactored: All Joint Accounts & Active Plans with Constants and NOLOCK */
-
--- Declare constants
-DECLARE @JOINT_ACCOUNT_TYPE INT = 2;   -- Joint account ownership type
-DECLARE @ACTIVE_PLAN_STATUS_CD INT = 9; -- Active plan status code
-DECLARE @ACTIVE_PLAN_TEXT VARCHAR(10) = 'ACTIVE';
-DECLARE @NONE_PLAN_TEXT VARCHAR(10) = 'NONE';
-
--- CTE: Get all joint accounts
-WITH JointAccounts AS (
-    SELECT DISTINCT cao.cnsmr_accnt_id
-    FROM cnsmr_accnt_ownrs AS cao WITH (NOLOCK)
-    WHERE cao.cnsmr_accnt_ownrshp_typ_cd = @JOINT_ACCOUNT_TYPE
-),
--- CTE: Get joint account owners with plan status
-JointAccountsWithStatus AS (
-    SELECT 
-        cao.cnsmr_accnt_id,
-        cao.cnsmr_id,
-        CASE 
-            WHEN sps.schdld_pymnt_smmry_stts_cd = @ACTIVE_PLAN_STATUS_CD 
-            THEN @ACTIVE_PLAN_TEXT
-            ELSE @NONE_PLAN_TEXT
-        END AS PlanStatus
-    FROM cnsmr_accnt_ownrs AS cao WITH (NOLOCK)
-    INNER JOIN JointAccounts ja ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-    LEFT JOIN schdld_pymnt_smmry AS sps WITH (NOLOCK)
-        ON cao.cnsmr_id = sps.cnsmr_id
-        AND sps.schdld_pymnt_smmry_stts_cd = @ACTIVE_PLAN_STATUS_CD
-)
--- Final Query: Show Plan Status for Other Joint Party
-SELECT DISTINCT
-    ja1.cnsmr_id,
-    ja2.PlanStatus AS OtherCustomerPlan
-FROM JointAccountsWithStatus AS ja1
-INNER JOIN JointAccountsWithStatus AS ja2
-    ON ja1.cnsmr_accnt_id = ja2.cnsmr_accnt_id
-WHERE ja1.cnsmr_id <> ja2.cnsmr_id
-ORDER BY ja1.cnsmr_id, OtherCustomerPlan;
