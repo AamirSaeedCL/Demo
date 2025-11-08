@@ -1,105 +1,179 @@
-USE crs5_oltp
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-/* All Joint Accounts */
-IF OBJECT_ID('tempdb..#ALLJA') IS NOT NULL DROP TABLE #ALLJA
-SELECT		DISTINCT cao.cnsmr_accnt_id
-INTO		#ALLJA
-FROM		cnsmr_accnt_ownrs AS cao
-WHERE		cnsmr_accnt_ownrshp_typ_cd = 2
+----------------------------------------------------
+-- Constants
+----------------------------------------------------
+DECLARE @JOINT_ACCOUNT_TYPE INT = 2;
+DECLARE @PRIMARY_ACCOUNT_TYPE INT = 1;
+DECLARE @ACTIVE_PLAN_STATUS_CD INT = 9;
+DECLARE @ACTIVE_PLAN_TEXT VARCHAR(10) = 'ACTIVE';
+DECLARE @NONE_PLAN_TEXT VARCHAR(10) = 'NONE';
+DECLARE @JAO_ACTION_SHORT VARCHAR(10) = 'JAO';
+DECLARE @PAY_RESULT_SHORT VARCHAR(10) = 'PAY';
 
-/* All Primary Consumers */
-IF OBJECT_ID('tempdb..#PRIMARY') IS NOT NULL DROP TABLE #PRIMARY
-SELECT		DISTINCT cao.cnsmr_id AS primary_cnsmr_id, allja.cnsmr_accnt_id
-INTO		#PRIMARY
-FROM		#ALLJA AS allja
-INNER JOIN	cnsmr_accnt_ownrs AS cao ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-INNER JOIN	cnsmr_Wrk_actn AS cwa ON cao.cnsmr_id = cwa.cnsmr_id
-INNER JOIN	cnsmr AS c on cao.cnsmr_id = c.cnsmr_id
-WHERE		cnsmr_accnt_ownrshp_typ_cd = 1
+----------------------------------------------------
+-- CTE: All Joint Accounts
+----------------------------------------------------
+WITH AllJointAccounts AS (
+    SELECT DISTINCT cnsmr_accnt_id
+    FROM cnsmr_accnt_ownrs WITH (NOLOCK)
+    WHERE cnsmr_accnt_ownrshp_typ_cd = @JOINT_ACCOUNT_TYPE
+),
 
-/* All Secondary Consumers */
-IF OBJECT_ID('tempdb..#SECONDARY') IS NOT NULL DROP TABLE #SECONDARY
-SELECT		ROW_NUMBER() OVER (PARTITION BY allja.cnsmr_accnt_id ORDER BY cao.cnsmr_id) AS RowNumber,
-			cao.cnsmr_id AS secondary_cnsmr_id, allja.cnsmr_accnt_id
-INTO		#SECONDARY
-FROM		#ALLJA AS allja
-INNER JOIN	cnsmr_accnt_ownrs AS cao ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-INNER JOIN	cnsmr_Wrk_actn AS cwa ON cao.cnsmr_id = cwa.cnsmr_id
-INNER JOIN	cnsmr AS c on cao.cnsmr_id = c.cnsmr_id
-WHERE		cnsmr_accnt_ownrshp_typ_cd = 2
+----------------------------------------------------
+-- CTE: Primary Consumers
+----------------------------------------------------
+PrimaryConsumers AS (
+    SELECT DISTINCT
+        cao.cnsmr_id AS primary_cnsmr_id,
+        ja.cnsmr_accnt_id
+    FROM AllJointAccounts ja
+    INNER JOIN cnsmr_accnt_ownrs cao WITH (NOLOCK)
+        ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    INNER JOIN cnsmr_Wrk_actn cwa WITH (NOLOCK)
+        ON cao.cnsmr_id = cwa.cnsmr_id
+    INNER JOIN cnsmr c WITH (NOLOCK)
+        ON cao.cnsmr_id = c.cnsmr_id
+    WHERE cao.cnsmr_accnt_ownrshp_typ_cd = @PRIMARY_ACCOUNT_TYPE
+),
 
-/* Latest JAO/PAY applied */
-IF OBJECT_ID('tempdb..#JAOPAYAR') IS NOT NULL DROP TABLE #JAOPAYAR
-SELECT		ar.cnsmr_id, ar.LastJAOPAY
-INTO		#JAOPAYAR
-FROM		(
-			SELECT		ROW_NUMBER() OVER (PARTITION BY caal.cnsmr_id ORDER BY caal.upsrt_dttm DESC) AS RowNumber, 
-						cao.cnsmr_id, caal.upsrt_dttm AS LastJAOPAY
-			FROM		#ALLJA AS allja
-			INNER JOIN	cnsmr_accnt_ownrs AS cao ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-			INNER JOIN	cnsmr_accnt_ar_log AS caal ON cao.cnsmr_id = caal.cnsmr_id
-			INNER JOIN	actn_Cd AS ac ON caal.actn_cd = ac.actn_Cd AND ac.actn_cd_shrt_val_txt = 'JAO'
-			INNER JOIN	rslt_Cd AS rc ON caal.rslt_Cd = rc.rslt_Cd AND rc.rslt_cd_shrt_val_txt = 'PAY'
-			) AS ar
-WHERE		ar.RowNumber = 1                                                           
+----------------------------------------------------
+-- CTE: Secondary Consumers
+----------------------------------------------------
+SecondaryConsumers AS (
+    SELECT
+        ROW_NUMBER() OVER (PARTITION BY ja.cnsmr_accnt_id ORDER BY cao.cnsmr_id) AS RowNumber,
+        cao.cnsmr_id AS secondary_cnsmr_id,
+        ja.cnsmr_accnt_id
+    FROM AllJointAccounts ja
+    INNER JOIN cnsmr_accnt_ownrs cao WITH (NOLOCK)
+        ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    INNER JOIN cnsmr_Wrk_actn cwa WITH (NOLOCK)
+        ON cao.cnsmr_id = cwa.cnsmr_id
+    INNER JOIN cnsmr c WITH (NOLOCK)
+        ON cao.cnsmr_id = c.cnsmr_id
+    WHERE cao.cnsmr_accnt_ownrshp_typ_cd = @JOINT_ACCOUNT_TYPE
+),
 
-/* Active Plans */
-IF OBJECT_ID('tempdb..#ACTIVEPLAN') IS NOT NULL DROP TABLE #ACTIVEPLAN
-SELECT		sps.cnsmr_id, sps.schdld_pymnt_smmry_crt_dttm AS ActivePlanCreationDate
-INTO		#ACTIVEPLAN
-FROM		#ALLJA AS allja
-INNER JOIN	cnsmr_accnt_ownrs AS cao ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-INNER JOIN	schdld_pymnt_smmry AS sps ON cao.cnsmr_id = sps.cnsmr_id AND sps.schdld_pymnt_smmry_stts_cd = 9
+----------------------------------------------------
+-- CTE: Latest JAO/PAY applied
+----------------------------------------------------
+LatestJAOPAY AS (
+    SELECT cnsmr_id, LastJAOPAY
+    FROM (
+        SELECT
+            cao.cnsmr_id,
+            caal.upsrt_dttm AS LastJAOPAY,
+            ROW_NUMBER() OVER (PARTITION BY cao.cnsmr_id ORDER BY caal.upsrt_dttm DESC) AS rn
+        FROM AllJointAccounts ja
+        INNER JOIN cnsmr_accnt_ownrs cao WITH (NOLOCK)
+            ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+        INNER JOIN cnsmr_accnt_ar_log caal WITH (NOLOCK)
+            ON cao.cnsmr_id = caal.cnsmr_id
+        INNER JOIN actn_Cd ac WITH (NOLOCK)
+            ON caal.actn_cd = ac.actn_cd
+            AND ac.actn_cd_shrt_val_txt = @JAO_ACTION_SHORT
+        INNER JOIN rslt_Cd rc WITH (NOLOCK)
+            ON caal.rslt_Cd = rc.rslt_Cd
+            AND rc.rslt_cd_shrt_val_txt = @PAY_RESULT_SHORT
+    ) t
+    WHERE rn = 1
+),
 
-/* Create one row per Account for all Consumers */
-/* There is one Account with four Secondary Consumers */
-IF OBJECT_ID('tempdb..#ALLACCS') IS NOT NULL DROP TABLE #ALLACCS
-SELECT		p1.cnsmr_accnt_id,
-			p1.primary_cnsmr_id AS Consumer_P1, arp1.LastJAOPAY AS LastJAOPAY_P1, app1.ActivePlanCreationDate AS ActivePlanDate_P1,
-			s1.secondary_cnsmr_id AS Consumer_S1, ars1.LastJAOPAY AS LastJAOPAY_S1, aps1.ActivePlanCreationDate AS ActivePlanDate_S1, 
-			s2.secondary_cnsmr_id AS Consumer_S2, ars2.LastJAOPAY AS LastJAOPAY_S2, aps2.ActivePlanCreationDate AS ActivePlanDate_S2, 
-			s3.secondary_cnsmr_id AS Consumer_S3, ars3.LastJAOPAY AS LastJAOPAY_S3, aps3.ActivePlanCreationDate AS ActivePlanDate_S3, 
-			s4.secondary_cnsmr_id AS Consumer_S4, ars4.LastJAOPAY AS LastJAOPAY_S4, aps4.ActivePlanCreationDate AS ActivePlanDate_S4,
-			CASE WHEN app1.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_P1,
-			CASE WHEN aps1.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S1,
-			CASE WHEN aps2.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S2,
-			CASE WHEN aps3.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S3,
-			CASE WHEN aps4.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S4
-INTO		#ALLACCS
-FROM		#PRIMARY AS p1
-LEFT JOIN	#SECONDARY AS s1 ON p1.cnsmr_accnt_id = s1.cnsmr_accnt_id AND s1.RowNumber = 1
-LEFT JOIN	#SECONDARY AS s2 ON p1.cnsmr_accnt_id = s2.cnsmr_accnt_id AND s2.RowNumber = 2
-LEFT JOIN	#SECONDARY AS s3 ON p1.cnsmr_accnt_id = s3.cnsmr_accnt_id AND s3.RowNumber = 3
-LEFT JOIN	#SECONDARY AS s4 ON p1.cnsmr_accnt_id = s4.cnsmr_accnt_id AND s4.RowNumber = 4
-LEFT JOIN	#JAOPAYAR AS arp1 ON arp1.cnsmr_id = p1.primary_cnsmr_id
-LEFT JOIN	#JAOPAYAR AS ars1 ON ars1.cnsmr_id = s1.secondary_cnsmr_id
-LEFT JOIN	#JAOPAYAR AS ars2 ON ars2.cnsmr_id = s2.secondary_cnsmr_id
-LEFT JOIN	#JAOPAYAR AS ars3 ON ars3.cnsmr_id = s3.secondary_cnsmr_id
-LEFT JOIN	#JAOPAYAR AS ars4 ON ars4.cnsmr_id = s4.secondary_cnsmr_id
-LEFT JOIN	#ACTIVEPLAN AS app1 ON app1.cnsmr_id = p1.primary_cnsmr_id
-LEFT JOIN	#ACTIVEPLAN AS aps1 ON aps1.cnsmr_id = s1.secondary_cnsmr_id
-LEFT JOIN	#ACTIVEPLAN AS aps2 ON aps2.cnsmr_id = s2.secondary_cnsmr_id
-LEFT JOIN	#ACTIVEPLAN AS aps3 ON aps3.cnsmr_id = s3.secondary_cnsmr_id
-LEFT JOIN	#ACTIVEPLAN AS aps4 ON aps4.cnsmr_id = s4.secondary_cnsmr_id
+----------------------------------------------------
+-- CTE: Active Plans
+----------------------------------------------------
+ActivePlans AS (
+    SELECT DISTINCT
+        cao.cnsmr_id,
+        sps.schdld_pymnt_smmry_crt_dttm AS ActivePlanCreationDate
+    FROM AllJointAccounts ja
+    INNER JOIN cnsmr_accnt_ownrs cao WITH (NOLOCK)
+        ON ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    INNER JOIN schdld_pymnt_smmry sps WITH (NOLOCK)
+        ON cao.cnsmr_id = sps.cnsmr_id
+        AND sps.schdld_pymnt_smmry_stts_cd = @ACTIVE_PLAN_STATUS_CD
+),
 
-/* Find the latest Plan date and Latest JAO/PAY date */
-IF OBJECT_ID('tempdb..#LASTDATES') IS NOT NULL DROP TABLE #LASTDATES
-SELECT		aa.*,
-			CASE WHEN CAST(LastJAOPAYDate AS DATE) >= CAST(LatestActivePlanDate AS DATE) THEN 1 ELSE 0 END AS JAOPAYAfterPlan
-INTO		#LASTDATES
-FROM		(
-			SELECT		cnsmr_accnt_id, Consumer_P1, Consumer_S1, Consumer_S2, Consumer_S3, Consumer_S4,
-						 (SELECT MAX(v)
-						  FROM (VALUES (ActivePlanDate_P1),(ActivePlanDate_S1),(ActivePlanDate_S2),(ActivePlanDate_S3),(ActivePlanDate_S4)) 
-						  AS VALUE(v)) AS LatestActivePlanDate,
-						  (SELECT MAX(v)
-						  FROM (VALUES (LastJAOPAY_P1),(LastJAOPAY_S1),(LastJAOPAY_S2),(LastJAOPAY_S3),(LastJAOPAY_S4)) 
-						  AS VALUE(v)) AS LastJAOPAYDate,
-						  ActivePlan_P1, ActivePlan_S1, ActivePlan_S2, ActivePlan_S3, ActivePlan_S4
-			FROM		#ALLACCS
-			) AS aa
+----------------------------------------------------
+-- CTE: Combine all accounts and consumers into one row per account
+----------------------------------------------------
+AllAccounts AS (
+    SELECT
+        p.cnsmr_accnt_id,
+        p.primary_cnsmr_id AS Consumer_P1,
+        ljp_p.LastJAOPAY AS LastJAOPAY_P1,
+        ap_p.ActivePlanCreationDate AS ActivePlanDate_P1,
+        s1.secondary_cnsmr_id AS Consumer_S1,
+        ljp_s1.LastJAOPAY AS LastJAOPAY_S1,
+        ap_s1.ActivePlanCreationDate AS ActivePlanDate_S1,
+        s2.secondary_cnsmr_id AS Consumer_S2,
+        ljp_s2.LastJAOPAY AS LastJAOPAY_S2,
+        ap_s2.ActivePlanCreationDate AS ActivePlanDate_S2,
+        s3.secondary_cnsmr_id AS Consumer_S3,
+        ljp_s3.LastJAOPAY AS LastJAOPAY_S3,
+        ap_s3.ActivePlanCreationDate AS ActivePlanDate_S3,
+        s4.secondary_cnsmr_id AS Consumer_S4,
+        ljp_s4.LastJAOPAY AS LastJAOPAY_S4,
+        ap_s4.ActivePlanCreationDate AS ActivePlanDate_S4,
+        CASE WHEN ap_p.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_P1,
+        CASE WHEN ap_s1.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S1,
+        CASE WHEN ap_s2.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S2,
+        CASE WHEN ap_s3.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S3,
+        CASE WHEN ap_s4.cnsmr_id IS NOT NULL THEN 1 ELSE 0 END AS ActivePlan_S4
+    FROM PrimaryConsumers p
+    LEFT JOIN SecondaryConsumers s1
+        ON p.cnsmr_accnt_id = s1.cnsmr_accnt_id AND s1.RowNumber = 1
+    LEFT JOIN SecondaryConsumers s2
+        ON p.cnsmr_accnt_id = s2.cnsmr_accnt_id AND s2.RowNumber = 2
+    LEFT JOIN SecondaryConsumers s3
+        ON p.cnsmr_accnt_id = s3.cnsmr_accnt_id AND s3.RowNumber = 3
+    LEFT JOIN SecondaryConsumers s4
+        ON p.cnsmr_accnt_id = s4.cnsmr_accnt_id AND s4.RowNumber = 4
+    LEFT JOIN LatestJAOPAY ljp_p ON ljp_p.cnsmr_id = p.primary_cnsmr_id
+    LEFT JOIN LatestJAOPAY ljp_s1 ON ljp_s1.cnsmr_id = s1.secondary_cnsmr_id
+    LEFT JOIN LatestJAOPAY ljp_s2 ON ljp_s2.cnsmr_id = s2.secondary_cnsmr_id
+    LEFT JOIN LatestJAOPAY ljp_s3 ON ljp_s3.cnsmr_id = s3.secondary_cnsmr_id
+    LEFT JOIN LatestJAOPAY ljp_s4 ON ljp_s4.cnsmr_id = s4.secondary_cnsmr_id
+    LEFT JOIN ActivePlans ap_p ON ap_p.cnsmr_id = p.primary_cnsmr_id
+    LEFT JOIN ActivePlans ap_s1 ON ap_s1.cnsmr_id = s1.secondary_cnsmr_id
+    LEFT JOIN ActivePlans ap_s2 ON ap_s2.cnsmr_id = s2.secondary_cnsmr_id
+    LEFT JOIN ActivePlans ap_s3 ON ap_s3.cnsmr_id = s3.secondary_cnsmr_id
+    LEFT JOIN ActivePlans ap_s4 ON ap_s4.cnsmr_id = s4.secondary_cnsmr_id
+),
 
-SELECT		ld.cnsmr_accnt_id, cao.cnsmr_id, ld.JAOPAYAfterPlan
-FROM		#LASTDATES AS ld
-INNER JOIN	cnsmr_accnt_ownrs AS cao ON ld.cnsmr_accnt_id = cao.cnsmr_accnt_id
-ORDER BY	ld.cnsmr_accnt_id DESC
+----------------------------------------------------
+-- CTE: Last Dates comparison
+----------------------------------------------------
+LastDates AS (
+    SELECT
+        aa.*,
+        CASE 
+            WHEN CAST(MAX(v) OVER () AS DATE) >= CAST(MAX(u) OVER () AS DATE)
+            THEN 1
+            ELSE 0
+        END AS JAOPAYAfterPlan
+    FROM (
+        SELECT
+            cnsmr_accnt_id, Consumer_P1, Consumer_S1, Consumer_S2, Consumer_S3, Consumer_S4,
+            ActivePlan_P1, ActivePlan_S1, ActivePlan_S2, ActivePlan_S3, ActivePlan_S4,
+            (SELECT MAX(v) FROM (VALUES (ActivePlanDate_P1),(ActivePlanDate_S1),(ActivePlanDate_S2),(ActivePlanDate_S3),(ActivePlanDate_S4)) AS Value(v)) AS LatestActivePlanDate,
+            (SELECT MAX(u) FROM (VALUES (LastJAOPAY_P1),(LastJAOPAY_S1),(LastJAOPAY_S2),(LastJAOPAY_S3),(LastJAOPAY_S4)) AS Value(u)) AS LastJAOPAYDate
+        FROM AllAccounts
+    ) aa
+)
+
+----------------------------------------------------
+-- Final Select
+----------------------------------------------------
+SELECT 
+    ld.cnsmr_accnt_id,
+    cao.cnsmr_id,
+    ld.JAOPAYAfterPlan
+FROM LastDates ld
+INNER JOIN cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    ON ld.cnsmr_accnt_id = cao.cnsmr_accnt_id
+ORDER BY ld.cnsmr_accnt_id DESC;
+
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
