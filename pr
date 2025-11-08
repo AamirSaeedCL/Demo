@@ -1,3 +1,4 @@
+Query 1:
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -54,7 +55,7 @@ PlanTypeDescription AS (
     WHERE uplv.UDEFPLAN_TYPE IS NOT NULL
 )
 
-SELECT TOP 10 
+SELECT TOP 1000 
     -- Payment Plan Summary
     s.schdld_pymnt_smmry_id AS PaymentPlanId,
     s.cnsmr_id AS CustomerId,
@@ -90,14 +91,14 @@ SELECT TOP 10
     s.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
     s.upsrt_dttm AS UpsertDateTime,
 
-    -- Customer Extra (Query 2)
+    -- Customer Extra  
     ce.daysSincePlanCreationDate,
     ce.PaymentPlanCreationDate,
     ce.daysTillCurrentPlanEndDate,
     ce.PaymentPlanEndDate,
     ce.PaymentPlanType,
 
-    -- Query 2 addition
+    -- Payment Plan
     ptd.PaymentPlanTypeDescription
 
 FROM dbo.schdld_pymnt_smmry s WITH (NOLOCK)
@@ -122,3 +123,16 @@ LEFT JOIN PlanTypeDescription ptd
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+
+
+Query 2:
+SELECT		sps.cnsmr_id,sps.schdld_pymnt_stts_val_txt
+FROM		(
+			SELECT		ROW_NUMBER() OVER (PARTITION BY sps.cnsmr_id ORDER BY sps.schdld_pymnt_smmry_crt_dttm DESC) AS RowNumber,
+						sps.cnsmr_id,sc.schdld_pymnt_stts_val_txt
+			FROM		crs5_oltp.dbo.schdld_pymnt_smmry sps
+			INNER JOIN	crs5_oltp.dbo.Ref_schdld_pymnt_stts_cd sc
+			ON			sps.schdld_pymnt_smmry_stts_cd = sc.schdld_pymnt_stts_cd
+			) AS sps
+WHERE		sps.RowNumber = 1
