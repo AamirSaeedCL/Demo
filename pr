@@ -1,14 +1,16 @@
-Query 1:
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 DECLARE @STATUS_CODE INT = 9;
 
+-------------------------------------------------------------------------------
+-- CTE: First instalment for each payment plan
+-------------------------------------------------------------------------------
 WITH FirstInstalment AS (
     SELECT
-        fi.schdld_pymnt_smmry_id,
-        fi.schdld_pymnt_instnc_amnt,
-        fi.schdld_pymnt_instnc_dttm
+        x.schdld_pymnt_smmry_id,
+        x.schdld_pymnt_instnc_amnt,
+        x.schdld_pymnt_instnc_dttm
     FROM (
         SELECT 
             spi.schdld_pymnt_smmry_id,
@@ -19,9 +21,13 @@ WITH FirstInstalment AS (
                 ORDER BY spi.schdld_pymnt_instnc_dttm ASC
             ) AS rn
         FROM dbo.schdld_pymnt_instnc spi WITH (NOLOCK)
-    ) fi
-    WHERE fi.rn = 1
+    ) x
+    WHERE x.rn = 1
 ),
+
+-------------------------------------------------------------------------------
+-- CTE: Static lookup combinations
+-------------------------------------------------------------------------------
 PaymentPlan AS (
     SELECT
         f.pymnt_frqncy_cd,
@@ -34,6 +40,10 @@ PaymentPlan AS (
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
 ),
+
+-------------------------------------------------------------------------------
+-- CTE: Extra plan details
+-------------------------------------------------------------------------------
 CustomerPlanExtra AS (
     SELECT 
           sps.cnsmr_id,
@@ -47,27 +57,55 @@ CustomerPlanExtra AS (
         ON rpr.pymnt_rsn_cd = sps.schdld_pymnt_rsn_cd
     WHERE sps.schdld_pymnt_smmry_stts_cd = @STATUS_CODE
 ),
+
+-------------------------------------------------------------------------------
+-- CTE: Plan type text lookup
+-------------------------------------------------------------------------------
 PlanTypeDescription AS (
     SELECT 
         uplv.cnsmr_id,
         uplv.UDEFPLAN_TYPE AS PaymentPlanTypeDescription
     FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS uplv WITH (NOLOCK)
     WHERE uplv.UDEFPLAN_TYPE IS NOT NULL
+),
+
+-------------------------------------------------------------------------------
+-- CTE: Latest plan status per customer (Query 2)
+-------------------------------------------------------------------------------
+LatestPlanStatus AS (
+    SELECT 
+        z.cnsmr_id,
+        z.schdld_pymnt_stts_val_txt AS LatestPlanStatusText
+    FROM (
+        SELECT 
+            ROW_NUMBER() OVER (
+                PARTITION BY sps.cnsmr_id 
+                ORDER BY sps.schdld_pymnt_smmry_crt_dttm DESC
+            ) AS rn,
+            sps.cnsmr_id,
+            sc.schdld_pymnt_stts_val_txt
+        FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+        INNER JOIN crs5_oltp.dbo.Ref_schdld_pymnt_stts_cd sc WITH (NOLOCK)
+            ON sc.schdld_pymnt_stts_cd = sps.schdld_pymnt_smmry_stts_cd
+    ) z
+    WHERE z.rn = 1
 )
 
-SELECT TOP 1000 
-    -- Payment Plan Summary
+-------------------------------------------------------------------------------
+-- FINAL SELECT (Query 1 + Query 2 merged)
+-------------------------------------------------------------------------------
+SELECT TOP 1000
     s.schdld_pymnt_smmry_id AS PaymentPlanId,
     s.cnsmr_id AS CustomerId,
     CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
+
+    -- Amounts
     s.schdld_pymnt_smmry_ttl_amnt AS PlanAmount,
     s.schdld_pymnt_smmry_cmmnt_txt AS PlanComment,
     s.schdld_pymnt_smmry_cnt AS InstalmentCount,
     s.schdld_pymnt_smmry_dwnpymnt_amnt AS InitialPaymentAmount,
     s.schdld_pymnt_smmry_dwnpymnt_dttm AS InitialPaymentDate,
     s.schdld_pymnt_smmry_rglr_amnt AS RegularPaymentAmount,
-    
-    -- Instalments
     fi.schdld_pymnt_instnc_amnt AS FirstInstalmentAmount,
     fi.schdld_pymnt_instnc_dttm AS FirstInstalmentDate,
     s.schdld_pymnt_smmry_lst_amnt AS LastInstalmentAmount,
@@ -75,14 +113,12 @@ SELECT TOP 1000
     -- Flags
     CAST(CASE WHEN st.cnsmr_accnt_sttlmnt_id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsSettlement,
 
-    -- Frequency & Type
+    -- Lookup text
     s.schdld_pymnt_smmry_frqncy_cd AS PlanFrequencyId,
     pp.pymnt_frqncy_val_txt AS PlanFrequencyText,
     s.schdld_pymnt_smmry_frqncy_cnt AS PlanFrequencyCount,
     s.schdld_pymnt_smmry_typ_cd AS PlanTypeId,
     pp.schdld_pymnt_typ_val_txt AS PlanTypeText,
-
-    -- Status
     s.schdld_pymnt_smmry_stts_cd AS PlanStatusId,
     pp.schdld_pymnt_stts_val_txt AS PlanStatusText,
     CAST(CASE WHEN pp.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
@@ -91,15 +127,18 @@ SELECT TOP 1000
     s.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
     s.upsrt_dttm AS UpsertDateTime,
 
-    -- Customer Extra  
+    -- Customer extra details
     ce.daysSincePlanCreationDate,
     ce.PaymentPlanCreationDate,
     ce.daysTillCurrentPlanEndDate,
     ce.PaymentPlanEndDate,
     ce.PaymentPlanType,
 
-    -- Payment Plan
-    ptd.PaymentPlanTypeDescription
+    -- Plan type from letter vars
+    ptd.PaymentPlanTypeDescription,
+
+    -- ⭐ Added from Query 2
+    lps.LatestPlanStatusText
 
 FROM dbo.schdld_pymnt_smmry s WITH (NOLOCK)
 
@@ -120,19 +159,9 @@ LEFT JOIN CustomerPlanExtra ce
 LEFT JOIN PlanTypeDescription ptd
     ON ptd.cnsmr_id = s.cnsmr_id
 
+LEFT JOIN LatestPlanStatus lps
+    ON lps.cnsmr_id = s.cnsmr_id
+
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-
-Query 2:
-SELECT		sps.cnsmr_id,sps.schdld_pymnt_stts_val_txt
-FROM		(
-			SELECT		ROW_NUMBER() OVER (PARTITION BY sps.cnsmr_id ORDER BY sps.schdld_pymnt_smmry_crt_dttm DESC) AS RowNumber,
-						sps.cnsmr_id,sc.schdld_pymnt_stts_val_txt
-			FROM		crs5_oltp.dbo.schdld_pymnt_smmry sps
-			INNER JOIN	crs5_oltp.dbo.Ref_schdld_pymnt_stts_cd sc
-			ON			sps.schdld_pymnt_smmry_stts_cd = sc.schdld_pymnt_stts_cd
-			) AS sps
-WHERE		sps.RowNumber = 1
