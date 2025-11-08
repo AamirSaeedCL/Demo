@@ -1,102 +1,162 @@
-SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+List A:
+1994605
+2006392
+2013897
+2019596
+2020213
+1970458
+1796711
+1832443
+2014241
+2027847
+2081686
+1823897
+2090025
+2072370
+1763643
+1969447
+2113340
+1819275
+1997540
+2006389
+2042069
+2103953
+2117929
+2116662
+2062196
+2106321
+2014810
+2041639
+2095498
+2062170
+2363964
+2315022
+2032855
+2033075
+2038324
+2042488
+2020124
+2038648
+2040018
+2044033
+2004025
+2018295
+2024302
+2029138
+1966196
+2095904
+2081401
+1997002
+2095638
+2060176
+2011586
+1978692
+2111423
+2066042
+2030720
+1989315
+2002891
+1818092
+2103556
+2101051
+1998222
+2060698
+1963916
+1826487
+1962805
+1962846
+1992961
+2002747
+2007689
+2008153
+2015695
+2014644
+2082746
+2028609
+1785425
+2082270
+2078320
+2087069
+2041662
+1825544
+2102564
+1969827
+2102004
+1969996
+1831714
+1977304
+2020086
+1591462
+4025738
+1654511
+1590799
+1590796
+1590797
+1590798
+2309997
+1998596
+4025734
+1591084
+1604865
+2137499
+1616729
+4047263
+1594675
+1594678
+1655125
+1647516
+2131598
+1590918
+1653229
+4054311
+4054317
+4054317
+4054317
+4054317
+4054325
+1590805
+1888306
+2412008
+5293531
+1648822
+1636361
+1636371
+1874179
+2026245
+2041673
+2067674
+2088189
+2097209
+1783429
+1794764
+2083847
+1923426
+2069989
+2086696
+2075369
+1977448
+2114589
+1819306
+1969133
+1990669
+2113114
+2098655
+1980689
+2012842
+2028440
+2034163
+2068020
+2747721
 
-DECLARE @STATUS_CODE INT = 9;
 
-WITH FirstInstalment AS (
-    SELECT
-        schdld_pymnt_smmry_id,
-        schdld_pymnt_instnc_amnt,
-        schdld_pymnt_instnc_dttm
-    FROM (
-        SELECT 
-            schdld_pymnt_smmry_id,
-            schdld_pymnt_instnc_amnt,
-            schdld_pymnt_instnc_dttm,
-            ROW_NUMBER() OVER (
-                PARTITION BY schdld_pymnt_smmry_id 
-                ORDER BY schdld_pymnt_instnc_dttm ASC
-            ) AS rn
-        FROM dbo.schdld_pymnt_instnc WITH (NOLOCK)
-    ) AS ranked
-    WHERE rn = 1
-),
-PaymentPlan AS (
-    SELECT DISTINCT
-        f.pymnt_frqncy_cd,
-        f.pymnt_frqncy_val_txt,
-        s.schdld_pymnt_stts_cd,
-        s.schdld_pymnt_stts_val_txt,
-        t.schdld_pymnt_typ_cd,
-        t.schdld_pymnt_typ_val_txt
-    FROM dbo.Ref_pymnt_frqncy_cd f WITH (NOLOCK)
-    CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
-    CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
-),
-CustomerPlanExtra AS (
-    SELECT 
-          sps.cnsmr_id,
-          DATEDIFF(DD, CAST(sps.schdld_pymnt_smmry_crt_dttm AS DATE), CAST(GETDATE() AS DATE)) AS daysSincePlanCreationDate,
-          sps.schdld_pymnt_smmry_crt_dttm AS PaymentPlanCreationDate,
-          DATEDIFF(DD, CAST(GETDATE() AS DATE), CAST(sps.schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate,
-          sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
-          rpr.pymnt_rsn_val_txt AS PaymentPlanType
-    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
-    LEFT JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr
-            ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
-    WHERE sps.schdld_pymnt_smmry_stts_cd = @STATUS_CODE
-)
-
-SELECT DISTINCT TOP 10 
-    ---------------------------  
-    -- Query 1 Columns  
-    ---------------------------
-    summary.schdld_pymnt_smmry_id AS PaymentPlanId,
-    summary.cnsmr_id AS CustomerId,
-    CAST(NULL AS uniqueidentifier) AS CustomerGroupId,
-    summary.schdld_pymnt_smmry_ttl_amnt AS PlanAmount,
-    summary.schdld_pymnt_smmry_cmmnt_txt AS PlanComment,
-    summary.schdld_pymnt_smmry_cnt AS InstalmentCount,
-    summary.schdld_pymnt_smmry_dwnpymnt_amnt AS InitialPaymentAmount,
-    summary.schdld_pymnt_smmry_dwnpymnt_dttm AS InitialPaymentDate,
-    summary.schdld_pymnt_smmry_rglr_amnt AS RegularPaymentAmount,
-    fi.schdld_pymnt_instnc_amnt AS FirstInstalmentAmount,
-    fi.schdld_pymnt_instnc_dttm AS FirstInstalmentDate,
-    summary.schdld_pymnt_smmry_lst_amnt AS LastInstalmentAmount,
-    CAST(CASE WHEN settlement.cnsmr_accnt_sttlmnt_id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS IsSettlement,
-    summary.schdld_pymnt_smmry_frqncy_cd AS PlanFrequencyId,
-    ref.pymnt_frqncy_val_txt AS PlanFrequencyText,
-    summary.schdld_pymnt_smmry_frqncy_cnt AS PlanFrequencyCount,
-    summary.schdld_pymnt_smmry_typ_cd AS PlanTypeId,
-    ref.schdld_pymnt_typ_val_txt AS PlanTypeText,
-    summary.schdld_pymnt_smmry_stts_cd AS PlanStatusId,
-    ref.schdld_pymnt_stts_val_txt AS PlanStatusText,
-    CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
-    summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
-    summary.upsrt_dttm AS UpsertDateTime,
-
-    ---------------------------  
-    -- Query 2 Columns  
-    ---------------------------
-    ce.daysSincePlanCreationDate,
-    ce.PaymentPlanCreationDate,
-    ce.daysTillCurrentPlanEndDate,
-    ce.PaymentPlanEndDate,
-    ce.PaymentPlanType
-
-FROM dbo.schdld_pymnt_smmry summary WITH (NOLOCK)
-LEFT JOIN FirstInstalment fi 
-        ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-LEFT JOIN dbo.cnsmr_accnt_sttlmnt settlement WITH (NOLOCK) 
-        ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-JOIN PaymentPlan ref 
-        ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
-       AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
-       AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
-
-LEFT JOIN CustomerPlanExtra ce   -- ⭐ Added Query 2 join
-       ON ce.cnsmr_id = summary.cnsmr_id
-
-OPTION (RECOMPILE);
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+List B:
+1588275
+1588292
+1588396
+1588462
+1588465
+1588544
+1588547
+1588589
+1588631
+1588680
