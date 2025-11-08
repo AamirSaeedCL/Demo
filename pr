@@ -1,1 +1,17 @@
 
+SELECT sps.cnsmr_id
+		, DATEDIFF (DD,CAST (sps.schdld_pymnt_smmry_crt_dttm AS DATE),CAST (GETDATE() AS DATE)) AS daysSincePlanCreationDate
+		, sps.schdld_pymnt_smmry_crt_dttm AS PaymentPlanCreationDate,
+		DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate
+		, sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate	
+	FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
+	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
+
+
+
+SELECT sps.cnsmr_id
+		, rpr.pymnt_rsn_val_txt AS PaymentPlanType
+	FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
+	LEFT OUTER JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr
+	ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
+	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
