@@ -198,7 +198,7 @@ AllAccounts AS (
 ),
 LatestJAOPAYPerAccount AS (
     SELECT aa.*,
-           CASE WHEN CAST(LastJAOPAYDate AS DATE) >= CAST(LatestActivePlanDate AS DATE) THEN 1 ELSE 0 END AS JAOPAYAfterPlan
+           CASE WHEN CAST(LastJAOPAYDate AS DATE) >= CAST(LatestActivePlanDate AS DATE) THEN 1 ELSE 0 END AS JaoAfterOtherConsumerPlan
     FROM (
         SELECT cnsmr_accnt_id, Consumer_P1, Consumer_S1, Consumer_S2, Consumer_S3, Consumer_S4,
                (SELECT MAX(val) FROM (VALUES 
@@ -215,7 +215,7 @@ LatestJAOPAYPerAccount AS (
 SELECT DISTINCT
     summary.*,
     ljp.cnsmr_accnt_id,
-    ljp.JAOPAYAfterPlan
+    ljp.JaoAfterOtherConsumerPlan
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
 LEFT JOIN FilteredCustomers fc ON fc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN FirstInstalment fi ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
