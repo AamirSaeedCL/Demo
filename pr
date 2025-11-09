@@ -1,3 +1,5 @@
+Query 1 (Main Query):
+
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -60,11 +62,11 @@ FilteredCustomers AS (
 ActivePlanInstData AS (
     SELECT sps.cnsmr_id,
            oi.SUM_OF_OUTSTANDING_INSTALMENTS
-    FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     INNER JOIN (
         SELECT schdld_pymnt_smmry_id,
                SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
-        FROM crs5_oltp_replicated.dbo.schdld_pymnt_instnc WITH (NOLOCK)
+        FROM crs5_oltp.dbo.schdld_pymnt_instnc WITH (NOLOCK)
         WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
         GROUP BY schdld_pymnt_smmry_id
     ) oi
@@ -76,18 +78,18 @@ ActivePlanInstData AS (
 CurrentBalance AS (
     SELECT cao.cnsmr_id,
            SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
-    FROM crs5_oltp_replicated.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
-    INNER JOIN crs5_oltp_replicated.dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
+    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    INNER JOIN crs5_oltp.dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
         ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
        AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = 'N'
-       AND cab.bal_nm_id = (SELECT bal_nm_id FROM crs5_oltp_replicated.dbo.bal_nm WITH (NOLOCK) WHERE bal_nm = @BalanceName)
+       AND cab.bal_nm_id = (SELECT bal_nm_id FROM crs5_oltp.dbo.bal_nm WITH (NOLOCK) WHERE bal_nm = @BalanceName)
     GROUP BY cao.cnsmr_id
     HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
 ),
 -- CTE for Plan Balance Remaining Calculation
 PlanBalanceRemaining AS (
     SELECT ap.cnsmr_id,
-           CASE WHEN (ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @PlanBalanceThreshold)) THEN 1 ELSE 0 END AS planBalanceRemaining
+           CASE WHEN (ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @PlanBalanceThreshold)) THEN 1 ELSE 0 END AS PlanBalanceRemaining
     FROM ActivePlanInstData ap
     INNER JOIN CurrentBalance cb
         ON ap.cnsmr_id = cb.cnsmr_id
@@ -120,7 +122,7 @@ SELECT DISTINCT
     ped.DaysTillCurrentPlanEndDate,
     ped.PaymentPlanEndDate,
     fc.PaymentPlanType,
-    pbr.planBalanceRemaining
+    pbr.PlanBalanceRemaining
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
 LEFT JOIN FilteredCustomers fc
     ON fc.cnsmr_id = summary.cnsmr_id
@@ -139,3 +141,11 @@ LEFT JOIN PlanBalanceRemaining pbr
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+
+Query 2:
+SELECT sps.cnsmr_id
+		, DATEDIFF (DD,CAST (sps.schdld_pymnt_smmry_crt_dttm AS DATE),CAST (GETDATE() AS DATE)) AS DaysSincePlanCreationDate
+		, sps.schdld_pymnt_smmry_crt_dttm AS PaymentPlanCreationDate
+	FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
+	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
