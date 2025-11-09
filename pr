@@ -38,23 +38,17 @@ PaymentPlan AS (
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
 ),
--- Sum of outstanding instalments per active plan
+-- Sum of outstanding instalments per plan
 ActivePlanInst AS (
     SELECT 
         sps.schdld_pymnt_smmry_id,
-        sps.cnsmr_id,
-        oi.SUM_OF_OUTSTANDING_INSTALMENTS
+        SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
     FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
-    INNER JOIN (
-        SELECT 
-            schdld_pymnt_smmry_id,
-            SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
-        FROM dbo.schdld_pymnt_instnc WITH (NOLOCK)
-        WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
-        GROUP BY schdld_pymnt_smmry_id
-    ) oi ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
+    INNER JOIN dbo.schdld_pymnt_instnc spi WITH (NOLOCK)
+        ON sps.schdld_pymnt_smmry_id = spi.schdld_pymnt_smmry_id
     WHERE sps.schdld_pymnt_smmry_stts_cd = @ActiveStatusCode
-      AND oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
+      AND spi.schdld_pymnt_instnc_unpaid_bal_amnt > 0
+    GROUP BY sps.schdld_pymnt_smmry_id
 ),
 -- Current balance per customer
 CurrentBalance AS (
@@ -97,9 +91,11 @@ SELECT DISTINCT
     summary.upsrt_dttm AS UpsertDateTime,
     DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(summary.schdld_pymnt_smmry_end_dttm AS DATE)) AS DaysTillCurrentPlanEndDate,
     summary.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
-    -- Plan balance remaining logic
+    -- Balance comparison (may be NULL if no balance)
     CASE 
-        WHEN ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @BufferAmount) 
+        WHEN ap.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL 
+             AND cb.currentBalance IS NOT NULL
+             AND ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @BufferAmount) 
         THEN 1 ELSE 0 
     END AS PlanBalanceRemaining
 FROM dbo.schdld_pymnt_smmry summary WITH (NOLOCK)
