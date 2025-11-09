@@ -1,11 +1,10 @@
-Query 1 (Main Query):
-
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 -- Declare constants for hard-coded values
 DECLARE @PaymentPlanStatusCompleted INT = 9;
+DECLARE @BalanceName NVARCHAR(50) = 'CurrentBalance';
+DECLARE @PlanBalanceThreshold DECIMAL(18,2) = 50;
 
 -- CTE for First Instalment
 WITH FirstInstalment AS (
@@ -49,15 +48,51 @@ PlanEndDate AS (
     FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 ),
--- CTE for Query 2 customer info
+-- CTE for Filtered Customers (Payment Plan Type)
 FilteredCustomers AS (
     SELECT sps.cnsmr_id, rpr.pymnt_rsn_val_txt AS PaymentPlanType
     FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     LEFT JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr WITH (NOLOCK)
         ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
+),
+-- CTE for Active Plan Instalments (from Query 2)
+ActivePlanInstData AS (
+    SELECT sps.cnsmr_id,
+           oi.SUM_OF_OUTSTANDING_INSTALMENTS
+    FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    INNER JOIN (
+        SELECT schdld_pymnt_smmry_id,
+               SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
+        FROM crs5_oltp_replicated.dbo.schdld_pymnt_instnc WITH (NOLOCK)
+        WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
+        GROUP BY schdld_pymnt_smmry_id
+    ) oi
+    ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
+    WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
+      AND oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
+),
+-- CTE for Current Balance (from Query 2)
+CurrentBalance AS (
+    SELECT cao.cnsmr_id,
+           SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
+    FROM crs5_oltp_replicated.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    INNER JOIN crs5_oltp_replicated.dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
+        ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
+       AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = 'N'
+       AND cab.bal_nm_id = (SELECT bal_nm_id FROM crs5_oltp_replicated.dbo.bal_nm WITH (NOLOCK) WHERE bal_nm = @BalanceName)
+    GROUP BY cao.cnsmr_id
+    HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
+),
+-- CTE for Plan Balance Remaining Calculation
+PlanBalanceRemaining AS (
+    SELECT ap.cnsmr_id,
+           CASE WHEN (ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @PlanBalanceThreshold)) THEN 1 ELSE 0 END AS planBalanceRemaining
+    FROM ActivePlanInstData ap
+    INNER JOIN CurrentBalance cb
+        ON ap.cnsmr_id = cb.cnsmr_id
 )
--- Main SELECT
+-- Main SELECT combining everything
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
     summary.cnsmr_id AS CustomerId,
@@ -84,7 +119,8 @@ SELECT DISTINCT
     summary.upsrt_dttm AS UpsertDateTime,
     ped.DaysTillCurrentPlanEndDate,
     ped.PaymentPlanEndDate,
-    fc.PaymentPlanType
+    fc.PaymentPlanType,
+    pbr.planBalanceRemaining
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
 LEFT JOIN FilteredCustomers fc
     ON fc.cnsmr_id = summary.cnsmr_id
@@ -94,43 +130,12 @@ LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK)
     ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
 JOIN PaymentPlan ref
     ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
-    AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
-    AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+   AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
+   AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
 LEFT JOIN PlanEndDate ped
     ON ped.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN PlanBalanceRemaining pbr
+    ON pbr.cnsmr_id = summary.cnsmr_id
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-Query 2:
-SELECT sps.cnsmr_id
-	, oi.SUM_OF_OUTSTANDING_INSTALMENTS
-INTO #ActivePlanInstData
-FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
-INNER JOIN (SELECT schdld_pymnt_smmry_id
-					, SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
-				FROM crs5_oltp_replicated.dbo.schdld_pymnt_instnc
-				WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
-				GROUP BY schdld_pymnt_smmry_id) oi
-ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
-
-WHERE sps.schdld_pymnt_smmry_stts_cd = 9 /*ACTIVE*/
-AND  oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
-
-
-SELECT cao.cnsmr_id
-	  , SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
-INTO #CurrentBalance
-FROM crs5_oltp_replicated.dbo.cnsmr_accnt_ownrs cao
-INNER JOIN crs5_oltp_replicated.dbo.cnsmr_accnt_bal cab
-ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
-AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = 'N'
-AND cab.bal_nm_id = (SELECT bal_nm_id FROM crs5_oltp_replicated.dbo.bal_nm WHERE bal_nm = 'CurrentBalance')
-GROUP BY cao.cnsmr_id
-HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
-
-SELECT ap.cnsmr_id,
-	   CASE WHEN (ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance -50)) THEN 1 ELSE 0 END AS planBalanceRemaining
-FROM #ActivePlanInstData ap
-INNER JOIN #CurrentBalance cb On ap.cnsmr_id = cb.cnsmr_id
