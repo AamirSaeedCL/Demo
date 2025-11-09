@@ -1,30 +1,53 @@
-SELECT sps.cnsmr_id
-	, oi.SUM_OF_OUTSTANDING_INSTALMENTS
-INTO #ActivePlanInstData
-FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
-INNER JOIN (SELECT schdld_pymnt_smmry_id
-					, SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
-				FROM crs5_oltp.dbo.schdld_pymnt_instnc
-				WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
-				GROUP BY schdld_pymnt_smmry_id) oi
-ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
+SET NOCOUNT ON;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-WHERE sps.schdld_pymnt_smmry_stts_cd = 9 /*ACTIVE*/
-AND  oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
+-- Declare constants
+DECLARE @ActiveStatusCode INT = 9;           -- ACTIVE status
+DECLARE @OwnershipFlag CHAR(1) = 'N';       -- Ownership flag
+DECLARE @BalanceName NVARCHAR(50) = 'CurrentBalance'; 
+DECLARE @BufferAmount DECIMAL(18,2) = 50;   -- Buffer to subtract from balance
 
+-- CTE to get sum of outstanding instalments for active plans
+WITH ActivePlanInst AS (
+    SELECT 
+        sps.cnsmr_id,
+        oi.SUM_OF_OUTSTANDING_INSTALMENTS
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    INNER JOIN (
+        SELECT 
+            schdld_pymnt_smmry_id,
+            SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
+        FROM crs5_oltp.dbo.schdld_pymnt_instnc WITH (NOLOCK)
+        WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
+        GROUP BY schdld_pymnt_smmry_id
+    ) oi ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
+    WHERE sps.schdld_pymnt_smmry_stts_cd = @ActiveStatusCode
+      AND oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
+),
+-- CTE to get current balance for customers
+CurrentBalance AS (
+    SELECT 
+        cao.cnsmr_id,
+        SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
+    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    INNER JOIN crs5_oltp.dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
+        ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
+       AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = @OwnershipFlag
+       AND cab.bal_nm_id = (SELECT bal_nm_id 
+                            FROM crs5_oltp.dbo.bal_nm WITH (NOLOCK) 
+                            WHERE bal_nm = @BalanceName)
+    GROUP BY cao.cnsmr_id
+    HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
+)
+-- Final result: compare plan instalments to current balance minus buffer
+SELECT 
+    ap.cnsmr_id,
+    CASE 
+        WHEN ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @BufferAmount) 
+        THEN 1 ELSE 0 
+    END AS PlanBalanceRemaining
+FROM ActivePlanInst ap
+INNER JOIN CurrentBalance cb 
+    ON ap.cnsmr_id = cb.cnsmr_id;
 
-SELECT cao.cnsmr_id
-	  , SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
-INTO #CurrentBalance
-FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao
-INNER JOIN crs5_oltp.dbo.cnsmr_accnt_bal cab
-ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
-AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = 'N'
-AND cab.bal_nm_id = (SELECT bal_nm_id FROM crs5_oltp.dbo.bal_nm WHERE bal_nm = 'CurrentBalance')
-GROUP BY cao.cnsmr_id
-HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
-
-SELECT ap.cnsmr_id,
-	   CASE WHEN (ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance -50)) THEN 1 ELSE 0 END AS PlanBalanceRemaining
-FROM #ActivePlanInstData ap
-INNER JOIN #CurrentBalance cb On ap.cnsmr_id = cb.cnsmr_id
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
