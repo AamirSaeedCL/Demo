@@ -1,6 +1,18 @@
-Msg 207, Level 16, State 1, Line 82
-Invalid column name 'v'.
-Msg 207, Level 16, State 1, Line 82
-Invalid column name 'u'.
-
-Completion time: 2025-11-09T01:56:25.2188499+00:00
+LastDates AS (
+    SELECT aa.*,
+           CASE 
+               WHEN CAST(
+                    (SELECT MAX(val) FROM (VALUES 
+                        (ActivePlanDate_P1),(ActivePlanDate_S1),(ActivePlanDate_S2),(ActivePlanDate_S3),(ActivePlanDate_S4)
+                    ) AS t(val))
+                    AS DATE
+               ) <= CAST(
+                    (SELECT MAX(val) FROM (VALUES 
+                        (LastJAOPAY_P1),(LastJAOPAY_S1),(LastJAOPAY_S2),(LastJAOPAY_S3),(LastJAOPAY_S4)
+                    ) AS t(val))
+                    AS DATE
+               )
+               THEN 1 ELSE 0 
+           END AS JAOPAYAfterPlan
+    FROM AllAccounts AS aa
+)
