@@ -1,8 +1,10 @@
-Query 1:
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
+-- Declare constants for hard-coded values
+DECLARE @PaymentPlanStatusCompleted INT = 9;  -- From Query 2
+
+-- CTE for first instalment
 WITH FirstInstalment AS (
     SELECT
         schdld_pymnt_smmry_id,
@@ -21,6 +23,7 @@ WITH FirstInstalment AS (
     ) AS ranked
     WHERE rn = 1
 ),
+-- CTE for PaymentPlan reference values
 PaymentPlan AS (
     SELECT DISTINCT
         f.pymnt_frqncy_cd,
@@ -32,7 +35,18 @@ PaymentPlan AS (
     FROM dbo.Ref_pymnt_frqncy_cd f WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
+),
+-- CTE for PaymentPlan end date info (from Query 2)
+PlanEndDate AS (
+    SELECT 
+        sps.cnsmr_id,
+        DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(sps.schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate,
+        sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
+        sps.schdld_pymnt_smmry_id
+    FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 )
+-- Main SELECT combining everything
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
     summary.cnsmr_id AS CustomerId,
@@ -56,23 +70,20 @@ SELECT DISTINCT
     ref.schdld_pymnt_stts_val_txt AS PlanStatusText,
     CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
     summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
-    summary.upsrt_dttm AS UpsertDateTime
+    summary.upsrt_dttm AS UpsertDateTime,
+    ped.daysTillCurrentPlanEndDate,
+    ped.PaymentPlanEndDate
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
-LEFT JOIN FirstInstalment fi ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK) 
+LEFT JOIN FirstInstalment fi 
+    ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK)
     ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-JOIN PaymentPlan ref ON 
-    ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
+JOIN PaymentPlan ref
+    ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
     AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
     AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+LEFT JOIN PlanEndDate ped
+    ON ped.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-Query 2:
-SELECT sps.cnsmr_id
-		, DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate
-		, sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate	
-	FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
-	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
