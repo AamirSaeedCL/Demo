@@ -46,7 +46,7 @@ PlanEndDate AS (
     FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 ),
--- CTE for Customers filtered by Query 2 logic
+-- CTE for Query 2 customer info
 FilteredCustomers AS (
     SELECT sps.cnsmr_id, rpr.pymnt_rsn_val_txt AS PaymentPlanType
     FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
@@ -83,7 +83,7 @@ SELECT DISTINCT
     ped.PaymentPlanEndDate,
     fc.PaymentPlanType
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
-INNER JOIN FilteredCustomers fc
+LEFT JOIN FilteredCustomers fc
     ON fc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN FirstInstalment fi 
     ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
