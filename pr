@@ -1,12 +1,10 @@
-Query 1:
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 -- Declare constants for hard-coded values
-DECLARE @PaymentPlanStatusCompleted INT = 9;  
+DECLARE @PaymentPlanStatusCompleted INT = 9;
 
--- CTE for first instalment
+-- CTE for First Instalment
 WITH FirstInstalment AS (
     SELECT
         schdld_pymnt_smmry_id,
@@ -38,7 +36,7 @@ PaymentPlan AS (
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
 ),
--- CTE for PaymentPlan end date info  
+-- CTE for Plan End Date
 PlanEndDate AS (
     SELECT 
         sps.cnsmr_id,
@@ -47,8 +45,16 @@ PlanEndDate AS (
         sps.schdld_pymnt_smmry_id
     FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
+),
+-- CTE for Customers filtered by Query 2 logic
+FilteredCustomers AS (
+    SELECT sps.cnsmr_id, rpr.pymnt_rsn_val_txt AS PaymentPlanType
+    FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    LEFT JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr WITH (NOLOCK)
+        ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
+    WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 )
--- Main SELECT combining everything
+-- Main SELECT
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
     summary.cnsmr_id AS CustomerId,
@@ -74,8 +80,11 @@ SELECT DISTINCT
     summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
     summary.upsrt_dttm AS UpsertDateTime,
     ped.daysTillCurrentPlanEndDate,
-    ped.PaymentPlanEndDate
+    ped.PaymentPlanEndDate,
+    fc.PaymentPlanType
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
+INNER JOIN FilteredCustomers fc
+    ON fc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN FirstInstalment fi 
     ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
 LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK)
@@ -89,11 +98,3 @@ LEFT JOIN PlanEndDate ped
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-Query 2:
-SELECT sps.cnsmr_id
-		, rpr.pymnt_rsn_val_txt AS PaymentPlanType
-	FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
-	LEFT OUTER JOIN crs5_oltp_replicated.dbo.ref_pymnt_rsn_cd rpr
-	ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
-	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
