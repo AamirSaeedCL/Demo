@@ -10,7 +10,7 @@ DECLARE @PlanBalanceThreshold DECIMAL(18,2) = 50;
 DECLARE @JointAccountType INT = 2;
 
 -- ============================================
--- Query 1 CTEs (Unmodified)
+--  CTEs 
 -- ============================================
 WITH FirstInstalment AS (
     SELECT schdld_pymnt_smmry_id, schdld_pymnt_instnc_amnt, schdld_pymnt_instnc_dttm
@@ -125,11 +125,6 @@ LatestPaymentStatus AS (
     ) AS a
     WHERE RowNumber = 1
 ),
-
--- ============================================
--- Query 2 rewritten as CTEs (NO TEMP TABLES)
--- ============================================
-
 ALLJA AS (
     SELECT DISTINCT cnsmr_accnt_id
     FROM cnsmr_accnt_ownrs WITH (NOLOCK)
@@ -257,11 +252,9 @@ JAOFinal AS (
     INNER JOIN cnsmr_accnt_ownrs cao WITH (NOLOCK)
         ON ld.cnsmr_accnt_id = cao.cnsmr_accnt_id
 )
-
 -- ============================================
--- FINAL SELECT (Query 1 + Query 2 column)
+-- FINAL SELECT 
 -- ============================================
-
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
     summary.cnsmr_id AS CustomerId,
@@ -295,8 +288,6 @@ SELECT DISTINCT
     ojc.JointAccountCustomerPlanStatus,
     udef.PlanTypeDescription,
     lps.ScheduledPaymentStatus,
-
-    -- *** NEW COLUMN FROM QUERY 2 ***
     jaof.JaoAfterOtherConsumerPlan
 
 FROM dbo.schdld_pymnt_smmry summary WITH (NOLOCK)
@@ -315,8 +306,6 @@ LEFT JOIN DaysSincePlanCreation dspc ON dspc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN OtherJointCustomerPlan ojc ON ojc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN UDEFPaymentPlan udef ON udef.cnsmr_id = summary.cnsmr_id
 LEFT JOIN LatestPaymentStatus lps ON lps.cnsmr_id = summary.cnsmr_id
-
--- NEW JOIN for the Query 2 output
 LEFT JOIN JAOFinal jaof ON jaof.cnsmr_id = summary.cnsmr_id
 
 OPTION (RECOMPILE);
