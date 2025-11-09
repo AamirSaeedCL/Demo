@@ -1,3 +1,5 @@
+Query 1(Main Query):
+
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -152,3 +154,31 @@ LEFT JOIN DaysSincePlanCreation dspc
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+
+Query 2:
+/* All Joint Accounts & Active Plans */
+IF OBJECT_ID('tempdb..#JA') IS NOT NULL DROP TABLE #JA
+SELECT		cao.cnsmr_accnt_id, cao.cnsmr_id, sps.PlanStatus
+INTO		#JA
+FROM		(
+			SELECT		DISTINCT cao.cnsmr_accnt_id
+			FROM		cnsmr_accnt_ownrs AS cao
+			WHERE		cnsmr_accnt_ownrshp_typ_cd = 2
+			) AS ja
+INNER JOIN	cnsmr_accnt_ownrs AS cao 
+ON			ja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+LEFT JOIN	(
+			SELECT		sps.cnsmr_id, CASE WHEN sps.schdld_pymnt_smmry_stts_cd = 9 THEN 'ACTIVE' ELSE 'NONE' END AS PlanStatus
+			FROM		schdld_pymnt_smmry AS sps 
+			WHERE		sps.schdld_pymnt_smmry_stts_cd = 9	
+			) AS sps
+ON			cao.cnsmr_id = sps.cnsmr_id
+
+/* Show Plan Status for Other Joint Party */
+SELECT		ja1.cnsmr_id, ja2.PlanStatus AS OtherCustomerPlan
+FROM		#JA AS ja1
+INNER JOIN	#JA AS ja2
+ON			ja1.cnsmr_accnt_id = ja2.cnsmr_accnt_id
+WHERE		ja1.cnsmr_id <> ja2.cnsmr_id	
+ORDER BY	ja1.cnsmr_id, OtherCustomerPlan
