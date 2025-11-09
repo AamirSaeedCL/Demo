@@ -1,8 +1,10 @@
-Query 1:
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
+-- Declare constants
+DECLARE @ActiveStatusCode INT = 9;
+
+-- CTE to get the first instalment
 WITH FirstInstalment AS (
     SELECT
         schdld_pymnt_smmry_id,
@@ -56,24 +58,20 @@ SELECT DISTINCT
     ref.schdld_pymnt_stts_val_txt AS PlanStatusText,
     CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
     summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
-    summary.upsrt_dttm AS UpsertDateTime
+    summary.upsrt_dttm AS UpsertDateTime,
+    -- Additional fields from second query
+    DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(summary.schdld_pymnt_smmry_end_dttm AS DATE)) AS DaysTillCurrentPlanEndDate,
+    summary.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
-LEFT JOIN FirstInstalment fi ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN FirstInstalment fi 
+    ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
 LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK) 
     ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-JOIN PaymentPlan ref ON 
-    ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
-    AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
-    AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+JOIN PaymentPlan ref 
+    ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
+   AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
+   AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+WHERE summary.schdld_pymnt_smmry_stts_cd = @ActiveStatusCode
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-
-Query 2:
-SELECT sps.cnsmr_id
-		, DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (schdld_pymnt_smmry_end_dttm AS DATE)) AS DaysTillCurrentPlanEndDate
-		, sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate	
-	FROM crs5_oltp.dbo.schdld_pymnt_smmry sps
-	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
