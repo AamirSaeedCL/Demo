@@ -1,4 +1,3 @@
-Query 1 (Main Query):
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -121,8 +120,14 @@ OtherJointCustomerPlan AS (
     INNER JOIN JointAccountsWithPlan ja2
         ON ja1.cnsmr_accnt_id = ja2.cnsmr_accnt_id
     WHERE ja1.cnsmr_id <> ja2.cnsmr_id
+),
+-- CTE for UDEF Payment Plan Letter Vars
+UDEFPaymentPlan AS (
+    SELECT cnsmr_id, UDEFPLAN_TYPE AS PlanTypeDescription
+    FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
+    WHERE UDEFPLAN_TYPE IS NOT NULL
 )
--- Final Main SELECT combining everything
+-- Final Combined SELECT
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
     summary.cnsmr_id AS CustomerId,
@@ -153,7 +158,8 @@ SELECT DISTINCT
     pbr.PlanBalanceRemaining,
     dspc.DaysSincePlanCreationDate,
     dspc.PaymentPlanCreationDate,
-    ojc.JointAccountCustomerPlanStatus
+    ojc.JointAccountCustomerPlanStatus,
+    udef.PlanTypeDescription
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
 LEFT JOIN FilteredCustomers fc
     ON fc.cnsmr_id = summary.cnsmr_id
@@ -173,13 +179,8 @@ LEFT JOIN DaysSincePlanCreation dspc
     ON dspc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN OtherJointCustomerPlan ojc
     ON ojc.cnsmr_id = summary.cnsmr_id
+LEFT JOIN UDEFPaymentPlan udef
+    ON udef.cnsmr_id = summary.cnsmr_id
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-Query 2:
-SELECT cnsmr_id
-	, UDEFPLAN_TYPE AS PlanTypeDescription
-FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS
-WHERE UDEFPLAN_TYPE IS NOT NULL
