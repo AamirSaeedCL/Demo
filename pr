@@ -1,5 +1,3 @@
-Query 1 (Main Query):
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
@@ -128,7 +126,20 @@ UDEFPaymentPlan AS (
     SELECT cnsmr_id, UDEFPLAN_TYPE AS PlanTypeDescription
     FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
     WHERE UDEFPLAN_TYPE IS NOT NULL
+),
+-- CTE for Latest Scheduled Payment Status (Query 2)
+LatestPaymentStatus AS (
+    SELECT sps.cnsmr_id, sps.schdld_pymnt_stts_val_txt AS ScheduledPaymentStatus
+    FROM (
+        SELECT ROW_NUMBER() OVER (PARTITION BY sps.cnsmr_id ORDER BY sps.schdld_pymnt_smmry_crt_dttm DESC) AS RowNumber,
+               sps.cnsmr_id, sc.schdld_pymnt_stts_val_txt
+        FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+        INNER JOIN crs5_oltp.dbo.Ref_schdld_pymnt_stts_cd sc WITH (NOLOCK)
+            ON sps.schdld_pymnt_smmry_stts_cd = sc.schdld_pymnt_stts_cd
+    ) AS sps
+    WHERE sps.RowNumber = 1
 )
+
 -- Final Combined SELECT
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
@@ -161,7 +172,8 @@ SELECT DISTINCT
     dspc.DaysSincePlanCreationDate,
     dspc.PaymentPlanCreationDate,
     ojc.JointAccountCustomerPlanStatus,
-    udef.PlanTypeDescription
+    udef.PlanTypeDescription,
+    lps.ScheduledPaymentStatus
 FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
 LEFT JOIN FilteredCustomers fc
     ON fc.cnsmr_id = summary.cnsmr_id
@@ -183,18 +195,8 @@ LEFT JOIN OtherJointCustomerPlan ojc
     ON ojc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN UDEFPaymentPlan udef
     ON udef.cnsmr_id = summary.cnsmr_id
+LEFT JOIN LatestPaymentStatus lps
+    ON lps.cnsmr_id = summary.cnsmr_id
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-Query 2:
-SELECT		sps.cnsmr_id,sps.schdld_pymnt_stts_val_txt
-FROM		(
-			SELECT		ROW_NUMBER() OVER (PARTITION BY sps.cnsmr_id ORDER BY sps.schdld_pymnt_smmry_crt_dttm DESC) AS RowNumber,
-						sps.cnsmr_id,sc.schdld_pymnt_stts_val_txt
-			FROM		crs5_oltp.dbo.schdld_pymnt_smmry sps
-			INNER JOIN	crs5_oltp.dbo.Ref_schdld_pymnt_stts_cd sc
-			ON			sps.schdld_pymnt_smmry_stts_cd = sc.schdld_pymnt_stts_cd
-			) AS sps
-WHERE		sps.RowNumber = 1
