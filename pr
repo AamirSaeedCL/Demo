@@ -1,8 +1,10 @@
+Query 1:
+
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 -- Declare constants for hard-coded values
-DECLARE @PaymentPlanStatusCompleted INT = 9;  -- From Query 2
+DECLARE @PaymentPlanStatusCompleted INT = 9;  
 
 -- CTE for first instalment
 WITH FirstInstalment AS (
@@ -36,14 +38,14 @@ PaymentPlan AS (
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
 ),
--- CTE for PaymentPlan end date info (from Query 2)
+-- CTE for PaymentPlan end date info  
 PlanEndDate AS (
     SELECT 
         sps.cnsmr_id,
         DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(sps.schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate,
         sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
         sps.schdld_pymnt_smmry_id
-    FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 )
 -- Main SELECT combining everything
@@ -87,3 +89,11 @@ LEFT JOIN PlanEndDate ped
 OPTION (RECOMPILE);
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+Query 2:
+SELECT sps.cnsmr_id
+		, rpr.pymnt_rsn_val_txt AS PaymentPlanType
+	FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
+	LEFT OUTER JOIN crs5_oltp_replicated.dbo.ref_pymnt_rsn_cd rpr
+	ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
+	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
