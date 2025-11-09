@@ -23,7 +23,7 @@ FirstInstalment AS (
                 PARTITION BY schdld_pymnt_smmry_id 
                 ORDER BY schdld_pymnt_instnc_dttm ASC
             ) AS rn
-        FROM dbo.schdld_pymnt_instnc WITH (NOLOCK)
+        FROM [dbo].[schdld_pymnt_instnc] WITH (NOLOCK)
     ) AS ranked
     WHERE rn = 1
 ),
@@ -45,35 +45,39 @@ PlanEndDate AS (
         DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(sps.schdld_pymnt_smmry_end_dttm AS DATE)) AS DaysTillCurrentPlanEndDate,
         sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
         sps.schdld_pymnt_smmry_id
-    FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 ),
 FilteredCustomers AS (
     SELECT sps.cnsmr_id, rpr.pymnt_rsn_val_txt AS PaymentPlanType
-    FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
-    LEFT JOIN dbo.ref_pymnt_rsn_cd rpr WITH (NOLOCK)
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    LEFT JOIN crs5_oltp.dbo.ref_pymnt_rsn_cd rpr WITH (NOLOCK)
         ON sps.schdld_pymnt_rsn_cd = rpr.pymnt_rsn_cd
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 ),
 ActivePlanInstData AS (
-    SELECT sps.schdld_pymnt_smmry_id,
-           sps.cnsmr_id,
-           SUM(oi.schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
-    FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
-    INNER JOIN dbo.schdld_pymnt_instnc oi WITH (NOLOCK)
-        ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
-       AND oi.schdld_pymnt_instnc_unpaid_bal_amnt > 0
+    SELECT sps.cnsmr_id,
+           oi.SUM_OF_OUTSTANDING_INSTALMENTS
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    INNER JOIN (
+        SELECT schdld_pymnt_smmry_id,
+               SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
+        FROM crs5_oltp.dbo.schdld_pymnt_instnc WITH (NOLOCK)
+        WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
+        GROUP BY schdld_pymnt_smmry_id
+    ) oi
+    ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
-    GROUP BY sps.schdld_pymnt_smmry_id, sps.cnsmr_id
+      AND oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
 ),
 CurrentBalance AS (
     SELECT cao.cnsmr_id,
            SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
-    FROM dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
-    INNER JOIN dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
+    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    INNER JOIN crs5_oltp.dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
         ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
        AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = 'N'
-       AND cab.bal_nm_id = (SELECT bal_nm_id FROM dbo.bal_nm WITH (NOLOCK) WHERE UPPER(bal_nm) = UPPER(@BalanceName))
+       AND cab.bal_nm_id = (SELECT bal_nm_id FROM crs5_oltp.dbo.bal_nm WITH (NOLOCK) WHERE bal_nm = @BalanceName)
     GROUP BY cao.cnsmr_id
     HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
 ),
@@ -88,19 +92,19 @@ DaysSincePlanCreation AS (
     SELECT sps.cnsmr_id,
            DATEDIFF(DAY, CAST(sps.schdld_pymnt_smmry_crt_dttm AS DATE), CAST(GETDATE() AS DATE)) AS DaysSincePlanCreationDate,
            sps.schdld_pymnt_smmry_crt_dttm AS PaymentPlanCreationDate
-    FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 ),
 JointAccounts AS (
     SELECT cao.cnsmr_accnt_id, cao.cnsmr_id
-    FROM dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
     WHERE cnsmr_accnt_ownrshp_typ_cd = @JointAccountType
 ),
 JointAccountsWithPlan AS (
     SELECT ja.cnsmr_accnt_id, ja.cnsmr_id, 
            CASE WHEN sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted THEN 'ACTIVE' ELSE 'NONE' END AS PlanStatus
     FROM JointAccounts ja
-    LEFT JOIN dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    LEFT JOIN crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
         ON ja.cnsmr_id = sps.cnsmr_id
 ),
 OtherJointCustomerPlan AS (
@@ -112,7 +116,7 @@ OtherJointCustomerPlan AS (
 ),
 UDEFPaymentPlan AS (
     SELECT cnsmr_id, UDEFPLAN_TYPE AS PlanTypeDescription
-    FROM dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
+    FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
     WHERE UDEFPLAN_TYPE IS NOT NULL
 ),
 LatestPaymentStatus AS (
@@ -120,8 +124,8 @@ LatestPaymentStatus AS (
     FROM (
         SELECT ROW_NUMBER() OVER (PARTITION BY sps.cnsmr_id ORDER BY sps.schdld_pymnt_smmry_crt_dttm DESC) AS RowNumber,
                sps.cnsmr_id, sc.schdld_pymnt_stts_val_txt
-        FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
-        INNER JOIN dbo.Ref_schdld_pymnt_stts_cd sc WITH (NOLOCK)
+        FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+        INNER JOIN crs5_oltp.dbo.Ref_schdld_pymnt_stts_cd sc WITH (NOLOCK)
             ON sps.schdld_pymnt_smmry_stts_cd = sc.schdld_pymnt_stts_cd
     ) AS sps
     WHERE sps.RowNumber = 1
@@ -129,24 +133,24 @@ LatestPaymentStatus AS (
 -- Query2 CTEs
 AllJointAccounts AS (
     SELECT DISTINCT cnsmr_accnt_id
-    FROM dbo.cnsmr_accnt_ownrs WITH (NOLOCK)
+    FROM cnsmr_accnt_ownrs WITH (NOLOCK)
     WHERE cnsmr_accnt_ownrshp_typ_cd = @JointAccountType
 ),
 PrimaryConsumers AS (
     SELECT DISTINCT cao.cnsmr_id AS primary_cnsmr_id, allja.cnsmr_accnt_id
     FROM AllJointAccounts AS allja
-    INNER JOIN dbo.cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-    INNER JOIN dbo.cnsmr_Wrk_actn AS cwa WITH (NOLOCK) ON cao.cnsmr_id = cwa.cnsmr_id
-    INNER JOIN dbo.cnsmr AS c WITH (NOLOCK) ON cao.cnsmr_id = c.cnsmr_id
+    INNER JOIN cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    INNER JOIN cnsmr_Wrk_actn AS cwa WITH (NOLOCK) ON cao.cnsmr_id = cwa.cnsmr_id
+    INNER JOIN cnsmr AS c WITH (NOLOCK) ON cao.cnsmr_id = c.cnsmr_id
     WHERE cnsmr_accnt_ownrshp_typ_cd = 1
 ),
 SecondaryConsumers AS (
     SELECT ROW_NUMBER() OVER (PARTITION BY allja.cnsmr_accnt_id ORDER BY cao.cnsmr_id) AS RowNumber,
            cao.cnsmr_id AS secondary_cnsmr_id, allja.cnsmr_accnt_id
     FROM AllJointAccounts AS allja
-    INNER JOIN dbo.cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-    INNER JOIN dbo.cnsmr_Wrk_actn AS cwa WITH (NOLOCK) ON cao.cnsmr_id = cwa.cnsmr_id
-    INNER JOIN dbo.cnsmr AS c WITH (NOLOCK) ON cao.cnsmr_id = c.cnsmr_id
+    INNER JOIN cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    INNER JOIN cnsmr_Wrk_actn AS cwa WITH (NOLOCK) ON cao.cnsmr_id = cwa.cnsmr_id
+    INNER JOIN cnsmr AS c WITH (NOLOCK) ON cao.cnsmr_id = c.cnsmr_id
     WHERE cnsmr_accnt_ownrshp_typ_cd = 2
 ),
 JAOPAYLog AS (
@@ -155,18 +159,18 @@ JAOPAYLog AS (
         SELECT ROW_NUMBER() OVER (PARTITION BY caal.cnsmr_id ORDER BY caal.upsrt_dttm DESC) AS RowNumber,
                cao.cnsmr_id, caal.upsrt_dttm AS LastJAOPAY
         FROM AllJointAccounts AS allja
-        INNER JOIN dbo.cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-        INNER JOIN dbo.cnsmr_accnt_ar_log AS caal WITH (NOLOCK) ON cao.cnsmr_id = caal.cnsmr_id
-        INNER JOIN dbo.actn_Cd AS ac WITH (NOLOCK) ON caal.actn_cd = ac.actn_Cd AND UPPER(ac.actn_cd_shrt_val_txt) = 'JAO'
-        INNER JOIN dbo.rslt_Cd AS rc WITH (NOLOCK) ON caal.rslt_Cd = rc.rslt_Cd AND UPPER(rc.rslt_cd_shrt_val_txt) = 'PAY'
+        INNER JOIN cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+        INNER JOIN cnsmr_accnt_ar_log AS caal WITH (NOLOCK) ON cao.cnsmr_id = caal.cnsmr_id
+        INNER JOIN actn_Cd AS ac WITH (NOLOCK) ON caal.actn_cd = ac.actn_Cd AND ac.actn_cd_shrt_val_txt = 'JAO'
+        INNER JOIN rslt_Cd AS rc WITH (NOLOCK) ON caal.rslt_Cd = rc.rslt_Cd AND rc.rslt_cd_shrt_val_txt = 'PAY'
     ) AS ar
     WHERE ar.RowNumber = 1
 ),
 ActivePlans AS (
     SELECT sps.cnsmr_id, sps.schdld_pymnt_smmry_crt_dttm AS ActivePlanCreationDate
     FROM AllJointAccounts AS allja
-    INNER JOIN dbo.cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
-    INNER JOIN dbo.schdld_pymnt_smmry AS sps WITH (NOLOCK) ON cao.cnsmr_id = sps.cnsmr_id
+    INNER JOIN cnsmr_accnt_ownrs AS cao WITH (NOLOCK) ON allja.cnsmr_accnt_id = cao.cnsmr_accnt_id
+    INNER JOIN schdld_pymnt_smmry AS sps WITH (NOLOCK) ON cao.cnsmr_id = sps.cnsmr_id
     WHERE sps.schdld_pymnt_smmry_stts_cd = @PaymentPlanStatusCompleted
 ),
 AllAccounts AS (
@@ -212,10 +216,10 @@ SELECT DISTINCT
     summary.*,
     ljp.cnsmr_accnt_id,
     ljp.JaoAfterOtherConsumerPlan
-FROM dbo.schdld_pymnt_smmry summary WITH (NOLOCK)
+FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
 LEFT JOIN FilteredCustomers fc ON fc.cnsmr_id = summary.cnsmr_id
 LEFT JOIN FirstInstalment fi ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-LEFT JOIN dbo.cnsmr_accnt_sttlmnt settlement WITH (NOLOCK) ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK) ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
 JOIN PaymentPlan ref ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
    AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
    AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
