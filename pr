@@ -1,12 +1,13 @@
-Query 1:
-
 SET NOCOUNT ON;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 -- Declare constants
-DECLARE @ActiveStatusCode INT = 9;
+DECLARE @ActiveStatusCode INT = 9;           -- ACTIVE status
+DECLARE @OwnershipFlag CHAR(1) = 'N';       -- Ownership flag
+DECLARE @BalanceName NVARCHAR(50) = 'CurrentBalance'; 
+DECLARE @BufferAmount DECIMAL(18,2) = 50;   -- Buffer to subtract from balance
 
--- CTE to get the first instalment
+-- CTE to get the first instalment per payment summary
 WITH FirstInstalment AS (
     SELECT
         schdld_pymnt_smmry_id,
@@ -21,7 +22,7 @@ WITH FirstInstalment AS (
                 PARTITION BY schdld_pymnt_smmry_id 
                 ORDER BY schdld_pymnt_instnc_dttm ASC
             ) AS rn
-        FROM [dbo].[schdld_pymnt_instnc] WITH (NOLOCK)
+        FROM dbo.schdld_pymnt_instnc WITH (NOLOCK)
     ) AS ranked
     WHERE rn = 1
 ),
@@ -36,6 +37,39 @@ PaymentPlan AS (
     FROM dbo.Ref_pymnt_frqncy_cd f WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_stts_cd s WITH (NOLOCK)
     CROSS JOIN dbo.Ref_schdld_pymnt_typ_cd t WITH (NOLOCK)
+),
+-- Sum of outstanding instalments per active plan
+ActivePlanInst AS (
+    SELECT 
+        sps.schdld_pymnt_smmry_id,
+        sps.cnsmr_id,
+        oi.SUM_OF_OUTSTANDING_INSTALMENTS
+    FROM dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
+    INNER JOIN (
+        SELECT 
+            schdld_pymnt_smmry_id,
+            SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
+        FROM dbo.schdld_pymnt_instnc WITH (NOLOCK)
+        WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
+        GROUP BY schdld_pymnt_smmry_id
+    ) oi ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
+    WHERE sps.schdld_pymnt_smmry_stts_cd = @ActiveStatusCode
+      AND oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
+),
+-- Current balance per customer
+CurrentBalance AS (
+    SELECT 
+        cao.cnsmr_id,
+        SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
+    FROM dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
+    INNER JOIN dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
+        ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
+       AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = @OwnershipFlag
+       AND cab.bal_nm_id = (SELECT bal_nm_id 
+                            FROM dbo.bal_nm WITH (NOLOCK) 
+                            WHERE bal_nm = @BalanceName)
+    GROUP BY cao.cnsmr_id
+    HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
 )
 SELECT DISTINCT
     summary.schdld_pymnt_smmry_id AS PaymentPlanId,
@@ -61,77 +95,27 @@ SELECT DISTINCT
     CAST(CASE WHEN ref.schdld_pymnt_stts_val_txt IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS PlanStatusActive,
     summary.schdld_pymnt_smmry_crt_dttm AS CreatedDate,
     summary.upsrt_dttm AS UpsertDateTime,
-    -- Additional fields from second query
     DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(summary.schdld_pymnt_smmry_end_dttm AS DATE)) AS DaysTillCurrentPlanEndDate,
-    summary.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate
-FROM [dbo].[schdld_pymnt_smmry] summary WITH (NOLOCK)
+    summary.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate,
+    -- Plan balance remaining logic
+    CASE 
+        WHEN ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @BufferAmount) 
+        THEN 1 ELSE 0 
+    END AS PlanBalanceRemaining
+FROM dbo.schdld_pymnt_smmry summary WITH (NOLOCK)
 LEFT JOIN FirstInstalment fi 
     ON fi.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
-LEFT JOIN [dbo].[cnsmr_accnt_sttlmnt] settlement WITH (NOLOCK) 
+LEFT JOIN dbo.cnsmr_accnt_sttlmnt settlement WITH (NOLOCK) 
     ON settlement.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
 JOIN PaymentPlan ref 
     ON ref.pymnt_frqncy_cd = summary.schdld_pymnt_smmry_frqncy_cd
    AND ref.schdld_pymnt_stts_cd = summary.schdld_pymnt_smmry_stts_cd
    AND ref.schdld_pymnt_typ_cd = summary.schdld_pymnt_smmry_typ_cd
+LEFT JOIN ActivePlanInst ap
+    ON ap.schdld_pymnt_smmry_id = summary.schdld_pymnt_smmry_id
+LEFT JOIN CurrentBalance cb
+    ON cb.cnsmr_id = summary.cnsmr_id
 WHERE summary.schdld_pymnt_smmry_stts_cd = @ActiveStatusCode
 OPTION (RECOMPILE);
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-
-
-
-Query 2:
-SET NOCOUNT ON;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-
--- Declare constants
-DECLARE @ActiveStatusCode INT = 9;           -- ACTIVE status
-DECLARE @OwnershipFlag CHAR(1) = 'N';       -- Ownership flag
-DECLARE @BalanceName NVARCHAR(50) = 'CurrentBalance'; 
-DECLARE @BufferAmount DECIMAL(18,2) = 50;   -- Buffer to subtract from balance
-
--- CTE to get sum of outstanding instalments for active plans
-WITH ActivePlanInst AS (
-    SELECT 
-        sps.cnsmr_id,
-        oi.SUM_OF_OUTSTANDING_INSTALMENTS
-    FROM crs5_oltp.dbo.schdld_pymnt_smmry sps WITH (NOLOCK)
-    INNER JOIN (
-        SELECT 
-            schdld_pymnt_smmry_id,
-            SUM(schdld_pymnt_instnc_unpaid_bal_amnt) AS SUM_OF_OUTSTANDING_INSTALMENTS
-        FROM crs5_oltp.dbo.schdld_pymnt_instnc WITH (NOLOCK)
-        WHERE schdld_pymnt_instnc_unpaid_bal_amnt > 0
-        GROUP BY schdld_pymnt_smmry_id
-    ) oi ON sps.schdld_pymnt_smmry_id = oi.schdld_pymnt_smmry_id
-    WHERE sps.schdld_pymnt_smmry_stts_cd = @ActiveStatusCode
-      AND oi.SUM_OF_OUTSTANDING_INSTALMENTS IS NOT NULL
-),
--- CTE to get current balance for customers
-CurrentBalance AS (
-    SELECT 
-        cao.cnsmr_id,
-        SUM(cab.cnsmr_accnt_bal_amnt) AS currentBalance
-    FROM crs5_oltp.dbo.cnsmr_accnt_ownrs cao WITH (NOLOCK)
-    INNER JOIN crs5_oltp.dbo.cnsmr_accnt_bal cab WITH (NOLOCK)
-        ON cao.cnsmr_accnt_id = cab.cnsmr_accnt_id
-       AND cao.cnsmr_accnt_ownrshp_sft_dlt_flg = @OwnershipFlag
-       AND cab.bal_nm_id = (SELECT bal_nm_id 
-                            FROM crs5_oltp.dbo.bal_nm WITH (NOLOCK) 
-                            WHERE bal_nm = @BalanceName)
-    GROUP BY cao.cnsmr_id
-    HAVING SUM(cab.cnsmr_accnt_bal_amnt) > 0
-)
--- Final result: compare plan instalments to current balance minus buffer
-SELECT 
-    ap.cnsmr_id,
-    CASE 
-        WHEN ap.SUM_OF_OUTSTANDING_INSTALMENTS <= (cb.currentBalance - @BufferAmount) 
-        THEN 1 ELSE 0 
-    END AS PlanBalanceRemaining
-FROM ActivePlanInst ap
-INNER JOIN CurrentBalance cb 
-    ON ap.cnsmr_id = cb.cnsmr_id;
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
