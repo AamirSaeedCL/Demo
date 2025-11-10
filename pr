@@ -1,1 +1,2 @@
-
+[PlanBalanceRemaining]  has 0/1/2 deceimal value but in excel sheet has CHAR(10)
+daysSincePlanCreationDate should be int
