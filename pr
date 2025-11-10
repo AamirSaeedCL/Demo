@@ -1,2 +1,3 @@
-[PlanBalanceRemaining]  has 0/1/2 deceimal value but in excel sheet has CHAR(10)
-daysSincePlanCreationDate should be int
+Team,
+
+Could you please review the data types for the following two fields: [PlanBalanceRemaining] and daysSincePlanCreationDate? Both fields appear to be returning decimal values, whereas the attached Excel sheet specifies that they should be defined as CHAR(10).
