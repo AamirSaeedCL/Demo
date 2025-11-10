@@ -1,3 +1,1 @@
-Team,
 
-Could you please review the data types for the following two fields: [PlanBalanceRemaining] and daysSincePlanCreationDate? Both fields appear to be returning decimal values, whereas the attached Excel sheet specifies that they should be defined as CHAR(10).
