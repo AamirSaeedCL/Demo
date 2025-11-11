@@ -1,1 +1,1 @@
-
+What I learn from the past, in case we want to run initial-ingestion (Customer) pipeline, rename the existing dbo.customer to dbo.customer1 (just for backup) and then run the initial ingestion - In case someone needs it. 
