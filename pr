@@ -1,1 +1,7 @@
+As part of the PBI, we were asked to add nine new columns to both the initial ingestion and incremental pipelines of the payment plan. The final query has become quite complex due to the intricate logic required to retrieve the necessary data from multiple tables.
 
+I have reviewed the PBI in detail and have broken down the query according to the addition of each new column. While there is no immediate need to push these script files, I believe they could be useful for debugging the entire query step by step.
+
+For your reference, I am attaching these files here. They may help in troubleshooting any issues that arise in the pipeline assigned to you.
+
+Best regards,
