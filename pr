@@ -1,1 +1,1 @@
-The total number of deletions identified was 298, and according to best practices, it is recommended to process a maximum of 20 deletions per batch to maintain stability during the publishing process. Therefore, the deletions should be executed in multiple controlled batches rather than all at once.
+
