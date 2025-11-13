@@ -1,1 +1,1 @@
-The total deletion was 298 in total and as per best practice we should go 20 in one go - So ideally should go in term of batches. We can do the cherry pick from the log and apply one by one and then generate the ARM template and publish it.
+The total number of deletions identified was 298, and according to best practices, it is recommended to process a maximum of 20 deletions per batch to maintain stability during the publishing process. Therefore, the deletions should be executed in multiple controlled batches rather than all at once.
