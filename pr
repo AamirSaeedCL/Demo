@@ -1,11 +1,1 @@
-2025-11-14T13:33:41.3972628Z Template deployment validation was completed successfully.
-2025-11-14T13:33:41.3972994Z Starting Deployment.
-2025-11-14T13:33:41.3974566Z Deployment name is ARMTemplateForFactory-20251114-133337-ab72
-2025-11-14T13:34:34.3193469Z There were errors in your deployment. Error code: DeploymentFailed.
-2025-11-14T13:34:34.3224993Z ##[error]At least one resource deployment operation failed. Please list deployment operations for details. Please see https://aka.ms/arm-deployment-operations for usage details.
-2025-11-14T13:34:34.3232044Z ##[error]Details:
-2025-11-14T13:34:34.3233048Z ##[error]TumblingWindowTriggerStartTimeUpdateNotAllowed: Start time cannot be updated for Tumbling Window Trigger.null
-2025-11-14T13:34:34.3234155Z ##[error]Check out the troubleshooting guide to see if your issue is addressed: https://docs.microsoft.com/en-us/azure/devops/pipelines/tasks/deploy/azure-resource-group-deployment?view=azure-devops#troubleshooting
-2025-11-14T13:34:34.3235157Z ##[error]Task failed while creating or updating the template deployment.
-2025-11-14T13:34:34.3341393Z ##[section]Finishing: ARM Template deployment: Deploy Data Factory
 
