@@ -1,4 +1,2 @@
-
-[dbo].[CDHInteractionHistory]
-
-InsertDateTime
+DELETE FROM [dbo].[CDHInteractionHistory]
+WHERE InsertDateTime < DATEADD(DAY, -14, GETUTCDATE());
