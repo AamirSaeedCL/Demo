@@ -1,1 +1,5 @@
 
+as per the business logic, we should only update the customer Preference record where PreferenceGroupCode = 2 as mentioned here
+
+
+I've updated the customer preference record and it has successfully updated as per ADF pipeline see below
