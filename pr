@@ -1,3 +1,1 @@
-According to the defined business logic, we should only update the customer preference record where PreferenceGroupCode = 2, as outlined in the requirements.
 
-I have updated the customer preference record, and it has been successfully processed and reflected through the ADF pipeline, as shown below.
