@@ -1,5 +1,5 @@
 /* ============================================================
-   1. Last run time (already localised)
+   1. Last run datetime (already localised)
    ============================================================ */
 
 DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-12-17 14:21:41.9133333' AS DATETIME2);
@@ -14,7 +14,7 @@ DECLARE @LastRunDateTimeLocal DATETIME2 =
 
 
 /* ============================================================
-   2. Resolve CDC LSN window from last run time
+   2. Resolve CDC LSN window
    ============================================================ */
 
 DECLARE @from_lsn BINARY(10);
@@ -31,24 +31,36 @@ IF @from_lsn IS NULL
 
 
 /* ============================================================
-   3. Identify rows that changed since last run (CDC only)
+   3. Latest CDC row per (cnsmr_id, tag_id)
    ============================================================ */
 
-WITH ChangedTags AS (
-    SELECT DISTINCT
+WITH LatestCDC AS (
+    SELECT
         ct.cnsmr_id,
-        ct.tag_id
+        ct.tag_id,
+        ct.cnsmr_tag_assgn_dt,
+        ct.cnsmr_tag_sft_delete_flg,
+        ct.upsrt_dttm,
+        ROW_NUMBER() OVER (
+            PARTITION BY ct.cnsmr_id, ct.tag_id
+            ORDER BY ct.__$start_lsn DESC
+        ) AS rn
     FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag(
             @from_lsn,
             @to_lsn,
             'all'
          ) ct
-    WHERE ct.__$operation IN (2, 3, 4) -- insert / delete / update
+    WHERE ct.__$operation IN (2, 4) -- insert / update
+),
+FilteredCDC AS (
+    SELECT *
+    FROM LatestCDC
+    WHERE rn = 1
 ),
 
 
 /* ============================================================
-   4. Current-state TagData (from base tables only)
+   4. TagData – Base table with CDC overlay
    ============================================================ */
 
 TagData AS (
@@ -57,23 +69,46 @@ TagData AS (
         c.cnsmr_idntfr_lgcy_txt,
         t.tag_typ_id,
         UPPER(tt.tag_typ_shrt_nm) AS tag_typ_shrt_nm,
-        ct.cnsmr_tag_assgn_dt,
-        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y'
-             THEN ct.upsrt_dttm END AS tag_removed_dt,
-        CASE WHEN ct.cnsmr_tag_sft_delete_flg = 'Y' THEN 0 ELSE 1 END AS tag_active,
-        ct.cnsmr_tag_sft_delete_flg,
-        ct.upsrt_dttm,
+
+        /* -------- Overlay logic (CDC > BASE) -------- */
+
+        COALESCE(cdc.cnsmr_tag_assgn_dt, ct.cnsmr_tag_assgn_dt)
+            AS cnsmr_tag_assgn_dt,
+
+        CASE
+            WHEN COALESCE(cdc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
+            THEN COALESCE(cdc.upsrt_dttm, ct.upsrt_dttm)
+        END AS tag_removed_dt,
+
+        CASE
+            WHEN COALESCE(cdc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
+            THEN 0 ELSE 1
+        END AS tag_active,
+
+        COALESCE(cdc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg)
+            AS cnsmr_tag_sft_delete_flg,
+
+        COALESCE(cdc.upsrt_dttm, ct.upsrt_dttm)
+            AS upsrt_dttm,
+
         ct.tag_id AS cnsmr_tag_id
+
     FROM dbo.cnsmr c WITH (NOLOCK)
+
     JOIN dbo.cnsmr_tag ct WITH (NOLOCK)
         ON ct.cnsmr_id = c.cnsmr_id
-    JOIN ChangedTags ch
-        ON ch.cnsmr_id = ct.cnsmr_id
-       AND ch.tag_id   = ct.tag_id
+
+    /* CDC overlay */
+    LEFT JOIN FilteredCDC cdc
+        ON cdc.cnsmr_id = ct.cnsmr_id
+       AND cdc.tag_id   = ct.tag_id
+
     JOIN dbo.tag t WITH (NOLOCK)
         ON t.tag_id = ct.tag_id
+
     JOIN dbo.tag_typ tt WITH (NOLOCK)
         ON tt.tag_typ_id = t.tag_typ_id
+
     WHERE UPPER(tt.tag_typ_shrt_nm) IN (
          'DDRETCD', 'DIAL_TAG', 'DIGITAL', 'PAYPHASE', 'PHASE',
          'PLANSTAT', 'RMDTN', 'PREDEF', 'SMS', 'PLATSTAT'
@@ -82,7 +117,7 @@ TagData AS (
 
 
 /* ============================================================
-   5. Previous PlatStat (latest removed)
+   5. Previous PlatStat (latest deleted)
    ============================================================ */
 
 PreviousStatusData AS (
@@ -101,13 +136,13 @@ PreviousStatusData AS (
 
 
 /* ============================================================
-   6. Final aggregated output (unchanged logic)
+   6. Final Aggregation (unchanged business logic)
    ============================================================ */
 
 SELECT
-    td.cnsmr_id                      AS CustomerId,
-    td.cnsmr_idntfr_lgcy_txt         AS LegacyId,
-    MAX(td.upsrt_dttm)               AS UpsertDateTime,
+    td.cnsmr_id              AS CustomerId,
+    td.cnsmr_idntfr_lgcy_txt AS LegacyId,
+    MAX(td.upsrt_dttm)       AS UpsertDateTime,
 
     -- DD
     MAX(CASE WHEN tag_typ_shrt_nm = 'DDRETCD' THEN tag_typ_shrt_nm END) AS DDTag,
