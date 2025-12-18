@@ -1,1 +1,5 @@
+The pipeline is functioning correctly in the DEV environment. However, in the SIT environment we are encountering an issue with the Linked Service, where the error “User not authorized” is being raised.
 
+I discussed this with Steve, and we agreed that the issue should be forwarded to the Databricks team for further investigation.
+
+@Steve, could you please forward this ticket to the appropriate Databricks team member for review?
