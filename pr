@@ -89,48 +89,57 @@ Phone AS
 )
 
 -- ======================================
--- FINAL RESULT (FULL OUTER JOIN)
+-- FINAL RESULT (CDC-first, fallback to base table)
 -- ======================================
 SELECT
-    COALESCE(C.cnsmr_id, P.cnsmr_id) AS CustomerId,
+    COALESCE(C.cnsmr_id, P.cnsmr_id, B.cnsmr_id) AS CustomerId,
 
-    -- Consumer fields (NULL if only phone exists)
-    C.cnsmr_nm_cmmrcl_txt       AS CommercialName,
-    C.cnsmr_brth_dt             AS DateOfBirth,
-    C.cnsmr_email_txt           AS Email,
-    C.cnsmr_email_cnfrmtn_dt    AS EmailConfirmedDate,
-    C.cnsmr_email_vldty_cd      AS EmailValidityCode,
-    C.cnsmr_nm_frst_txt         AS FirstName,
-    C.wrkgrp_id                 AS WorkGroupId,
-    C.cnsmr_nm_lst_txt          AS LastName,
-    C.cnsmr_nm_mddl_txt         AS MiddleName,
-    C.cnsmr_nm_prfx_txt         AS Title,
-    C.upsrt_dttm                AS UpsertDateTime,
-    C.cnsmr_idntfr_lgcy_txt     AS LegacyId,
+    -- Consumer fields (CDC first, fallback to base table)
+    COALESCE(C.cnsmr_nm_cmmrcl_txt, B.cnsmr_nm_cmmrcl_txt) AS CommercialName,
+    COALESCE(C.cnsmr_brth_dt, B.cnsmr_brth_dt)             AS DateOfBirth,
+    COALESCE(C.cnsmr_email_txt, B.cnsmr_email_txt)         AS Email,
+    COALESCE(C.cnsmr_email_cnfrmtn_dt, B.cnsmr_email_cnfrmtn_dt) AS EmailConfirmedDate,
+    COALESCE(C.cnsmr_email_vldty_cd, B.cnsmr_email_vldty_cd)     AS EmailValidityCode,
+    COALESCE(C.cnsmr_nm_frst_txt, B.cnsmr_nm_frst_txt)     AS FirstName,
+    COALESCE(C.wrkgrp_id, B.wrkgrp_id)                     AS WorkGroupId,
+    COALESCE(C.cnsmr_nm_lst_txt, B.cnsmr_nm_lst_txt)       AS LastName,
+    COALESCE(C.cnsmr_nm_mddl_txt, B.cnsmr_nm_mddl_txt)     AS MiddleName,
+    COALESCE(C.cnsmr_nm_prfx_txt, B.cnsmr_nm_prfx_txt)     AS Title,
+    COALESCE(C.upsrt_dttm, B.upsrt_dttm)                   AS UpsertDateTime,
+    COALESCE(C.cnsmr_idntfr_lgcy_txt, B.cnsmr_idntfr_lgcy_txt) AS LegacyId,
 
     -- Derived fields
     CAST(0 AS BIT) AS IsMaster,
     CAST(0 AS BIT) AS IsActive,
-    CAST(CASE
-        WHEN C.cnsmr_email_txt IS NOT NULL
-         AND C.cnsmr_email_txt LIKE @EmailPattern
-         AND ISNULL(C.cnsmr_email_vldty_cd,1) = 1
-        THEN 1 ELSE 0 END AS BIT) AS IsValidEmail,
+    CAST(
+        CASE
+            WHEN COALESCE(C.cnsmr_email_txt, B.cnsmr_email_txt) IS NOT NULL
+             AND COALESCE(C.cnsmr_email_txt, B.cnsmr_email_txt) LIKE @EmailPattern
+             AND ISNULL(COALESCE(C.cnsmr_email_vldty_cd, B.cnsmr_email_vldty_cd),1) = 1
+            THEN 1 ELSE 0
+        END AS BIT
+    ) AS IsValidEmail,
 
     @CurrentDayOfWeek AS DayOfWeek,
 
     RD.daysTillStoredReviewDate,
     RD.monthsSinceReviewSetDate,
 
+    -- CDC flags (consumer CDC only)
     CAST(CASE WHEN C.__$operation = @CDC_OP_DELETE THEN 1 ELSE 0 END AS BIT) AS IsDeleted,
     CAST(CASE WHEN C.__$operation = @CDC_OP_DELETE THEN 'DMArchive' ELSE NULL END AS VARCHAR(MAX)) AS PegaRemovalReason,
 
-    -- Phone fields (NULL if only consumer exists)
+    -- Phone fields
     P.IsValidMobile,
     P.ValidPhoneNumber
 
 FROM Cnsrm C
 FULL OUTER JOIN Phone P
     ON C.cnsmr_id = P.cnsmr_id
+
+-- Base table fallback
+LEFT JOIN dbo.cnsmr B
+    ON B.cnsmr_id = COALESCE(C.cnsmr_id, P.cnsmr_id)
+
 LEFT JOIN ReviewDates RD
-    ON C.cnsmr_id = RD.cnsmr_id;
+    ON RD.cnsmr_id = COALESCE(C.cnsmr_id, P.cnsmr_id);
