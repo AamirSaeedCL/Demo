@@ -7,12 +7,29 @@ BEGIN
     BEGIN TRY
         BEGIN TRAN;
 
-        -- Update customers' IsValidMobile and ValidPhoneNumber flags where CustomerId matches
+        -- Update existing rows in stg.Customer
         UPDATE c
         SET c.IsValidMobile = cbs.IsValidMobile,
-        c.ValidPhoneNumber = cbs.ValidPhoneNumber
+            c.ValidPhoneNumber = cbs.ValidPhoneNumber
         FROM stg.Customer c
-        INNER JOIN stg.CustomerMobileStatus cbs ON c.CustomerId = cbs.CustomerId;
+        INNER JOIN stg.CustomerMobileStatus cbs 
+            ON c.CustomerId = cbs.CustomerId;
+
+        -- AMR - If a customer's phone number has changed and there is no corresponding row in the CDC/staging table,
+        -- the record will not exist in stg.Customer. In such cases, we need to ensure that the master record
+        -- in dbo.Customer is updated directly.
+
+        UPDATE dc
+        SET dc.IsValidMobile = cbs.IsValidMobile,
+            dc.ValidPhoneNumber = cbs.ValidPhoneNumber
+        FROM dbo.Customer dc
+        INNER JOIN stg.CustomerMobileStatus cbs 
+            ON dc.CustomerId = cbs.CustomerId
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM stg.Customer c
+            WHERE c.CustomerId = dc.CustomerId
+        );
 
         COMMIT TRAN;
     END TRY
