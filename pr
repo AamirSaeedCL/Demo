@@ -1,4 +1,4 @@
-IF EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[stg].[CustomerMobileStatus') AND type = N'U')
+IF OBJECT_ID(N'[stg].[CustomerMobileStatus]', N'U') IS NOT NULL
 BEGIN
     TRUNCATE TABLE [stg].[CustomerMobileStatus];
 END
