@@ -1,7 +1,106 @@
-N PhoneNumber LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+=========query 1
 
-   CASE
-        WHEN PhoneNumber LIKE '0[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-        THEN 1
-        ELSE 0
-    END AS IsValid
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+-- ======================================
+-- Data Constants
+-- ======================================
+DECLARE @CurrentDayOfWeek NVARCHAR(10) = DATENAME(WEEKDAY, GETDATE());
+DECLARE @EmailPattern VARCHAR(50) = '%_@__%.__%';
+
+-- CDC Operation Variables
+DECLARE @CDC_OP_DELETE INT = 1;
+DECLARE @CDC_OP_INSERT INT = 2;
+DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
+DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
+
+DECLARE @LastRunDateTimeCorrected DATETIME2 = 
+    CAST(@LastRunDateTime AT TIME ZONE 'UTC' AT TIME ZONE 'GMT Standard Time' AS DATETIME);
+DECLARE @from_lsn AS BINARY(10) = [sys].[fn_cdc_map_time_to_lsn]('smallest greater than or equal', @LastRunDateTimeCorrected);
+DECLARE @to_lsn AS BINARY(10) = [sys].[fn_cdc_get_max_lsn]();
+DECLARE @min_valid_lsn BINARY(10) = [sys].[fn_cdc_get_min_lsn]('dbo_cnsmr');
+
+-- Ensure valid LSN
+IF @from_lsn < @min_valid_lsn OR @from_lsn IS NULL
+    SET @from_lsn = @min_valid_lsn;
+
+-- ======================================
+-- CTE #1: ReviewDates
+-- ======================================
+WITH ReviewDates AS
+(
+    SELECT 
+        ur.cnsmr_id,
+        DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(ur.UDEFREV_DATE AS DATE)) AS daysTillStoredReviewDate,
+        DATEDIFF(MONTH, CAST(ur.UDEFREV_SET AS DATE), CAST(GETDATE() AS DATE)) AS monthsSinceReviewSetDate
+    FROM crs5_oltp.dbo.UDEFREVIEW ur
+    WHERE ur.UDEFREV_DATE IS NOT NULL
+       OR ur.UDEFREV_SET IS NOT NULL
+)
+
+-- ======================================
+-- Main Query joined with both CTEs
+-- ======================================
+SELECT
+    C.[cnsmr_id] AS [CustomerId],
+    C.[cnsmr_nm_cmmrcl_txt] AS [CommercialName],
+    C.[cnsmr_brth_dt] AS [DateOfBirth],
+    C.[cnsmr_email_txt] AS [Email],
+    C.[cnsmr_email_cnfrmtn_dt] AS [EmailConfirmedDate],
+    C.[cnsmr_email_vldty_cd] AS [EmailValidityCode],
+    C.[cnsmr_nm_frst_txt] AS [FirstName],
+    C.[wrkgrp_id] AS [WorkGroupId],
+    C.[cnsmr_nm_lst_txt] AS [LastName],
+    C.[cnsmr_nm_mddl_txt] AS [MiddleName],
+    C.[cnsmr_nm_prfx_txt] AS [Title],
+    C.[upsrt_dttm] AS [UpsertDateTime],
+    CAST(0 AS BIT) AS [IsMaster],
+    CAST(0 AS BIT) AS [IsActive],
+    CAST(
+        CASE
+            WHEN C.[cnsmr_email_txt] IS NOT NULL
+             AND C.[cnsmr_email_txt] LIKE @EmailPattern
+             AND ISNULL(C.[cnsmr_email_vldty_cd], 1) = 1 
+            THEN 1
+            ELSE 0
+        END AS BIT
+    ) AS [IsValidEmail],
+    @CurrentDayOfWeek AS [DayOfWeek],
+    C.[cnsmr_idntfr_lgcy_txt] AS [LegacyId],
+    RD.daysTillStoredReviewDate,
+    RD.monthsSinceReviewSetDate,
+	CAST(CASE WHEN [C].[__$operation] = @CDC_OP_DELETE THEN 1 ELSE 0 END AS BIT) AS [IsDeleted],
+	CAST(CASE WHEN [C].[__$operation] = @CDC_OP_DELETE THEN 'DMArchive' ELSE NULL END AS VARCHAR(MAX)) AS [PegaRemovalReason]
+FROM [cdc].[fn_cdc_get_net_changes_dbo_cnsmr](@from_lsn, @to_lsn, 'all') AS C
+LEFT JOIN ReviewDates AS RD
+    ON C.cnsmr_id = RD.cnsmr_id
+WHERE C.__$operation IN (@CDC_OP_DELETE, @CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER);
+
+
+=======================Query 2
+
+SELECT
+    [CP].[cnsmr_id] AS [CustomerId]
+,   CAST(MAX(CASE
+            WHEN [CP].[cnsmr_phn_nmbr_txt] LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+			     AND [CP].[cnsmr_phn_typ_cd] IN (3) -- CELL
+                 AND [CP].[cnsmr_phn_stts_cd] IN (0, 1, 3) -- UNKNOWN, VALID, NEW 
+                 AND [CP].[cnsmr_phn_sft_dlt_flg] = @SoftDeleteFlag
+                 THEN 1
+            ELSE 0
+        END
+    ) AS BIT) AS [IsValidMobile],
+   MAX(CASE
+            WHEN [CP].[cnsmr_phn_nmbr_txt] LIKE '0[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+			     AND [CP].[cnsmr_phn_typ_cd] IN (1,2) -- HOME, WORK
+                 AND [CP].[cnsmr_phn_stts_cd] IN (0, 1, 3) -- UNKNOWN, VALID, NEW 
+                 AND [CP].[cnsmr_phn_sft_dlt_flg] = @SoftDeleteFlag
+                 THEN 'Y'
+            ELSE 'N'
+        END
+    )  AS [ValidPhoneNumber]
+FROM [cdc].[fn_cdc_get_net_changes_dbo_cnsmr_Phn](@from_lsn, @to_lsn, 'all') AS [C]
+INNER JOIN [dbo].[cnsmr_Phn] AS [CP]
+    ON [C].[cnsmr_id] = [CP].[cnsmr_id]
+WHERE [C].[__$operation] IN (@CDC_OP_DELETE, @CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
+GROUP BY [CP].[cnsmr_id]
