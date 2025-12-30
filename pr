@@ -1,4 +1,1 @@
-IF OBJECT_ID(N'[stg].[CustomerMobileStatus]', N'U') IS NOT NULL
-BEGIN
-    TRUNCATE TABLE [stg].[CustomerMobileStatus];
-END
+
