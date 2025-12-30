@@ -1,145 +1,25 @@
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+CREATE PROCEDURE [stg].[usp_Customer_Ingestion_UpdateCustomerIsValidMobile]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;  -- Automatically rolls back on runtime errors!
 
--- ======================================
--- Constants
--- ======================================
-DECLARE @CurrentDayOfWeek NVARCHAR(10) = DATENAME(WEEKDAY, GETDATE());
-DECLARE @EmailPattern VARCHAR(50) = '%_@__%.__%';
+    BEGIN TRY
+        BEGIN TRAN;
 
-DECLARE @CDC_OP_DELETE INT = 1;
-DECLARE @CDC_OP_INSERT INT = 2;
-DECLARE @CDC_OP_UPDATE_AFTER INT = 4;
+        -- Update customers' IsValidMobile and ValidPhoneNumber flags where CustomerId matches
+        UPDATE c
+        SET c.IsValidMobile = cbs.IsValidMobile,
+        c.ValidPhoneNumber = cbs.ValidPhoneNumber
+        FROM stg.Customer c
+        INNER JOIN stg.CustomerMobileStatus cbs ON c.CustomerId = cbs.CustomerId;
 
-DECLARE @LastRunDateTime DATETIME2 = TRY_CAST('2025-01-01' AS DATETIME2);
-DECLARE @LastRunDateTimeCorrected DATETIME2 =
-    CAST(@LastRunDateTime AT TIME ZONE 'UTC' AT TIME ZONE 'GMT Standard Time' AS DATETIME);
-
-DECLARE @from_lsn BINARY(10) = sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', @LastRunDateTimeCorrected);
-DECLARE @to_lsn   BINARY(10) = sys.fn_cdc_get_max_lsn();
-DECLARE @min_valid_lsn BINARY(10) = sys.fn_cdc_get_min_lsn('dbo_cnsmr');
-
-IF @from_lsn < @min_valid_lsn OR @from_lsn IS NULL
-    SET @from_lsn = @min_valid_lsn;
-
-DECLARE @SoftDeleteFlag BIT = 0;
-
--- ======================================
--- ReviewDates CTE
--- ======================================
-WITH ReviewDates AS
-(
-    SELECT 
-        ur.cnsmr_id,
-        DATEDIFF(DAY, CAST(GETDATE() AS DATE), CAST(ur.UDEFREV_DATE AS DATE)) AS daysTillStoredReviewDate,
-        DATEDIFF(MONTH, CAST(ur.UDEFREV_SET AS DATE), CAST(GETDATE() AS DATE)) AS monthsSinceReviewSetDate
-    FROM crs5_oltp.dbo.UDEFREVIEW ur
-    WHERE ur.UDEFREV_DATE IS NOT NULL
-       OR ur.UDEFREV_SET IS NOT NULL
-),
-
--- ======================================
--- CDC Consumer
--- ======================================
-Cnsrm AS
-(
-    SELECT
-        C.cnsmr_id,
-        C.cnsmr_nm_cmmrcl_txt,
-        C.cnsmr_brth_dt,
-        C.cnsmr_email_txt,
-        C.cnsmr_email_cnfrmtn_dt,
-        C.cnsmr_email_vldty_cd,
-        C.cnsmr_nm_frst_txt,
-        C.wrkgrp_id,
-        C.cnsmr_nm_lst_txt,
-        C.cnsmr_nm_mddl_txt,
-        C.cnsmr_nm_prfx_txt,
-        C.upsrt_dttm,
-        C.cnsmr_idntfr_lgcy_txt,
-        C.__$operation
-    FROM cdc.fn_cdc_get_net_changes_dbo_cnsmr(@from_lsn, @to_lsn, 'all') C
-    WHERE C.__$operation IN (@CDC_OP_DELETE, @CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-),
-
--- ======================================
--- CDC Phone (Aggregated)
--- ======================================
-Phone AS
-(
-    SELECT
-        CP.cnsmr_id,
-        CAST(MAX(CASE
-            WHEN CP.cnsmr_phn_nmbr_txt LIKE '07[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-             AND CP.cnsmr_phn_typ_cd = 3
-             AND CP.cnsmr_phn_stts_cd IN (0,1,3)
-             AND CP.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-            THEN 1 ELSE 0 END) AS BIT) AS IsValidMobile,
-
-        MAX(CASE
-            WHEN CP.cnsmr_phn_nmbr_txt LIKE '0[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-             AND CP.cnsmr_phn_typ_cd IN (1,2)
-             AND CP.cnsmr_phn_stts_cd IN (0,1,3)
-             AND CP.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-            THEN 'Y' ELSE 'N' END) AS ValidPhoneNumber
-    FROM cdc.fn_cdc_get_net_changes_dbo_cnsmr_Phn(@from_lsn, @to_lsn, 'all') C
-    JOIN dbo.cnsmr_Phn CP
-        ON C.cnsmr_id = CP.cnsmr_id
-    WHERE C.__$operation IN (@CDC_OP_DELETE, @CDC_OP_INSERT, @CDC_OP_UPDATE_AFTER)
-    GROUP BY CP.cnsmr_id
-)
-
--- ======================================
--- FINAL RESULT (CDC-first, fallback to base table)
--- ======================================
-SELECT
-    COALESCE(C.cnsmr_id, P.cnsmr_id, B.cnsmr_id) AS CustomerId,
-
-    -- Consumer fields (CDC first, fallback to base table)
-    COALESCE(C.cnsmr_nm_cmmrcl_txt, B.cnsmr_nm_cmmrcl_txt) AS CommercialName,
-    COALESCE(C.cnsmr_brth_dt, B.cnsmr_brth_dt)             AS DateOfBirth,
-    COALESCE(C.cnsmr_email_txt, B.cnsmr_email_txt)         AS Email,
-    COALESCE(C.cnsmr_email_cnfrmtn_dt, B.cnsmr_email_cnfrmtn_dt) AS EmailConfirmedDate,
-    COALESCE(C.cnsmr_email_vldty_cd, B.cnsmr_email_vldty_cd)     AS EmailValidityCode,
-    COALESCE(C.cnsmr_nm_frst_txt, B.cnsmr_nm_frst_txt)     AS FirstName,
-    COALESCE(C.wrkgrp_id, B.wrkgrp_id)                     AS WorkGroupId,
-    COALESCE(C.cnsmr_nm_lst_txt, B.cnsmr_nm_lst_txt)       AS LastName,
-    COALESCE(C.cnsmr_nm_mddl_txt, B.cnsmr_nm_mddl_txt)     AS MiddleName,
-    COALESCE(C.cnsmr_nm_prfx_txt, B.cnsmr_nm_prfx_txt)     AS Title,
-    COALESCE(C.upsrt_dttm, B.upsrt_dttm)                   AS UpsertDateTime,
-    COALESCE(C.cnsmr_idntfr_lgcy_txt, B.cnsmr_idntfr_lgcy_txt) AS LegacyId,
-
-    -- Derived fields
-    CAST(0 AS BIT) AS IsMaster,
-    CAST(0 AS BIT) AS IsActive,
-    CAST(
-        CASE
-            WHEN COALESCE(C.cnsmr_email_txt, B.cnsmr_email_txt) IS NOT NULL
-             AND COALESCE(C.cnsmr_email_txt, B.cnsmr_email_txt) LIKE @EmailPattern
-             AND ISNULL(COALESCE(C.cnsmr_email_vldty_cd, B.cnsmr_email_vldty_cd),1) = 1
-            THEN 1 ELSE 0
-        END AS BIT
-    ) AS IsValidEmail,
-
-    @CurrentDayOfWeek AS DayOfWeek,
-
-    RD.daysTillStoredReviewDate,
-    RD.monthsSinceReviewSetDate,
-
-    -- CDC flags (consumer CDC only)
-    CAST(CASE WHEN C.__$operation = @CDC_OP_DELETE THEN 1 ELSE 0 END AS BIT) AS IsDeleted,
-    CAST(CASE WHEN C.__$operation = @CDC_OP_DELETE THEN 'DMArchive' ELSE NULL END AS VARCHAR(MAX)) AS PegaRemovalReason,
-
-    -- Phone fields
-    P.IsValidMobile,
-    P.ValidPhoneNumber
-
-FROM Cnsrm C
-FULL OUTER JOIN Phone P
-    ON C.cnsmr_id = P.cnsmr_id
-
--- Base table fallback
-LEFT JOIN dbo.cnsmr B
-    ON B.cnsmr_id = COALESCE(C.cnsmr_id, P.cnsmr_id)
-
-LEFT JOIN ReviewDates RD
-    ON RD.cnsmr_id = COALESCE(C.cnsmr_id, P.cnsmr_id);
+        COMMIT TRAN;
+    END TRY
+    BEGIN CATCH
+        -- Rollback if any error occurs and throw an error back to ADF pipeline
+        IF XACT_STATE() <> 0
+            ROLLBACK TRAN;
+        THROW;
+    END CATCH
+END;
