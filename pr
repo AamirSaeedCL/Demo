@@ -1,1 +1,7 @@
+   SELECT cnsmr_id, UDEFPLAN_TYPE AS PlanTypeDescription, 
+    FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
+    WHERE UDEFPLAN_TYPE IS NOT NULL
 
+ 
+
+	Ref_schdld_pymnt_typ_cd.schdld_pymnt_typ_dscrptn_txt
