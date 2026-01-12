@@ -1,7 +1,19 @@
-   SELECT cnsmr_id, UDEFPLAN_TYPE AS PlanTypeDescription, 
-    FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
-    WHERE UDEFPLAN_TYPE IS NOT NULL
+Hi Team,
 
- 
+As per the current implementation, the PlanTypeDescription is being retrieved from the UDEFPAYMENT_PLAN_LETTER_VARS table for the corresponding customer.
 
-	Ref_schdld_pymnt_typ_cd.schdld_pymnt_typ_dscrptn_txt
+SELECT 
+    cnsmr_id, 
+    UDEFPLAN_TYPE AS PlanTypeDescription
+FROM crs5_oltp.dbo.UDEFPAYMENT_PLAN_LETTER_VARS WITH (NOLOCK)
+WHERE UDEFPLAN_TYPE IS NOT NULL
+
+
+However, for the current customer, there is no corresponding record available in this table. As a result, the query returns NULL, which is why the PlanTypeDescription is not being populated.
+
+To address this scenario, I have introduced additional logic such that when the above query does not return a value (i.e., PlanTypeDescription is NULL for the given customerId), the system will instead retrieve a default value from the lookup table:
+
+Ref_schdld_pymnt_typ_cd.schdld_pymnt_typ_dscrptn_txt
+
+
+Please confirm if this approach is acceptable so that I can proceed with raising a Pull Request.
