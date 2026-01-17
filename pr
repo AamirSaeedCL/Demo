@@ -1,9 +1,8 @@
-/* =========================================================
-   PARAMETERS FROM PIPELINE
-========================================================= */
+Pre tags:
+
 DECLARE @LastRunDateTime DATETIME2 =
     TRY_CAST(
-        '1990-01-01'
+        '@{activity(''Lookup the pipeline log table to fetch lastrundatetime'').output.value[0].LastRunDateTime}'
         AS DATETIME2
     );
 
@@ -18,83 +17,39 @@ DECLARE @LastRunDateTimeLocal DATETIME2 =
         ) AS DATETIME2
     );
 
-DECLARE @TagTypeId INT = 98; -- '';   
---98	DDRETCD  ----> 268
---84	DIAL_TAG  ----> 176,210
---123	DIGITAL  ----> 17
---206	PAYPHASE  ----> 43
---136	PHASE  ----> 5
---92	PlanStat  ----> 1,497,709
---48	PlatStat  ----> 948,404
---125	PreDef  ----> 10,014
---111	RMDTN  ----> 20
---122	SMS  ----> 164
-
 /* =========================================================
-   STEP 1: Latest change per consumer+tag (incremental)
+   Step 1: Only removed tags (pre-tags)
 ========================================================= */
-WITH LatestTagChange AS (
-    SELECT
-        ct.cnsmr_id,
-        ct.tag_id,
-        ct.cnsmr_tag_assgn_dt,
-        ct.cnsmr_tag_sft_delete_flg,
-        ct.upsrt_dttm,
-        ROW_NUMBER() OVER (
-            PARTITION BY ct.cnsmr_id, ct.tag_id
-            ORDER BY ct.upsrt_dttm DESC
-        ) AS rn
-    FROM dbo.cnsmr_tag ct
-    WHERE ct.upsrt_dttm >= @LastRunDateTimeLocal
-),
-
-FilteredTagChange AS (
-    SELECT *
-    FROM LatestTagChange
-    WHERE rn = 1
-),
-
-/* =========================================================
-   STEP 2: Final tag data for THIS tag type
-========================================================= */
-TagDataLatest AS (
+WITH LatestRemovedTags AS (
     SELECT
         ct.cnsmr_id,
         t.tag_shrt_nm,
-        COALESCE(fc.cnsmr_tag_assgn_dt, ct.cnsmr_tag_assgn_dt) AS cnsmr_tag_assgn_dt,
-        CASE
-            WHEN COALESCE(fc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
-            THEN COALESCE(fc.upsrt_dttm, ct.upsrt_dttm)
-        END AS tag_removed_dt,
-        CASE
-            WHEN COALESCE(fc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
-            THEN CAST(0 AS bit)
-            ELSE CAST(1 AS bit)
-        END AS tag_active,
-        COALESCE(fc.upsrt_dttm, ct.upsrt_dttm) AS upsrt_dttm,
+        tt.tag_typ_shrt_nm,
+        ct.cnsmr_tag_assgn_dt,
+        ct.upsrt_dttm AS TagRemovedDate,
         ROW_NUMBER() OVER (
             PARTITION BY ct.cnsmr_id
-            ORDER BY COALESCE(fc.upsrt_dttm, ct.upsrt_dttm) DESC
+            ORDER BY ct.upsrt_dttm DESC
         ) AS rn
     FROM dbo.cnsmr_tag ct
     JOIN dbo.tag t
         ON t.tag_id = ct.tag_id
-		AND t.tag_typ_id = @TagTypeId
-    LEFT JOIN FilteredTagChange fc
-        ON fc.cnsmr_id = ct.cnsmr_id
-       AND fc.tag_id   = ct.tag_id
+    JOIN dbo.tag_typ tt
+        ON tt.tag_typ_id = t.tag_typ_id
+       AND tt.tag_typ_shrt_nm = 'PLATSTAT'   -- Only tags tracked as pre-tags
+    WHERE ct.cnsmr_tag_sft_delete_flg = 'Y'
+      AND ct.upsrt_dttm >= @LastRunDateTimeLocal
 )
 
 /* =========================================================
-   STEP 3: Output current tags for this tag type
+   Step 2: Output latest removed tag per customer
 ========================================================= */
 SELECT
     cnsmr_id           AS CustomerId,
-    tag_shrt_nm        AS TagValue,
+    tag_shrt_nm        AS PreTagValue,
+    tag_typ_shrt_nm    AS TagType,
     cnsmr_tag_assgn_dt AS TagAssignedDate,
-    tag_removed_dt     AS TagRemovedDate,
-    tag_active         AS TagActive,
-    upsrt_dttm         AS UpsertDateTime
-FROM TagDataLatest
+    TagRemovedDate
+FROM LatestRemovedTags
 WHERE rn = 1
-ORDER BY cnsmr_id, upsrt_dttm DESC;
+ORDER BY cnsmr_id, TagRemovedDate DESC;
