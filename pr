@@ -1,16 +1,46 @@
-Hi Team,Fyi, Re-Customer tags (Initial ingestion) pipeline, I've tried to do it thorugh Copy activity but got an error (timeout) after 2 hours, which is the default settings in copy activity - I've then increased it to 12 hours but still got an error (log file full etc) also it seems query got struck etc.
-I still remember that customer tags pipeline in MLP1 was nightmare. What I have done, I've created a new child pipeline and split the master query in to different parts (based on tag types) - We can easily do it as we have hardcoded column names against each tag type in our table as you know.
-So, I end up following, first I load the 'PlanStat' tags rows as  as records it has more records then any other tag types and insert it bluk - then after that one by one load the other tags types thorugh upsert. Look at the execuation time now, it has reduced signatifantly.
-I have matched the total rows and they are matching with DM.
---Id  Tag-Type       Total Rows 
---92	PlanStat  ----> 1,497,709  (Bulk insert,)
---98	DDRETCD  ----> 268 (upsert)
---84	DIAL_TAG  ----> 176,210 (upsert)
---123	DIGITAL  ----> 17 (upsert)
---206	PAYPHASE  ----> 43 (upsert)
---136	PHASE  ----> 5 (upsert)
---48	PlatStat  ----> 948,404 (upsert)
---125	PreDef  ----> 10,014 (upsert)
---111	RMDTN  ----> 20 (upsert)
---122	SMS  ----> 164 (upsert)
-I will raise a PR shortly.
+Re-Customer Tags – Initial Ingestion Pipeline Update
+
+For the Re-Customer Tags (initial ingestion) pipeline, I initially attempted to run the full load using a single Copy Activity. However, this consistently failed due to execution time and resource constraints.
+
+The Copy Activity timed out after 2 hours (default setting).
+
+Increasing the timeout to 12 hours did not resolve the issue; the run still failed with errors such as log file full, and the query appeared to become stuck.
+
+This behaviour is consistent with the challenges we previously faced with the Customer Tags pipeline in MLP1, which was problematic due to data volume and query complexity.
+
+What I changed
+
+Created a new child pipeline
+
+Split the original master query into multiple parts based on tag type
+
+This was straightforward as we already have hardcoded column mappings per tag type in the target table
+
+Revised execution approach
+
+Load PlanStat tags first using a bulk insert (highest data volume)
+
+Load the remaining tag types sequentially using upsert logic
+
+This avoids Copy Activity resource saturation and long-running transactions
+
+Results and validation
+
+Execution time has been reduced significantly
+
+Total row counts have been validated and match DM.
+
+Tag ID  Tag Type    Total Rows   Load Type
+92      PlanStat    1,497,709    Bulk insert
+98      DDRETCD     268          Upsert
+84      DIAL_TAG    176,210      Upsert
+123     DIGITAL     17           Upsert
+206     PAYPHASE    43           Upsert
+136     PHASE       5            Upsert
+48      PlatStat    948,404      Upsert
+125     PreDef      10,014       Upsert
+111     RMDTN       20           Upsert
+122     SMS         164          Upsert
+
+
+I’ll raise a PR shortly with the updated pipeline structure and implementation.
