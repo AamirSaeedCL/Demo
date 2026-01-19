@@ -1,1 +1,21 @@
 
+DECLARE LastRunDateTime DATETIME2 =
+    TRY_CAST(
+        '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output}'
+        AS DATETIME2
+    );
+
+DECLARE LastRunDateTimeLocal DATETIME2 =
+    CAST(
+        SWITCHOFFSET(
+            LastRunDateTime AT TIME ZONE 'UTC',
+            DATENAME(
+                TzOffset,
+                SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time'
+            )
+        ) AS DATETIME2
+    );
+
+
+Failure happened on 'Source' side. 'Type=Microsoft.Data.SqlClient.SqlException,Message='DATETIME2' is not a recognized CURSOR option.
+'DATETIME2' is not a recognized CURSOR option.,Source=Framework Microsoft SqlClient Data Provider,'
