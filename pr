@@ -1,1 +1,15 @@
-
+Hi Team,Fyi, Re-Customer tags (Initial ingestion) pipeline, I've tried to do it thorugh Copy activity but got an error (timeout) after 2 hours, which is the default settings in copy activity - I've then increased it to 12 hours but still got an error (log file full etc) also it seems query got struck etc.
+I still remember that customer tags pipeline in MLP1 was nightmare. What I have done, I've created a new child pipeline and split the master query in to different parts (based on tag types) - We can easily do it as we have hardcoded column names against each tag type in our table as you know.
+So, I end up following, first I load the 'PlanStat' tags rows as  as records it has more records then any other tag types and insert it bluk - then after that one by one load the other tags types thorugh upsert.
+I have matched the total rows and they are matching with DM.
+--Id  Tag-Type       Total Rows 
+--92	PlanStat  ----> 1,497,709  (Bulk insert,)
+--98	DDRETCD  ----> 268 (upsert)
+--84	DIAL_TAG  ----> 176,210 (upsert)
+--123	DIGITAL  ----> 17 (upsert)
+--206	PAYPHASE  ----> 43 (upsert)
+--136	PHASE  ----> 5 (upsert)
+--48	PlatStat  ----> 948,404 (upsert)
+--125	PreDef  ----> 10,014 (upsert)
+--111	RMDTN  ----> 20 (upsert)
+--122	SMS  ----> 164 (upsert)
