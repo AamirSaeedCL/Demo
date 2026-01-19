@@ -1,36 +1,16 @@
-DECLARE LastRunDateTime DATETIME2 =
-    TRY_CAST(
-        '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output}'
-        AS DATETIME2
-    );
-
-DECLARE LastRunDateTimeLocal DATETIME2 =
-    CAST(
-        SWITCHOFFSET(
-            LastRunDateTime AT TIME ZONE 'UTC',
-            DATENAME(
-                TzOffset,
-                SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time'
-            )
-        ) AS DATETIME2
-    );
-
-/* =========================================================
-   Step 1: Only removed tags (pre-tags)
-========================================================= */
 WITH LatestRemovedTags AS (
     SELECT
         ct.cnsmr_id,
         t.tag_shrt_nm,
         tt.tag_typ_shrt_nm,
         ct.upsrt_dttm,
-		COALESCE(ct.cnsmr_tag_assgn_dt, ct.cnsmr_tag_assgn_dt) AS cnsmr_tag_assgn_dt,
+        ct.cnsmr_tag_assgn_dt,
         CASE
-            WHEN COALESCE(ct.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
-            THEN COALESCE(ct.upsrt_dttm, ct.upsrt_dttm)
+            WHEN ct.cnsmr_tag_sft_delete_flg = 'Y'
+            THEN ct.upsrt_dttm
         END AS tag_removed_dt,
         CASE
-            WHEN COALESCE(ct.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
+            WHEN ct.cnsmr_tag_sft_delete_flg = 'Y'
             THEN CAST(0 AS bit)
             ELSE CAST(1 AS bit)
         END AS tag_active,
@@ -43,14 +23,23 @@ WITH LatestRemovedTags AS (
         ON t.tag_id = ct.tag_id
     JOIN dbo.tag_typ tt
         ON tt.tag_typ_id = t.tag_typ_id
-       AND tt.tag_typ_shrt_nm = 'PLATSTAT'   -- Only tags tracked as pre-tags
+       AND tt.tag_typ_shrt_nm = 'PLATSTAT'
     WHERE ct.cnsmr_tag_sft_delete_flg = 'Y'
-      AND ct.upsrt_dttm >= LastRunDateTimeLocal
+      AND ct.upsrt_dttm >=
+        CAST(
+            SWITCHOFFSET(
+                TRY_CAST(
+                    '@{activity('Lookup the pipeline log table to fetch lastrundatetime').output}'
+                    AS DATETIME2
+                ) AT TIME ZONE 'UTC',
+                DATENAME(
+                    TzOffset,
+                    SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time'
+                )
+            ) AS DATETIME2
+        )
 )
 
-/* =========================================================
-   Step 2: Output latest removed tag per customer
-========================================================= */
 SELECT
     cnsmr_id           AS CustomerId,
     tag_shrt_nm        AS TagValue,
