@@ -1,1 +1,5 @@
 
+I have removed the cnsmr master table from the main queries (during ETL process) - But to insert the rows I need to insert that legacyId as Null.
+ 
+then during dataflow when we are updating CustomerGroupId at the same time , I have updated the legacyId as well. 
+legacyId is not null in dbo table (Only allow null in stg table).
