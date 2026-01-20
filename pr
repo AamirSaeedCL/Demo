@@ -1,5 +1,7 @@
+I have removed the Consumer Master table from the primary query paths during the ETL process in order to reduce query complexity and significantly improve data retrieval performance and execution speed.
 
-I have removed the cnsmr master table from the main queries (during ETL process) - But to insert the rows I need to insert that legacyId as Null.
- 
-then during dataflow when we are updating CustomerGroupId at the same time , I have updated the legacyId as well. 
-legacyId is not null in dbo table (Only allow null in stg table).
+As a result of this change, when inserting records into the staging (stg) table, the LegacyId column must be explicitly set to NULL, as this value is no longer sourced at that stage of the pipeline. The staging schema has been designed to allow LegacyId to be nullable to support this intermediate state.
+
+Subsequently, during the dataflow transformation phase—when data is promoted from the staging (stg) layer to the dbo/sbo layer—the CustomerGroupId is updated based on the relevant business logic. At the same time, the LegacyId is populated and persisted in the target dbo table.
+
+Please note that the LegacyId column is non-nullable in the dbo table by design. Null values are permitted only within the staging layer and are fully resolved before data is committed to the final schema.
