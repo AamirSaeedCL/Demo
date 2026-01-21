@@ -1,1 +1,21 @@
-I discussed this with Lee, and he is comfortable with the approach of splitting the queries by tag type. Additionally, I triggered the initial customer tags ingestion pipeline last night, and it completed within two and a half hours.
+select count(*) as Total from stg.CustomerTags
+
+  Select count(*) as DDTAG from dbo.customerTags where DDTAG  is not null 
+  
+  Select count(*) as Dail from dbo.customerTags where DialTag  is not null 
+
+  Select count(*) as Digital from dbo.customerTags where DigitalTag  is not null 
+
+  Select count(*) as Payer from dbo.customerTags where PayerPhaseTag  is not null 
+ 
+ Select count(*) as Phase from dbo.customerTags where PhaseTag  is not null 
+
+  Select count(*) as PlanTotal from dbo.customerTags where PlanTag  is not null 
+  
+  Select count(*) as Pre from dbo.customerTags where PreDefTag  is not null 
+
+  Select count(*) as  Rem from dbo.customerTags where RemediationTag  is not null 
+
+  Select count(*) as SMS from dbo.customerTags where SMSTag  is not null 
+ 
+ Select count(*) as Status from dbo.customerTags where StatusTag  is not null 
