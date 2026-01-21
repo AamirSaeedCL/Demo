@@ -1,13 +1,1 @@
-SELECT
-    COUNT(*)                                       AS Total,
-    COUNT(DDTAG)                                   AS DDTAG,
-    COUNT(DialTag)                                 AS Dial,
-    COUNT(DigitalTag)                              AS Digital,
-    COUNT(PayerPhaseTag)                           AS Payer,
-    COUNT(PhaseTag)                                AS Phase,
-    COUNT(PlanTag)                                 AS PlanTotal,
-    COUNT(PreDefTag)                               AS Pre,
-    COUNT(RemediationTag)                          AS Rem,
-    COUNT(SMSTag)                                  AS SMS,
-    COUNT(StatusTag)                               AS Status
-FROM dbo.CustomerTags;
+
