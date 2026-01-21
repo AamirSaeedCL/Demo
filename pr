@@ -1,1 +1,1 @@
-
+I discussed this with Lee, and he is comfortable with the approach of splitting the queries by tag type. Additionally, I triggered the initial customer tags ingestion pipeline last night, and it completed within two and a half hours.
