@@ -12,7 +12,7 @@ DECLARE @TagTypeId INT = 92;
 
 DECLARE @LastRunDateTime DATETIME2 =
     TRY_CAST(
-        '2025-01-01'
+        '2026-01-01'
         AS DATETIME2
     );
 
@@ -50,54 +50,33 @@ IF @from_lsn IS NULL
     FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag(@from_lsn, @to_lsn, 'all') ct
     WHERE ct.__$operation IN (2, 4)
 ),
-FilteredTagChange AS (
+FilteredTagChanges AS (
     SELECT *
     FROM LatestCDC
     WHERE rn = 1
-),
-
-/* =========================================================
-   STEP 2: Final tag data for DDRETCD tag type
-========================================================= */
-TagDataLatest AS (
-    SELECT
-        ct.cnsmr_id,
-        t.tag_shrt_nm,
-        COALESCE(fc.cnsmr_tag_assgn_dt, ct.cnsmr_tag_assgn_dt) AS cnsmr_tag_assgn_dt,
-        CASE
-            WHEN COALESCE(fc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
-            THEN COALESCE(fc.upsrt_dttm, ct.upsrt_dttm)
-        END AS tag_removed_dt,
-        CASE
-            WHEN COALESCE(fc.cnsmr_tag_sft_delete_flg, ct.cnsmr_tag_sft_delete_flg) = 'Y'
-            THEN CAST(0 AS bit)
-            ELSE CAST(1 AS bit)
-        END AS tag_active,
-        COALESCE(fc.upsrt_dttm, ct.upsrt_dttm) AS upsrt_dttm,
-        ROW_NUMBER() OVER (
-            PARTITION BY ct.cnsmr_id
-            ORDER BY COALESCE(fc.upsrt_dttm, ct.upsrt_dttm) DESC
-        ) AS rn
-    FROM dbo.cnsmr_tag ct
-    JOIN dbo.tag t
-        ON t.tag_id = ct.tag_id
-		AND t.tag_typ_id = @TagTypeId
-    LEFT JOIN FilteredTagChange fc
-        ON fc.cnsmr_id = ct.cnsmr_id
-        AND fc.tag_id   = ct.tag_id
-        AND ct.upsrt_dttm > = @LastRunDateTimeLocal
 )
 
-/* =========================================================
-   STEP 3: Output current tags for DDRETCD tag type
-========================================================= */
 SELECT
-    cnsmr_id           AS CustomerId,
-    tag_shrt_nm        AS TagValue,
-    cnsmr_tag_assgn_dt AS TagAssignedDate,
-    tag_removed_dt     AS TagRemovedDate,
-    tag_active         AS TagActive,
-    upsrt_dttm         AS UpsertDateTime
-FROM TagDataLatest
-WHERE rn = 1
-ORDER BY cnsmr_id, upsrt_dttm DESC;
+    ftc.cnsmr_id           AS CustomerId,
+    t.tag_shrt_nm          AS TagValue,
+    ftc.cnsmr_tag_assgn_dt AS TagAssignedDate,
+    CASE
+        WHEN ftc.cnsmr_tag_sft_delete_flg = 'Y'
+        THEN ftc.upsrt_dttm
+    END                   AS TagRemovedDate,
+    CASE
+        WHEN ftc.cnsmr_tag_sft_delete_flg = 'Y' THEN CAST(0 AS bit)
+        ELSE CAST(1 AS bit)
+    END                   AS TagActive,
+    ftc.upsrt_dttm         AS UpsertDateTime
+FROM FilteredTagChanges ftc
+JOIN dbo.tag t
+    ON t.tag_id = ftc.tag_id
+    AND t.tag_typ_id = @TagTypeId
+ORDER BY ftc.cnsmr_id, ftc.upsrt_dttm DESC;
+
+
+
+CustomerId	TagValue	TagAssignedDate	TagRemovedDate	TagActive	UpsertDateTime
+2356405	P-08	2026-01-22 21:20:48.140	NULL	1	2026-01-22 21:20:48.140
+2356405	P-06	2026-01-13 21:46:11.937	2026-01-22 20:41:39.570	0	2026-01-22 20:41:39.570
