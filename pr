@@ -1,33 +1,40 @@
 DECLARE @TagTypeId INT = 92;  
---92	PlanStat 
---84	DIAL_TAG 
---123	DIGITAL  
---206	PAYPHASE 
---136	PHASE 
---98	DDRETCD 
---48	PlatStat 
---125	PreDef  
---111	RMDTN  
---122	SMS  
+--92  PlanStat 
+--84  DIAL_TAG 
+--123 DIGITAL  
+--206 PAYPHASE 
+--136 PHASE 
+--98  DDRETCD 
+--48  PlatStat 
+--125 PreDef  
+--111 RMDTN  
+--122 SMS  
 
 DECLARE @LastRunDateTime DATETIME2 =
-    TRY_CAST(
-        '2026-01-01'
-        AS DATETIME2
-    );
+    TRY_CAST('2026-01-01' AS DATETIME2);
 
+------------------------------------------------------------------
+-- Convert UTC run date to local time
+------------------------------------------------------------------
 DECLARE @LastRunDateTimeLocal DATETIME2 =
     CAST(
         SWITCHOFFSET(
             @LastRunDateTime AT TIME ZONE 'UTC',
-            DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')
+            DATENAME(
+                TzOffset,
+                SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time'
+            )
         ) AS DATETIME2
     );
 
+------------------------------------------------------------------
+-- Determine CDC LSN window
+------------------------------------------------------------------
 DECLARE @from_lsn BINARY(10);
 DECLARE @to_lsn   BINARY(10);
 
-SELECT @from_lsn = MIN(start_lsn)
+SELECT
+    @from_lsn = MIN(start_lsn)
 FROM cdc.lsn_time_mapping
 WHERE tran_end_time >= @LastRunDateTimeLocal;
 
@@ -36,47 +43,64 @@ SET @to_lsn = sys.fn_cdc_get_max_lsn();
 IF @from_lsn IS NULL
     SET @from_lsn = sys.fn_cdc_get_min_lsn('dbo_cnsmr_tag');
 
-;WITH LatestCDC AS (
+------------------------------------------------------------------
+-- CDC processing
+------------------------------------------------------------------
+;WITH LatestCDC AS
+(
     SELECT
         ct.cnsmr_id,
         ct.tag_id,
         ct.cnsmr_tag_assgn_dt,
         ct.cnsmr_tag_sft_delete_flg,
         ct.upsrt_dttm,
-        ROW_NUMBER() OVER (
+        ROW_NUMBER() OVER
+        (
             PARTITION BY ct.cnsmr_id, ct.tag_id
             ORDER BY ct.__$start_lsn DESC
         ) AS rn
-    FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag(@from_lsn, @to_lsn, 'all') ct
-    WHERE ct.__$operation IN (2, 4)
+    FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag
+         (@from_lsn, @to_lsn, 'all') ct
+    WHERE ct.__$operation IN (2, 4) -- Insert / Update
 ),
-FilteredTagChanges AS (
+FilteredTagChanges AS
+(
     SELECT *
     FROM LatestCDC
     WHERE rn = 1
+),
+LatestPerCustomer AS
+(
+    SELECT
+        ftc.*,
+        ROW_NUMBER() OVER
+        (
+            PARTITION BY ftc.cnsmr_id
+            ORDER BY ftc.upsrt_dttm DESC
+        ) AS cust_rn
+    FROM FilteredTagChanges ftc
 )
 
+------------------------------------------------------------------
+-- Final result: ONE row per CustomerId
+------------------------------------------------------------------
 SELECT
-    ftc.cnsmr_id           AS CustomerId,
-    t.tag_shrt_nm          AS TagValue,
-    ftc.cnsmr_tag_assgn_dt AS TagAssignedDate,
+    lpc.cnsmr_id            AS CustomerId,
+    t.tag_shrt_nm           AS TagValue,
+    lpc.cnsmr_tag_assgn_dt  AS TagAssignedDate,
     CASE
-        WHEN ftc.cnsmr_tag_sft_delete_flg = 'Y'
-        THEN ftc.upsrt_dttm
-    END                   AS TagRemovedDate,
+        WHEN lpc.cnsmr_tag_sft_delete_flg = 'Y'
+            THEN lpc.upsrt_dttm
+    END                     AS TagRemovedDate,
     CASE
-        WHEN ftc.cnsmr_tag_sft_delete_flg = 'Y' THEN CAST(0 AS bit)
-        ELSE CAST(1 AS bit)
-    END                   AS TagActive,
-    ftc.upsrt_dttm         AS UpsertDateTime
-FROM FilteredTagChanges ftc
-JOIN dbo.tag t
-    ON t.tag_id = ftc.tag_id
-    AND t.tag_typ_id = @TagTypeId
-ORDER BY ftc.cnsmr_id, ftc.upsrt_dttm DESC;
-
-
-
-CustomerId	TagValue	TagAssignedDate	TagRemovedDate	TagActive	UpsertDateTime
-2356405	P-08	2026-01-22 21:20:48.140	NULL	1	2026-01-22 21:20:48.140
-2356405	P-06	2026-01-13 21:46:11.937	2026-01-22 20:41:39.570	0	2026-01-22 20:41:39.570
+        WHEN lpc.cnsmr_tag_sft_delete_flg = 'Y'
+            THEN CAST(0 AS BIT)
+        ELSE CAST(1 AS BIT)
+    END                     AS TagActive,
+    lpc.upsrt_dttm          AS UpsertDateTime
+FROM LatestPerCustomer lpc
+INNER JOIN dbo.tag t
+    ON t.tag_id = lpc.tag_id
+   AND t.tag_typ_id = @TagTypeId
+WHERE lpc.cust_rn = 1
+ORDER BY lpc.cnsmr_id;
