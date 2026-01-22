@@ -1,17 +1,76 @@
+DECLARE @TagTypeId INT = 92;  
+--92	PlanStat 
+--84	DIAL_TAG 
+--123	DIGITAL  
+--206	PAYPHASE 
+--136	PHASE 
+--98	DDRETCD 
+--48	PlatStat 
+--125	PreDef  
+--111	RMDTN  
+--122	SMS  
+
+DECLARE @LastRunDateTime DATETIME2 =
+    TRY_CAST(
+        '2026-01-22T01:22:25.81Z'
+        AS DATETIME2
+    );
+
+DECLARE @LastRunDateTimeLocal DATETIME2 =
+    CAST(
+        SWITCHOFFSET(
+            @LastRunDateTime AT TIME ZONE 'UTC',
+            DATENAME(TzOffset, SYSDATETIMEOFFSET() AT TIME ZONE 'GMT Standard Time')
+        ) AS DATETIME2
+    );
+
+DECLARE @from_lsn BINARY(10);
+DECLARE @to_lsn   BINARY(10);
+
+SELECT @from_lsn = MIN(start_lsn)
+FROM cdc.lsn_time_mapping
+WHERE tran_end_time >= @LastRunDateTimeLocal;
+
+SET @to_lsn = sys.fn_cdc_get_max_lsn();
+
+IF @from_lsn IS NULL
+    SET @from_lsn = sys.fn_cdc_get_min_lsn('dbo_cnsmr_tag');
+
+;WITH LatestCDC AS (
+    SELECT
+        ct.cnsmr_id,
+        ct.tag_id,
+        ct.cnsmr_tag_assgn_dt,
+        ct.cnsmr_tag_sft_delete_flg,
+        ct.upsrt_dttm,
+        ROW_NUMBER() OVER (
+            PARTITION BY ct.cnsmr_id, ct.tag_id
+            ORDER BY ct.__$start_lsn DESC
+        ) AS rn
+    FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag(@from_lsn, @to_lsn, 'all') ct
+    WHERE ct.__$operation IN (2, 4)
+),
+FilteredTagChanges AS (
+    SELECT *
+    FROM LatestCDC
+    WHERE rn = 1
+)
+
 SELECT
-    fc.cnsmr_id           AS CustomerId,
+    ftc.cnsmr_id           AS CustomerId,
     t.tag_shrt_nm         AS TagValue,
-    fc.cnsmr_tag_assgn_dt AS TagAssignedDate,
+    ftc.cnsmr_tag_assgn_dt AS TagAssignedDate,
     CASE
-        WHEN fc.cnsmr_tag_sft_delete_flg = 'Y'
-        THEN fc.upsrt_dttm
+        WHEN ftc.cnsmr_tag_sft_delete_flg = 'Y'
+        THEN ftc.upsrt_dttm
     END                   AS TagRemovedDate,
     CASE
-        WHEN fc.cnsmr_tag_sft_delete_flg = 'Y' THEN CAST(0 AS bit)
+        WHEN ftc.cnsmr_tag_sft_delete_flg = 'Y' THEN CAST(0 AS bit)
         ELSE CAST(1 AS bit)
     END                   AS TagActive,
-    fc.upsrt_dttm         AS UpsertDateTime
-FROM FilteredTagChange fc
+    ftc.upsrt_dttm         AS UpsertDateTime
+FROM FilteredTagChanges ftc
 JOIN dbo.tag t
-    ON t.tag_id = fc.tag_id
-   AND t.tag_typ_id = @TagTypeId;
+    ON t.tag_id = ftc.tag_id
+    AND t.tag_typ_id = @TagTypeId
+ORDER BY ftc.cnsmr_id, ftc.upsrt_dttm DESC;
