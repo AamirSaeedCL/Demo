@@ -1,14 +1,4 @@
 DECLARE @TagTypeId INT = 92;  
---92  PlanStat 
---84  DIAL_TAG 
---123 DIGITAL  
---206 PAYPHASE 
---136 PHASE 
---98  DDRETCD 
---48  PlatStat 
---125 PreDef  
---111 RMDTN  
---122 SMS  
 
 DECLARE @LastRunDateTime DATETIME2 =
     TRY_CAST('2026-01-01' AS DATETIME2);
@@ -44,9 +34,9 @@ IF @from_lsn IS NULL
     SET @from_lsn = sys.fn_cdc_get_min_lsn('dbo_cnsmr_tag');
 
 ------------------------------------------------------------------
--- CDC processing
+-- CDC processing (FILTER FIRST, THEN RANK)
 ------------------------------------------------------------------
-;WITH LatestCDC AS
+;WITH CdcWithTagType AS
 (
     SELECT
         ct.cnsmr_id,
@@ -54,53 +44,57 @@ IF @from_lsn IS NULL
         ct.cnsmr_tag_assgn_dt,
         ct.cnsmr_tag_sft_delete_flg,
         ct.upsrt_dttm,
-        ROW_NUMBER() OVER
-        (
-            PARTITION BY ct.cnsmr_id, ct.tag_id
-            ORDER BY ct.__$start_lsn DESC
-        ) AS rn
+        ct.__$start_lsn
     FROM cdc.fn_cdc_get_all_changes_dbo_cnsmr_tag
          (@from_lsn, @to_lsn, 'all') ct
-    WHERE ct.__$operation IN (2, 4) -- Insert / Update
+    INNER JOIN dbo.tag t
+        ON t.tag_id = ct.tag_id
+       AND t.tag_typ_id = @TagTypeId
+    WHERE ct.__$operation IN (2, 4)
 ),
-FilteredTagChanges AS
+LatestPerTag AS
 (
-    SELECT *
-    FROM LatestCDC
-    WHERE rn = 1
+    SELECT
+        *,
+        ROW_NUMBER() OVER
+        (
+            PARTITION BY cnsmr_id, tag_id
+            ORDER BY __$start_lsn DESC
+        ) AS tag_rn
+    FROM CdcWithTagType
 ),
 LatestPerCustomer AS
 (
     SELECT
-        ftc.*,
+        *,
         ROW_NUMBER() OVER
         (
-            PARTITION BY ftc.cnsmr_id
-            ORDER BY ftc.upsrt_dttm DESC
+            PARTITION BY cnsmr_id
+            ORDER BY upsrt_dttm DESC
         ) AS cust_rn
-    FROM FilteredTagChanges ftc
+    FROM LatestPerTag
+    WHERE tag_rn = 1
 )
 
 ------------------------------------------------------------------
--- Final result: ONE row per CustomerId
+-- Final result
 ------------------------------------------------------------------
 SELECT
-    lpc.cnsmr_id            AS CustomerId,
-    t.tag_shrt_nm           AS TagValue,
-    lpc.cnsmr_tag_assgn_dt  AS TagAssignedDate,
+    cnsmr_id              AS CustomerId,
+    tag_shrt_nm           AS TagValue,
+    cnsmr_tag_assgn_dt    AS TagAssignedDate,
     CASE
-        WHEN lpc.cnsmr_tag_sft_delete_flg = 'Y'
-            THEN lpc.upsrt_dttm
-    END                     AS TagRemovedDate,
+        WHEN cnsmr_tag_sft_delete_flg = 'Y'
+            THEN upsrt_dttm
+    END                   AS TagRemovedDate,
     CASE
-        WHEN lpc.cnsmr_tag_sft_delete_flg = 'Y'
+        WHEN cnsmr_tag_sft_delete_flg = 'Y'
             THEN CAST(0 AS BIT)
         ELSE CAST(1 AS BIT)
-    END                     AS TagActive,
-    lpc.upsrt_dttm          AS UpsertDateTime
+    END                   AS TagActive,
+    upsrt_dttm            AS UpsertDateTime
 FROM LatestPerCustomer lpc
-INNER JOIN dbo.tag t
+JOIN dbo.tag t
     ON t.tag_id = lpc.tag_id
-   AND t.tag_typ_id = @TagTypeId
-WHERE lpc.cust_rn = 1
-ORDER BY lpc.cnsmr_id;
+WHERE cust_rn = 1
+ORDER BY cnsmr_id;
