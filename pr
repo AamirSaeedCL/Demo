@@ -1,21 +1,5 @@
-Select tag_typ_id, tag_typ_shrt_nm 
-	from dbo.tag_typ where tag_typ_shrt_nm IN ='PLANSTAT'
+DECLARE @TagTypeId INT;
 
-
-DECLARE @TagTypeId INT = 92;  
---92	PlanStat 
---84	DIAL_TAG 
---123	DIGITAL  
---206	PAYPHASE 
---136	PHASE 
---98	DDRETCD 
---48	PlatStat 
---125	PreDef  
---111	RMDTN  
---122	SMS  
-
-DECLARE @LastRunDateTime DATETIME2 =
-    TRY_CAST(
-        '@{pipeline().parameters.LastRunDateTime}'
-        AS DATETIME2
-    );
+SELECT @TagTypeId = tag_typ_id
+FROM dbo.tag_typ
+WHERE tag_typ_shrt_nm = 'PLANSTAT';
