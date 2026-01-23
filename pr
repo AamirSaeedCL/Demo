@@ -1,10 +1,1 @@
 
-Hi India,
-
-One point I would like to highlight: as you may recall, we removed the trigger for the existing incremental pipeline Customer Tag (without “S”), as it was no longer required.
-
-However, for the new incremental pipeline Customer Tags (with “S”), I believe a trigger should be configured, and it currently appears to be missing.
-
-Could you please discuss this with Mark to obtain his review and approval, and then raise a ticket accordingly if he agrees?
-
-Thank you.
