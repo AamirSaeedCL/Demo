@@ -1,1 +1,1 @@
-Initially, the TagTypeId was hard-coded to improve query performance by eliminating unnecessary tables from the join logic. However, it has been observed that TagTypeId values are not consistent across environments, specifically in the SIT environment. As a result, the TagTypeId must be dynamically retrieved from the tag_typ reference table to ensure correctness and environment independence.
+Removing Hard-Coded TagTypeId Values for Environment Consistency
