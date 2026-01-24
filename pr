@@ -1,5 +1,1 @@
-DECLARE @TagTypeId INT;
-
-SELECT @TagTypeId = tag_typ_id
-FROM dbo.tag_typ
-WHERE tag_typ_shrt_nm = 'PLANSTAT';
+Initially I have hard coded the tag type I'd to improve the query performance by removing unwanted tables from the join - However, it seems tagTypeIds are not the same in SIT env so I have to get the I'd from the tagtype table.
