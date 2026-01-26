@@ -1,1 +1,9 @@
 
+DECLARE @sql NVARCHAR(MAX) = N'';
+
+SELECT @sql += N'KILL ' + CAST(session_id AS NVARCHAR(10)) + N';'
+FROM sys.dm_exec_sessions
+WHERE database_id = DB_ID()      -- current database
+  AND session_id <> @@SPID;      -- exclude your own session
+
+EXEC sp_executesql @sql;
