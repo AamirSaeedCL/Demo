@@ -1,6 +1,7 @@
-
-Publishing error
-
-Resource 'Ingestion_CustomerTags_Pipeline_ETL_TagTypes' was disallowed by Azure: 
-You are receiving this error because you tried to create, update or delete Azure resources without authenticating through MFA. 
-User accounts must be authenticated through MFA to manage your resources. To resolve this error, go to https://aka.ms/MFAforAzure.
+Select  ct.*
+	from cnsmr_tag ct , tag t, tag_typ tt
+	where tt.tag_typ_id = t.tag_typ_id
+	AND t.tag_id = ct.tag_id
+	AND tag_typ_shrt_nm IN ( 'DIAL_TAG' ) --- ,'DDRETCD','DIAL_TAG','DIGITAL','PAYPHASE', 'PHASE',  'PLANSTAT', 'PREDEF', 'RMDTN', 'SMS', 'PLATSTAT'
+	AND  ct.cnsmr_id = 1588200
+	AND cnsmr_tag_sft_delete_flg = 'N'
