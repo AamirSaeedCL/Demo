@@ -1,1 +1,6 @@
 
+Publishing error
+
+Resource 'Ingestion_CustomerTags_Pipeline_ETL_TagTypes' was disallowed by Azure: 
+You are receiving this error because you tried to create, update or delete Azure resources without authenticating through MFA. 
+User accounts must be authenticated through MFA to manage your resources. To resolve this error, go to https://aka.ms/MFAforAzure.
