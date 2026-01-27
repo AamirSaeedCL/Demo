@@ -1,13 +1,34 @@
-I have gone thorugh this ticket in detail and it seems you are not testing against our acceptance criteria.
-If you go to the parent PBI (https://cabotcm.visualstudio.com/BEST/_workitems/edit/211125) and open the "New Data Items" excel sheet from the attachment files section.
-You will see that we have columns mapping "daysTillCurrentPlanEndDate" for column against below query.
+I have reviewed this ticket in detail, and it appears that the current testing does not align with the defined acceptance criteria.
+
+If you navigate to the parent PBI
+https://cabotcm.visualstudio.com/BEST/_workitems/edit/211125
+
+and open the “New Data Items” Excel file from the Attachments section, you will see that the column daysTillCurrentPlanEndDate is explicitly mapped to the logic derived from the SQL query below:
+
+SELECT
+    sps.cnsmr_id,
+    DATEDIFF(
+        DD,
+        CAST(GETDATE() AS DATE),
+        CAST(schdld_pymnt_smmry_end_dttm AS DATE)
+    ) AS daysTillCurrentPlanEndDate,
+    sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate
+FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
+WHERE sps.schdld_pymnt_smmry_stts_cd = 9;
 
 
-SELECT sps.cnsmr_id
-		, DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate
-		, sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate	
-	FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
-	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
+As per the acceptance criteria, the calculation must only consider records where
+schdld_pymnt_smmry_stts_cd = 9, which (based on current domain knowledge) represents an “Active” payment plan.
 
-we need to check the `schdld_pymnt_smmry_stts_cd==9` which I beleive is "Active" and now we as soon as we have schdld_pymnt_smmry_stts_cd=9 against the same "customerId= 253905"
-you can see that we have "DaysTilleCurrentPlanEndDate=85" in Paymentplan table in PegaDataMart database. I'm attacheding the screenshots for your reference.
+In the specific case of customerId = 253905, once a record exists with
+schdld_pymnt_smmry_stts_cd = 9, the derived value for DaysTillCurrentPlanEndDate should be calculated directly from the active payment plan’s schdld_pymnt_smmry_end_dttm.
+
+This is reflected correctly in the PaymentPlan table within the PegaDataMart database, where the value DaysTillCurrentPlanEndDate = 85 is populated for this customer. This confirms that the upstream data and calculation logic are behaving as expected when the acceptance criteria are applied correctly.
+
+I have attached relevant screenshots for reference to demonstrate:
+
+The active payment plan status (schdld_pymnt_smmry_stts_cd = 9)
+
+The corresponding calculated value in the PegaDataMart.PaymentPlan table
+
+Please ensure that testing is validated against the active payment plan only and in accordance with the mapping defined in the parent PBI and its supporting documentation.
