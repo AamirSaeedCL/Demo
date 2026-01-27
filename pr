@@ -1,9 +1,13 @@
+I have gone thorugh this ticket in detail and it seems you are not testing against our acceptance criteria.
+If you go to the parent PBI (https://cabotcm.visualstudio.com/BEST/_workitems/edit/211125) and open the "New Data Items" excel sheet from the attachment files section.
+You will see that we have columns mapping "daysTillCurrentPlanEndDate" for column against below query.
 
-DECLARE @sql NVARCHAR(MAX) = N'';
 
-SELECT @sql += N'KILL ' + CAST(session_id AS NVARCHAR(10)) + N';'
-FROM sys.dm_exec_sessions
-WHERE database_id = DB_ID()      -- current database
-  AND session_id <> @@SPID;      -- exclude your own session
+SELECT sps.cnsmr_id
+		, DATEDIFF (DD,CAST (GETDATE() AS DATE),CAST (schdld_pymnt_smmry_end_dttm AS DATE)) AS daysTillCurrentPlanEndDate
+		, sps.schdld_pymnt_smmry_end_dttm AS PaymentPlanEndDate	
+	FROM crs5_oltp_replicated.dbo.schdld_pymnt_smmry sps
+	WHERE sps.schdld_pymnt_smmry_stts_cd = 9
 
-EXEC sp_executesql @sql;
+we need to check the `schdld_pymnt_smmry_stts_cd==9` which I beleive is "Active" and now we as soon as we have schdld_pymnt_smmry_stts_cd=9 against the same "customerId= 253905"
+you can see that we have "DaysTilleCurrentPlanEndDate=85" in Paymentplan table in PegaDataMart database. I'm attacheding the screenshots for your reference.
