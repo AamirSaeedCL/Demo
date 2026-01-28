@@ -1,2 +1,3 @@
-aderror  : The project file cannot be opened. Version 10.0.102 of the .NET SDK requires at least version 17.14.0 of MSBuild. The current available version of MSBuild is 16.11.6.22506. Change the .NET SDK specified in global.json to an older version that requires the MSBuild version currently available.
+Visual Studio 2022 17.14 or newer
 
+This includes MSBuild 17.14+
