@@ -1,3 +1,1 @@
-Visual Studio 2022 17.14 or newer
-
-This includes MSBuild 17.14+
+ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed. Please search error to get more details.,Source=Microsoft.DataTransfer.ClientLibrary,''Type=System.Data.SqlClient.SqlException,Message=Invalid object name '##InterimTable_c324fde8-7eba-4b8e-82a4-df94d662d571'.,Source=.Net SqlClient Data Provider,SqlErrorNumber=208,Class=16,ErrorCode=-2146232060,State=0,Errors=[{Class=16,Number=208,State=0,Message=Invalid object name '##InterimTable_c324fde8-7eba-4b8e-82a4-df94d662d571'.,},],'
