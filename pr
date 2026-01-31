@@ -1,3 +1,11 @@
-
-CREATE NONCLUSTERED INDEX [NCI_Customer_UpsertDateTime] 
-    ON [dbo].[Customer] ([UpsertDateTime]) INCLUDE ([CustomerGroupId]);
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'NCI_Customer_UpsertDateTime'
+      AND object_id = OBJECT_ID('dbo.Customer')
+)
+BEGIN
+    CREATE NONCLUSTERED INDEX [NCI_Customer_UpsertDateTime]
+        ON [dbo].[Customer] ([UpsertDateTime])
+        INCLUDE ([CustomerGroupId]);
+END;
