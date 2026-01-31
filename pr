@@ -1,1 +1,18 @@
+DECLARE @sql NVARCHAR(MAX) = N'';
+
+SELECT @sql = @sql + '
+EXEC sp_rename ''' 
+    + QUOTENAME(OBJECT_SCHEMA_NAME(c.object_id)) + '.'
+    + QUOTENAME(c.name) 
+    + ''', ''' 
+    + c.name + '_1'', ''OBJECT'';'
+FROM sys.objects c
+WHERE c.parent_object_id = OBJECT_ID('dbo.Customer')
+  AND c.type IN ('PK', 'D', 'C', 'UQ', 'F')   -- Primary key, Default, Check, Unique, Foreign key
+  AND c.name NOT LIKE '%[_]1';               -- Avoid double-renaming
+
+PRINT @sql;
+EXEC sp_executesql @sql;
+
+
 EXEC sp_rename 'dbo.Customer', 'Customer_1';
