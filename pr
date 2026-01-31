@@ -1,1 +1,55 @@
-ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed. Please search error to get more details.,Source=Microsoft.DataTransfer.ClientLibrary,''Type=System.Data.SqlClient.SqlException,Message=Invalid object name '##InterimTable_c324fde8-7eba-4b8e-82a4-df94d662d571'.,Source=.Net SqlClient Data Provider,SqlErrorNumber=208,Class=16,ErrorCode=-2146232060,State=0,Errors=[{Class=16,Number=208,State=0,Message=Invalid object name '##InterimTable_c324fde8-7eba-4b8e-82a4-df94d662d571'.,},],'
+CREATE TABLE [dbo].[Customer_1](
+	[CustomerId] [bigint] NOT NULL,
+	[CustomerGroupId] [uniqueidentifier] NULL,
+	[Title] [varchar](50) NULL,
+	[FirstName] [varchar](100) NULL,
+	[LastName] [varchar](150) NULL,
+	[MiddleName] [varchar](100) NULL,
+	[CommercialName] [varchar](150) NULL,
+	[DateofBirth] [date] NULL,
+	[Email] [varchar](200) NULL,
+	[EmailConfirmedDate] [datetime2](7) NULL,
+	[IsMaster] [bit] NOT NULL,
+	[IsActive] [bit] NOT NULL,
+	[UpsertDateTime] [datetime2](7) NOT NULL,
+	[Ownership] [varchar](10) NULL,
+	[OwnershipDate] [datetime2](7) NULL,
+	[IsBankHoliday] [bit] NULL,
+	[DayOfWeek] [varchar](10) NOT NULL,
+	[IsValidEmail] [bit] NULL,
+	[LegacyId] [varchar](40) NULL,
+	[IsValidMobile] [bit] NULL,
+	[ValidPhoneNumber] [varchar](1) NULL,
+	[DaysTillStoredReviewDate] [int] NULL,
+	[MonthsSinceReviewSetDate] [int] NULL,
+	[PreferenceTypeName] [varchar](50) NULL,
+	[DigitalContactToday] [bit] NULL,
+	[IsDeleted] [bit] NULL,
+	[PegaRemovalReason] [varchar](max) NULL,
+ CONSTRAINT [PK_Customer_CustomerId] PRIMARY KEY CLUSTERED 
+(
+	[CustomerId] ASC
+)WITH (STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_IsMaster]  DEFAULT ((0)) FOR [IsMaster]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_IsActive]  DEFAULT ((0)) FOR [IsActive]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_UpsertDateTime]  DEFAULT (getdate()) FOR [UpsertDateTime]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_IsBankHoliday]  DEFAULT ((0)) FOR [IsBankHoliday]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_IsValidEmail]  DEFAULT ((0)) FOR [IsValidEmail]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_IsValidMobile]  DEFAULT ((0)) FOR [IsValidMobile]
+GO
+
+ALTER TABLE [dbo].[Customer_1] ADD  CONSTRAINT [DF_Customer_IsDeleted]  DEFAULT ((0)) FOR [IsDeleted]
+GO
