@@ -1,4 +1,1 @@
-Updated the CustomerTags schema and integration to align with the latest PBI requirements. This includes removing the deprecated PreviousStatusActive field, standardising field names to include the Tag suffix, enforcing non-null bit fields with default handling, and updating all JSON data items to CamelCase. Changes are applied consistently across the PegaDataMart table, customer-tags JSON, and Pega data model.
-
-
-CustomerTags schema alignment and naming standardisation
+As discussed, following the merge of this PR, a mapper must be implemented in CustomerTags to handle the CamelCase field names in the customer-tags.json file.
