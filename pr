@@ -1,1 +1,13 @@
 
+ErrorCode=TypeConversionFailure,Exception occurred when converting value '0' for column name 'PlanTagActive' from type 'String' (precision:, scale:) to type 'Boolean' (precision:255, scale:255). Additional info: String was not recognized as a valid Boolean.
+
+SELECT
+    cnsmr_id                AS CustomerId,
+    tag_shrt_nm             AS TagValue,
+    cnsmr_tag_assgn_dt      AS DateTagAssigned,
+    tag_removed_dt          AS DateTagRemoved,
+    COALESCE(CAST(tag_active AS BIT),0)  AS TagActive,
+    upsrt_dttm              AS UpsertDateTime
+FROM TagDataLatest
+WHERE rn = 1
+ORDER BY cnsmr_id, upsrt_dttm DESC;
