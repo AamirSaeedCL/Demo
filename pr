@@ -1,3 +1,15 @@
-
-Operation on target 1- PLANSTAT - DM To Stg failed: Failure happened on 'Sink' side. ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed. Please search error to get more details.,Source=Microsoft.DataTransfer.ClientLibrary,''Type=System.Data.SqlClient.SqlException,Message=Cannot insert the value NULL into column 'DDTagActive', table 'PegaDataMart.stg.CustomerTags'; column does not allow nulls. INSERT fails.
-The statement has been terminated.,Source=.Net SqlClient Data Provider,SqlErrorNumber=515,Class=16,ErrorCode=-2146232060,State=2,Errors=[{Class=16,Number=515,State=2,Message=Cannot insert the value NULL into column 'DDTagActive', table 'PegaDataMart.stg.CustomerTags'; column does not allow nulls. INSERT fails.,},{Class=0,Number=3621,State=0,Message=The statement has been terminated.,},],'
+SELECT
+    cnsmr_id           AS CustomerId,
+    tag_shrt_nm        AS TagValue,
+    cnsmr_tag_assgn_dt AS DateTagAssigned,
+    tag_removed_dt     AS DateTagRemoved,
+    CAST(
+        ISNULL(
+            CASE WHEN tag_active = '1' THEN 1 ELSE 0 END,
+            0
+        ) AS BIT
+    ) AS TagActive,
+    upsrt_dttm         AS UpsertDateTime
+FROM TagDataLatest
+WHERE rn = 1
+ORDER BY cnsmr_id, upsrt_dttm DESC;
