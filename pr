@@ -1,1 +1,1 @@
-As discussed, following the merge of this PR, a mapper must be implemented in CustomerTags to handle the CamelCase field names in the customer-tags.json file.
+
