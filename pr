@@ -1,13 +1,1 @@
-SELECT
-    cnsmr_id           AS CustomerId,
-    tag_shrt_nm        AS TagValue,
-    cnsmr_tag_assgn_dt AS DateTagAssigned,
-    tag_removed_dt     AS DateTagRemoved,
-    CASE 
-        WHEN tag_active = '1' THEN CAST(1 AS BIT)
-        ELSE CAST(0 AS BIT)
-    END                AS TagActive,
-    upsrt_dttm         AS UpsertDateTime
-FROM TagDataLatest
-WHERE rn = 1
-ORDER BY cnsmr_id, upsrt_dttm DESC;
+
