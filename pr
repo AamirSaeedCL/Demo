@@ -1,1 +1,60 @@
+Meeting Agenda: Ghost Trigger Issue in DEV (CustomerTags)
+1. Background & Issue Overview
 
+Overview of the ghost trigger (CustomerTags) running in DEV
+
+Impact: Trigger is clearing the STG table
+
+Observed behaviour:
+
+Trigger was disabled
+
+Trigger was deleted
+
+Pipeline was renamed
+
+Yet the trigger is still firing
+
+2. Investigation Findings
+
+Review of current trigger state in Azure Data Factory
+
+Discussion on possible causes of a “ghost” / orphaned trigger instance
+
+Confirmation of any running trigger instances still active in DEV
+
+3. Existing PowerShell Script Review
+
+Review of existing script: Datafactory-RemoveTrigger.ps1
+
+What it currently does:
+
+Iterates through all triggers
+
+Disables running triggers
+
+Deletes triggers (not desired behaviour)
+
+Why this script cannot be reused as-is
+
+4. Proposed Solution
+
+Create a new PowerShell script that:
+
+Iterates through all triggers
+
+Stops / deactivates only running triggers
+
+Does NOT delete triggers
+
+Ensure script is safe and idempotent
+
+5. Release Pipeline Changes
+
+Create a DEV-only release pipeline
+
+Purpose:
+
+Execute the new PowerShell script
+
+Handle and prevent ghost trigger issues in DEV
