@@ -1,1 +1,16 @@
+# Connect to Azure
+Connect-AzAccount
+
+# Variables
+$rg = "YourResourceGroup"
+$df = "YourDataFactoryName"
+$pipeline = "YourPipelineName"
+
+# List all active pipeline runs
+$activeRuns = Get-AzDataFactoryV2PipelineRun -ResourceGroupName $rg -DataFactoryName $df -PipelineName $pipeline | Where-Object { $_.Status -eq "InProgress" -or $_.Status -eq "Queued" }
+
+# Cancel all active runs
+foreach ($run in $activeRuns) {
+    Stop-AzDataFactoryV2PipelineRun -ResourceGroupName $rg -DataFactoryName $df -PipelineRunId $run.PipelineRunId
+}
 
