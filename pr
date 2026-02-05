@@ -14,3 +14,12 @@ foreach ($run in $activeRuns) {
     Stop-AzDataFactoryV2PipelineRun -ResourceGroupName $rg -DataFactoryName $df -PipelineRunId $run.PipelineRunId
 }
 
+PS C:\Windows\system32> Connect-AzAccount
+Connect-AzAccount : The term 'Connect-AzAccount' is not recognized as the name of a cmdlet, function, script file, or
+operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try
+again.
+At line:1 char:1
++ Connect-AzAccount
++ ~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Connect-AzAccount:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
