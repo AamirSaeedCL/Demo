@@ -1,1 +1,29 @@
 
+Hi Steve, There is a ghost trigger (Pipeline_Scheduler_Realtime_CustomerTags)
+running at Dev - Even I have removed it and retitled the pipeline as well. But still firing  
+https://adf.azure.com/en/monitoring/pipelineruns?factory=%2Fsubscriptions%2Fea586fb8-4575-450a-b970-f111b8faff45%2FresourceGroups%2Fccm-d-adf-rg-uks%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2Fccm-d-pega-adf-uks&pipelineName=Ingestion_CustomerTags_Pipeline_Wrapper
+Azure Data Factory
+ 
+I have mentioned the detail in my email
+ 
+Pipeline_Scheduler_Realtime_%%%
+ 
+like 
+ 
+https://cabotcm.visualstudio.com/Shared%20Services/_git/ARM?path=/Powershell/DataFactory-StartTrigger.ps1
+
+	
+            Azure DevOps Services | Sign In
+        
+
+ 
+https://cabotcm.visualstudio.com/Shared%20Services/_git/ARM?path=/Powershell/DataFactory-StopTrigger.ps1
+
+	
+            Azure DevOps Services | Sign In
+        
+
+ 
+RealTime_StartTriggers
+RealTime_StopTriggers
+ 
