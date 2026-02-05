@@ -1,25 +1,32 @@
-# Connect to Azure
-Connect-AzAccount
+#Remove Lock on Storage resourceGroup
+$lockid=Get-AzResourceLock |where ResourceGroupName -Match ${env:storageresourceGroup}
+Remove-AzResourceLock -lockid $lockid.lockid -force
 
-# Variables
-$rg = "YourResourceGroup"
-$df = "YourDataFactoryName"
-$pipeline = "YourPipelineName"
+#Remove Lock on ADF resourceGroup
+$lockid=Get-AzResourceLock |where ResourceGroupName -Match ${env:resourceGroup}
+Remove-AzResourceLock -lockid $lockid.lockid -force
 
-# List all active pipeline runs
-$activeRuns = Get-AzDataFactoryV2PipelineRun -ResourceGroupName $rg -DataFactoryName $df -PipelineName $pipeline | Where-Object { $_.Status -eq "InProgress" -or $_.Status -eq "Queued" }
+ 
+#stop triggers that are currently started
+ $list =  Get-AzDataFactoryV2Trigger -ResourceGroupName ${env:resourceGroup} -DataFactoryName ${env:factoryName} | where RuntimeState -eq 'Started' | Select-Object -ExpandProperty Name
+ $array = @($list)
+    Foreach ($i in $array)
 
-# Cancel all active runs
-foreach ($run in $activeRuns) {
-    Stop-AzDataFactoryV2PipelineRun -ResourceGroupName $rg -DataFactoryName $df -PipelineRunId $run.PipelineRunId
-}
+    {
+    Write-Output "Trigger to disable & remove is $i"
+    Stop-AzDataFactoryV2Trigger -ResourceGroupName ${env:resourceGroup} -DataFactoryName ${env:factoryName} -TriggerName $i -Force
+    }
+	
+#Remove triggers prior to the ADF ARM deployment to stop unwanted errors when re-deploying tumbling window schedule
+ $list1 =  Get-AzDataFactoryV2Trigger -ResourceGroupName ${env:resourceGroup} -DataFactoryName ${env:factoryName} | Select-Object -ExpandProperty Name
+ $array1 = @($list)
+    Foreach ($i in $array1)
 
-PS C:\Windows\system32> Connect-AzAccount
-Connect-AzAccount : The term 'Connect-AzAccount' is not recognized as the name of a cmdlet, function, script file, or
-operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try
-again.
-At line:1 char:1
-+ Connect-AzAccount
-+ ~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (Connect-AzAccount:String) [], CommandNotFoundException
-    + FullyQualifiedErrorId : CommandNotFoundException
+    {
+    Write-Output "Trigger to disable & remove is $i"
+	Remove-AzDataFactoryV2Trigger -ResourceGroupName ${env:resourceGroup} -DataFactoryName ${env:factoryName} -TriggerName $i -Force
+    }
+	
+#Add Lock back on Storage and ADF resourceGroup
+New-AzResourceLock -LockName CCMLock -LockLevel CanNotDelete -ResourceGroupName ${env:storageresourceGroup} -force
+New-AzResourceLock -LockName CCMLock -LockLevel CanNotDelete -ResourceGroupName ${env:resourceGroup} -force
