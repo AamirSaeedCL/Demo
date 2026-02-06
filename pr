@@ -1,1 +1,202 @@
 
+Req.
+
+Acceptance Criteria
+
+1 – remove “PreviousStatusActive” field
+
+Given the customerTags associated data items have been updated to incorporate the new changes
+
+When I view the customerTag table within the PegaDataMart
+
+Then I will not see the “PreviousStatusActive” field
+
+And this field will also be removed from the Customer-tags.json 
+
+And this field will also be removed from the Customer data model within Pega
+
+ 
+
+2 – Rename all customerTags to include “Tag” in field
+
+Given the customerTags associated data items have been updated to incorporate the new changes
+
+When I view the customerTags table within the PegaDataMart
+
+Then I will see all fields defined in table 1 have been renamed to that of the “To Be” column
+
+And these updates will also be applied to the Customer-tags.json 
+
+And this update will also be applied to the Customer data model within Pega
+
+ 
+
+3 – Update bit data types to not allow for nulls
+
+Given CustomerTags associated data items where datatype = bit have been updated to not allow for nulls
+
+When the CustomerTag pipeline is run within the PegaDataMart (incremental or Initial)
+
+Then the following fields will only return a 1 or 0:
+
+ddTagActive
+dialTagActive 
+digitalTagActive
+payerPhaseTagActive
+phaseTagActive
+planTagActive
+preDefTagActive
+remediationTagActive 
+smsTagActive 
+statusTagActive 
+And if the data at source is null/empty
+
+Then this will be converted to a 0 when syncing the data to the CustomerTags table
+
+And when the customer-tags.json is generated
+
+Then any of the above fields = 1 will be converted to “True”
+
+And any of the above fields = 0 will be converted to “False”
+
+And this will be ingested into Pega accordingly
+
+ 
+
+4 – Update all data items to CamelCase
+
+Given all data items within the customer-tags json file have bee updated to CamelCase
+
+When I view the customer-tags.json file
+
+Then I will see all data items populated in CamelCase format
+
+         “customerID",
+
+         “ddTag",
+
+        "dateDDTagAssigned",
+
+        "dateDDTagRemoved",
+
+        "ddTagActive",
+
+        "dialTag",
+
+        "dateDialTagAssigned",
+
+        "dateDialTagRemoved",
+
+        "dialTagActive",
+
+        "digitalTag",
+
+        "dateDigitalTagAssigned",
+
+        "dateDigitalTagRemoved",
+
+        "digitalTagActive",
+
+        "payerPhaseTag",
+
+        "datePayerPhaseTagAssigned",
+
+        "datePayerPhaseTagRemoved",
+
+        "payerPhaseTagActive",
+
+        "phaseTag",
+
+        "datePhaseTagAssigned",
+
+        "datePhaseTagRemoved",
+
+        "phaseTagActive",
+
+        "planTag",
+
+        "datePlanTagAssigned",
+
+        "datePlanTagRemoved",
+
+        "planTagActive",
+
+        "preDefTag",
+
+        "datePreDefTagAssigned",
+
+        "datePreDefTagRemoved",
+
+        "preDefTagActive",
+
+        "previousStatusTag",
+
+        "datePreviousStatusTagAssigned",
+
+        "datePreviousStatusTagRemoved",
+
+        "remediationTag",
+
+        "dateRemediationTagAssigned",
+
+        "dateRemediationTagRemoved",
+
+        "remediationTagActive",
+
+        "smsTag",
+
+        "dateSMSTagAssigned",
+
+        "dateSMSTagRemoved",
+
+        "smsTagActive",
+
+        "statusTag",
+
+        "dateStatusTagAssigned",
+
+        "dateStatusTagRemoved",
+
+        "statusTagActive"
+
+ 
+
+
+Table 1 - CustomerTag fields to be renamed (AC2):
+
+As Is	To Be
+DDTagActive
+Rename to ddTagActive
+DateDialAssigned	Rename to dateDialTagAssigned
+DateDialRemoved	Rename to dateDialTagRemoved
+DialActive 	Rename to dialTagActive
+DateDigitalAssigned	Rename to dateDigitalTagAssigned
+DateDigitalRemoved	Rename to dateDigitalTagRemoved
+DigitalActive	Rename to digitalTagActive
+DatePayerPhaseAssigned	Rename to datePayerPhaseTagAssigned
+DatePayerPhaseRemoved	Rename to datePayerPhaseTagRemoved
+PayerPhaseActive	Rename to payerPhaseTagActive
+DatePhaseAssigned	Rename to datePhaseTagAssigned
+DatePhaseRemoved	Rename to datePhaseTagRemoved
+PhaseActive	Rename to phaseTagActive
+DatePlanAssigned	Rename to datePlanTagAssigned
+DatePlanRemoved	Rename to datePlanTagRemoved
+PlanActive	Rename to planTagActive
+DatePreDefAssigned 	Rename to datePreDefTagAssigned
+DatePreDefRemoved	Rename to datePreDefTagRemoved
+PreDefActive	Rename to preDefTagActive
+DatePreviousStatusAssigned	Rename to datePreviousStatusTagAssigned
+DatePreviousStatusRemoved	Rename to datePreviousStatusTagRemoved
+DateRemediationAssigned 	Rename to dateRemediationTagAssigned
+DateRemediationRemoved 	Rename to dateRemediationTagRemoved
+RemediationActive 	Rename to remediationTagActive
+DateSMSAssigned  	Rename to dateSMSTagAssigned
+DateSMSRemoved 	Rename to dateSMSTagRemoved
+SMSActive 	Rename to smsTagActive
+DateStatusAssigned 	Rename to dateStatusTagAssigned
+DateStatusRemoved 	Rename to dateStatusTagRemoved
+StatusActive 	Rename to statusTagActive
+
+
+
+
