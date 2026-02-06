@@ -1,5 +1,1 @@
-PR Title
-Update CustomerTags pipeline: schema cleanup, field renames, bit handling, and CamelCase standardisation
 
-Brief Description
-This PR updates the CustomerTags Data Factory pipeline to align with revised Pega data requirements. Changes include removing the deprecated PreviousStatusActive field, renaming all CustomerTag fields to include the Tag suffix, and enforcing non-null bit fields with null values defaulted to 0. As discussed, CamelCase formatting is handled during the file generation process via the mapper (models). These updates are applied consistently across the CustomerTags table in PegaDataMart, the customer-tags.json output, and the Customer data model ingestion into Pega.
