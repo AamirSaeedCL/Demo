@@ -1,4 +1,1 @@
-Re: Deployment to SIT.
-As discussed during this morning’s stand-up, I will be deploying all changes related to CustomerTags to the SIT environment. This deployment will include updates to the ADF pipelines and DACPAC, covering both the initial ingestion and incremental processing pipelines.
 
-Following the deployment, the Siri / Pega team will need to validate and test the changes using the CustomerTags file.
