@@ -1,1 +1,1 @@
-
+Re:Deployment at SIT. As mentioned this morning in the standup, I'm going to deploy all the changes related to CustomerTags inlcuidng ADF and Dacpac at SIT - It will include both initial ingestion and increamental pipelines. Siri, pega team needs to test the changes in the customerTags file.
