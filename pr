@@ -1,9 +1,1 @@
-Hi Team,
 
-The CustomerTags solution has now been successfully deployed to the SIT environment. The deployment covers the DACPAC database changes, the initial ingestion pipeline, the incremental data processing pipelines, and the associated JSON file/configuration.
-
-All components have been validated and are functioning as expected.
-
-Srir, please feel free to proceed with deploying and testing the corresponding Pega changes at your convenience.
-
-Thank you.
