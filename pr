@@ -1,44 +1,48 @@
 DECLARE 
-    @ValidPhoneTypes  VARCHAR(50) = '0,1,3',  -- UNKNOWN, HOME, CELL
-    @ValidPhoneStatus VARCHAR(50) = '0,1,3',  -- UNKNOWN, VALID, NEW
-    @SoftDeleteFlag   CHAR(1)     = 'N',
-    @MobilePrefix     VARCHAR(2)  = '07',
-    @ExpectedPhoneLength INT      = 11;
+    @ValidMobileType      VARCHAR(10) = '3',     -- CELL
+    @ValidLandlineTypes   VARCHAR(10) = '0,1',   -- UNKNOWN, HOME
+    @ValidPhoneStatus     VARCHAR(50) = '0,1,3',
+    @SoftDeleteFlag       CHAR(1)     = 'N',
+    @MobilePrefix         VARCHAR(2)  = '07',
+    @ExpectedPhoneLength  INT         = 11;
 
-;WITH ValidTypes AS
-(
-    SELECT TRIM(value) AS PhoneType
-    FROM STRING_SPLIT(@ValidPhoneTypes, ',')
-),
-ValidStatus AS
+;WITH ValidStatus AS
 (
     SELECT TRIM(value) AS PhoneStatus
     FROM STRING_SPLIT(@ValidPhoneStatus, ',')
 ),
-FilteredPhones AS
+ValidLandlineTypes AS
 (
-    SELECT 
-        p.cnsmr_id,
-        p.cnsmr_phn_nmbr_txt
-    FROM dbo.cnsmr_Phn p
-    INNER JOIN ValidTypes  vt ON p.cnsmr_phn_typ_cd  = vt.PhoneType
-    INNER JOIN ValidStatus vs ON p.cnsmr_phn_stts_cd = vs.PhoneStatus
-    WHERE 
-        p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-        AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
+    SELECT TRIM(value) AS PhoneType
+    FROM STRING_SPLIT(@ValidLandlineTypes, ',')
 )
 SELECT
-    fp.cnsmr_id,
-    fp.cnsmr_phn_nmbr_txt,
+    p.cnsmr_id,
+    p.cnsmr_phn_nmbr_txt,
 
     CAST(CASE 
-            WHEN fp.cnsmr_phn_nmbr_txt LIKE @MobilePrefix + '%'
+            WHEN p.cnsmr_phn_typ_cd = @ValidMobileType
+             AND p.cnsmr_phn_nmbr_txt LIKE @MobilePrefix + '%'
+             AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
+             AND p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
+             AND EXISTS (SELECT 1 
+                         FROM ValidStatus vs 
+                         WHERE vs.PhoneStatus = p.cnsmr_phn_stts_cd)
             THEN 1 ELSE 0
          END AS BIT) AS IsValidMobile,
 
     CAST(CASE 
-            WHEN fp.cnsmr_phn_nmbr_txt NOT LIKE @MobilePrefix + '%'
+            WHEN p.cnsmr_phn_typ_cd IN (SELECT PhoneType FROM ValidLandlineTypes)
+             AND p.cnsmr_phn_nmbr_txt NOT LIKE @MobilePrefix + '%'
+             AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
+             AND p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
+             AND EXISTS (SELECT 1 
+                         FROM ValidStatus vs 
+                         WHERE vs.PhoneStatus = p.cnsmr_phn_stts_cd)
             THEN 1 ELSE 0
          END AS BIT) AS IsValidPhone
 
-FROM FilteredPhones fp;
+FROM dbo.cnsmr_Phn p
+WHERE 
+    p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
+    AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength;
