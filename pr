@@ -1,48 +1,5 @@
-DECLARE 
-    @ValidMobileType      VARCHAR(10) = '3',     -- CELL
-    @ValidLandlineTypes   VARCHAR(10) = '0,1',   -- UNKNOWN, HOME
-    @ValidPhoneStatus     VARCHAR(50) = '0,1,3',
-    @SoftDeleteFlag       CHAR(1)     = 'N',
-    @MobilePrefix         VARCHAR(2)  = '07',
-    @ExpectedPhoneLength  INT         = 11;
-
-;WITH ValidStatus AS
-(
-    SELECT TRIM(value) AS PhoneStatus
-    FROM STRING_SPLIT(@ValidPhoneStatus, ',')
-),
-ValidLandlineTypes AS
-(
-    SELECT TRIM(value) AS PhoneType
-    FROM STRING_SPLIT(@ValidLandlineTypes, ',')
-)
-SELECT
-    p.cnsmr_id,
-    p.cnsmr_phn_nmbr_txt,
-
-    CAST(CASE 
-            WHEN p.cnsmr_phn_typ_cd = @ValidMobileType
-             AND p.cnsmr_phn_nmbr_txt LIKE @MobilePrefix + '%'
-             AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
-             AND p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-             AND EXISTS (SELECT 1 
-                         FROM ValidStatus vs 
-                         WHERE vs.PhoneStatus = p.cnsmr_phn_stts_cd)
-            THEN 1 ELSE 0
-         END AS BIT) AS IsValidMobile,
-
-    CAST(CASE 
-            WHEN p.cnsmr_phn_typ_cd IN (SELECT PhoneType FROM ValidLandlineTypes)
-             AND p.cnsmr_phn_nmbr_txt NOT LIKE @MobilePrefix + '%'
-             AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
-             AND p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-             AND EXISTS (SELECT 1 
-                         FROM ValidStatus vs 
-                         WHERE vs.PhoneStatus = p.cnsmr_phn_stts_cd)
-            THEN 1 ELSE 0
-         END AS BIT) AS IsValidPhone
-
-FROM dbo.cnsmr_Phn p
-WHERE 
-    p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-    AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength;
+cnsmr_id	cnsmr_phn_nmbr_txt	cnsmr_phn_typ_cd	cnsmr_phn_stts_cd	IsValidMobile	IsValidPhone
+2235249	01378948869	3	1	0	0
+2235249	01386735907	3	1	0	0
+2235249	01331330533	3	1	0	0
+2235249	01295126763	3	1	0	0
