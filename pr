@@ -1,6 +1,6 @@
 DECLARE 
-    @ValidPhoneTypes  VARCHAR(50) = '0,1,3',
-    @ValidPhoneStatus VARCHAR(50) = '0,1,3',
+    @ValidPhoneTypes  VARCHAR(50) = '0,1,3',  -- UNKNOWN, HOME, CELL
+    @ValidPhoneStatus VARCHAR(50) = '0,1,3',  -- UNKNOWN, VALID, NEW
     @SoftDeleteFlag   CHAR(1)     = 'N',
     @MobilePrefix     VARCHAR(2)  = '07',
     @ExpectedPhoneLength INT      = 11;
