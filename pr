@@ -1,1 +1,52 @@
 
+using Engage.Subscriber.FunctionApp.IoC;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace Engage.Subscriber.FunctionApp;
+public static class Program
+{
+    public static IHostBuilder Host { get; set; }
+    public static IHostBuilder SetupHost() => Host ??= new HostBuilder();
+
+    public async static Task Main()
+    {
+        try
+        {
+            IHost host = CreateHostBuilder().Build();
+            await host.RunAsync();
+        }
+        catch (Exception e)
+        {
+            throw;
+        }
+    }
+
+    public static IHostBuilder CreateHostBuilder()
+    {
+        IHostBuilder hostBuilder = SetupHost();
+        return hostBuilder
+           .ConfigureFunctionsWorkerDefaults()
+           .ConfigureAppConfiguration(context =>
+           {
+               context.AddEnvironmentVariables();
+           })
+            .ConfigureLogging((hostingContext, builder) =>
+            {
+                if (hostingContext.HostingEnvironment.IsDevelopment())
+                {
+                    builder.AddConsole();
+                }
+                builder.AddApplicationInsights();
+            })
+            .ConfigureServices((builderContext, services) =>
+            {
+                IConfiguration configuration = builderContext.Configuration;
+                services.AddApplicationInsightsTelemetryWorkerService();
+                services.AddCCMConsumerClientServices();
+            })
+            .UseDefaultServiceProvider(options => options.ValidateScopes = false);
+    }
+}
