@@ -1,23 +1,44 @@
-
 DECLARE 
-    @ValidPhoneTypes VARCHAR(50) = '0, 1, 3',  -- UNKNOWN, HOME, CELL
-    @ValidPhoneStatus VARCHAR(50) = '0, 1, 3', -- UNKNOWN, VALID, NEW
-    @SoftDeleteFlag CHAR(1) = 'N',
-    @MobilePrefix VARCHAR(2) = '07',
-    @ExpectedPhoneLength INT = 11;
+    @ValidPhoneTypes  VARCHAR(50) = '0,1,3',
+    @ValidPhoneStatus VARCHAR(50) = '0,1,3',
+    @SoftDeleteFlag   CHAR(1)     = 'N',
+    @MobilePrefix     VARCHAR(2)  = '07',
+    @ExpectedPhoneLength INT      = 11;
 
-SELECT DISTINCT cnsmr_id as CustomerId, CAST(1 AS BIT) AS [IsValidMobile]
-    FROM [dbo].[cnsmr_Phn] p
-    WHERE p.cnsmr_phn_typ_cd IN (SELECT value FROM STRING_SPLIT(@ValidPhoneTypes, ','))
-      AND p.cnsmr_phn_stts_cd IN (SELECT value FROM STRING_SPLIT(@ValidPhoneStatus, ','))
-      AND p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
-      AND LEFT(p.cnsmr_phn_nmbr_txt, 2) = @MobilePrefix
-      AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
+;WITH ValidTypes AS
+(
+    SELECT TRIM(value) AS PhoneType
+    FROM STRING_SPLIT(@ValidPhoneTypes, ',')
+),
+ValidStatus AS
+(
+    SELECT TRIM(value) AS PhoneStatus
+    FROM STRING_SPLIT(@ValidPhoneStatus, ',')
+),
+FilteredPhones AS
+(
+    SELECT 
+        p.cnsmr_id,
+        p.cnsmr_phn_nmbr_txt
+    FROM dbo.cnsmr_Phn p
+    INNER JOIN ValidTypes  vt ON p.cnsmr_phn_typ_cd  = vt.PhoneType
+    INNER JOIN ValidStatus vs ON p.cnsmr_phn_stts_cd = vs.PhoneStatus
+    WHERE 
+        p.cnsmr_phn_sft_dlt_flg = @SoftDeleteFlag
+        AND LEN(p.cnsmr_phn_nmbr_txt) = @ExpectedPhoneLength
+)
+SELECT
+    fp.cnsmr_id,
+    fp.cnsmr_phn_nmbr_txt,
 
+    CAST(CASE 
+            WHEN fp.cnsmr_phn_nmbr_txt LIKE @MobilePrefix + '%'
+            THEN 1 ELSE 0
+         END AS BIT) AS IsValidMobile,
 
-cnsmr_id	cnsmr_phn_nmbr_txt	
-3794843	    07500080483	        
-1588184	    02313272484
-1588187	    07500080483	
-1588188	    01520815746	
-1588189	    01776459345	
+    CAST(CASE 
+            WHEN fp.cnsmr_phn_nmbr_txt NOT LIKE @MobilePrefix + '%'
+            THEN 1 ELSE 0
+         END AS BIT) AS IsValidPhone
+
+FROM FilteredPhones fp;
