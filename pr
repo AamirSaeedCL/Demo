@@ -1,1 +1,41 @@
+Could you pls introduce yourself?
 
+What are the key differences between .NET Framework, .NET Core, and .NET (modern .NET 6/7/8)?
+
+Explain the difference between interface and abstract class in C#.
+
+How does dependency injection work in C#, and how is it implemented in Sitecore?
+
+What is serialization in Sitecore, and why is it important?
+
+Explain the Sitecore content tree and how items are stored.
+
+What are Sitecore templates, and how do they differ from standard classes?
+
+How does Sitecore caching work, and what types of caches are available?
+
+What is the difference between Layout, Sublayout, Rendering, and Controller Rendering in Sitecore?
+
+How do pipelines work in Sitecore, and how can you customize them?
+
+What is Sitecore Helix, and why is it recommended?
+
+Explain the difference between Sitecore MVC and ASP.NET MVC.
+
+What are events and handlers in Sitecore?
+
+How does Sitecore security work (users, roles, permissions)?
+
+What is the purpose of Sitecore Experience Editor, and how does it differ from Content Editor?
+
+Explain async and await in C# and when you would use them.
+
+What is the difference between IEnumerable, ICollection, and IList in C#?
+
+How do you handle exception logging in a Sitecore application?
+
+What are Sitecore items vs Sitecore fields, and how are they accessed in code?
+
+How does publishing work in Sitecore, and what are the different publishing modes?
+
+What are Sitecore roles of CM, CD, and xDB, and how do they interact?
