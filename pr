@@ -1,70 +1,40 @@
-namespace MySitecoreIntegration
-{
-    public static class TemplateConstants
-    {
-        public static readonly ID SampleTemplateId = new ID("{11111111-1111-1111-1111-111111111111}");
-        public static readonly ID TitleFieldId = new ID("{22222222-2222-2222-2222-222222222222}");
-        public static readonly ID DescriptionFieldId = new ID("{33333333-3333-3333-3333-333333333333}");
-    }
-    public class TemplateItemService
-    {
-        private readonly Database _database;
-        public TemplateItemService(string databaseName = "master")
-        {
-            _database = Sitecore.Configuration.Factory.GetDatabase(databaseName);
-        }
+ Rename “ValidPhoneNumber” field
 
-        public Item CreateItem(string parentPath, string itemName, string title, string description)
-        {
-            Item parentItem = _database.GetItem(parentPath);
-            if (parentItem == null)
-            {
-                throw new InvalidOperationException("Parent item not found.");
-            }
+Given the Customer associated data items have been updated to incorporate the new changes
 
-            TemplateItem template = _database.GetTemplate(TemplateConstants.SampleTemplateId);
+When I view the Customer table within the PegaDataMart
 
-            using (new SecurityDisabler())
-            {
-                Item newItem = parentItem.Add(itemName, template);
-                newItem.Editing.BeginEdit();
-                try
-                {
-                    newItem.Fields[TemplateConstants.TitleFieldId].Value = title;
-                    newItem.Fields[TemplateConstants.DescriptionFieldId].Value = description;
-                    newItem.Editing.EndEdit();
-                }
-                catch
-                {
-                    newItem.Editing.CancelEdit();
-                    throw;
-                }
-                return newItem;
-            }
-        }
+Then I will see the "ValidPhoneNumber" field has been renamed to "isValidPhone"
 
-        public Item GetItemById(string itemId)
-        {
-            return _database.GetItem(new ID(itemId));
-        }
+And this update will also be applied to the Customer.json as "isValidPhone"
 
-        public void UpdateItem(Item item, string title, string description)
-        {
-            using (new SecurityDisabler())
-            {
-                item.Editing.BeginEdit();
-                try
-                {
-                    item.Fields[TemplateConstants.TitleFieldId].Value = title;
-                    item.Fields[TemplateConstants.DescriptionFieldId].Value = description;
-                    item.Editing.EndEdit();
-                }
-                catch
-                {
-                    item.Editing.CancelEdit();
-                    throw;
-                }
-            }
-        }
-    }
-}
+And this update will also be applied to the Customer data model within Pega
+
+ 
+
+3 – Update bit data types to not allow for nulls
+
+Given Customer associated data items where datatype = bit have been updated to not allow for nulls
+
+When the Customer pipeline is run within the PegaDataMart (incremental or Initial)
+
+Then the following fields will only return a 1 or 0:
+
+isValidPhone
+isValidEmail
+isValidMobile
+digitalContactToday
+isDeleted
+ 
+
+And if the data at source is null/empty
+
+Then this will be converted to a 0 when syncing the data to the Customer table
+
+And when the Customer.json is generated
+
+Then any of the above fields = 1 will be converted to “True”
+
+And any of the above fields = 0 will be converted to “False”
+
+And this will be ingested into Pega accordingly
