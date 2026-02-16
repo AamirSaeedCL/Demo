@@ -1,1 +1,1 @@
-Renamed the ValidPhoneNumber field to isValidPhone across the Customer table, Customer.json, and Pega data model. Updated all Customer bit fields to be non-nullable, ensuring only 0 or 1 values are persisted during data sync. Implemented defaulting of null or empty source values to 0 and mapped bit values to True/False in the generated Customer.json for correct Pega ingestion.
+
