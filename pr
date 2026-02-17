@@ -1,1 +1,8 @@
-Operation on target 7-PlatStat- DM To Stg failed: ErrorCode=SqlOperationFailed,'Type=Microsoft.DataTransfer.Common.Shared.HybridDeliveryException,Message=A database operation failed. Please search error to get more details.,Source=Microsoft.DataTransfer.ClientLibrary,''Type=System.Data.SqlClient.SqlException,Message=Invalid object name '##InterimTable_db34e5d7-6b0b-4443-b7bf-8c771a106fb0'.,Source=.Net SqlClient Data Provider,SqlErrorNumber=208,Class=16,ErrorCode=-2146232060,State=0,Errors=[{Class=16,Number=208,State=0,Message=Invalid object name '##InterimTable_db34e5d7-6b0b-4443-b7bf-8c771a106fb0'.,},],
+Guys, please don’t run the CustomerTags pipelines (initial ingestion + incremental) for now.
+I’m running the initial ingestion and hitting an error (Invalid object name '##InterimTable_…') caused by staging being enabled with parallel copy, which leads to interim temp table session conflicts.
+
+
+Please do not run the CustomerTags pipelines (Initial Ingestion + Incremental).
+I am currently running the Initial Ingestion, and parallel executions may interfere.
+The failure occurs due to ADF staging enabled + parallel copy, which uses SQL global interim tables.
+Concurrent runs cause the interim table (##InterimTable_*) to be dropped, resulting in Invalid object name errors.
