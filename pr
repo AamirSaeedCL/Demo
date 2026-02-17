@@ -1,8 +1,1 @@
-Guys, please don’t run the CustomerTags pipelines (initial ingestion + incremental) for now.
-I’m running the initial ingestion and hitting an error (Invalid object name '##InterimTable_…') caused by staging being enabled with parallel copy, which leads to interim temp table session conflicts.
 
-
-Please do not run the CustomerTags pipelines (Initial Ingestion + Incremental).
-I am currently running the Initial Ingestion, and parallel executions may interfere.
-The failure occurs due to ADF staging enabled + parallel copy, which uses SQL global interim tables.
-Concurrent runs cause the interim table (##InterimTable_*) to be dropped, resulting in Invalid object name errors.
