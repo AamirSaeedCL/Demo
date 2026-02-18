@@ -1,3 +1,1 @@
-This PR updates the Customer initial ingestion ADF pipeline to align with the revised Pega data model requirements. The field PreferenceTypeCode has been renamed to consumerPreference, and ValidPhoneNumber has been renamed to isValidPhone. These changes are reflected in the PegaDataMart Customer table, the generated Customer.json file, and are aligned for downstream ingestion into Pega.
-
-In addition, all Customer bit fields have been standardised to be non-nullable. The fields isValidPhone, isValidEmail, isValidMobile, digitalContactToday, and isDeleted will now only return 1 or 0 when the pipeline runs (initial or incremental). Any null or empty values from the source system are converted to 0 during the sync process. When generating Customer.json, values of 1 are converted to "True" and values of 0 are converted to "False" to ensure correct boolean ingestion into Pega.
+Customer Initial Pipeline Enhancements for Pega Data Model Changes
