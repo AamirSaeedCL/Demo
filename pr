@@ -1,1 +1,63 @@
 
+Req.
+
+Acceptance Criteria
+
+1 - Rename “PreferenceTypeCode” field
+
+Given the Customer associated data items have been updated to incorporate the new changes
+
+When I view the Customer table within the PegaDataMart
+
+Then I will see the "PreferenceTypeCode" field has been renamed to "consumerPreference"
+
+And this update will also be applied to the Customer.json as "consumerPreference"
+
+And this update will also be applied to the Customer data model within Pega
+
+ 
+
+2 – Rename “ValidPhoneNumber” field
+
+Given the Customer associated data items have been updated to incorporate the new changes
+
+When I view the Customer table within the PegaDataMart
+
+Then I will see the "ValidPhoneNumber" field has been renamed to "isValidPhone"
+
+And this update will also be applied to the Customer.json as "isValidPhone"
+
+And this update will also be applied to the Customer data model within Pega
+
+ 
+
+3 – Update bit data types to not allow for nulls
+
+Given Customer associated data items where datatype = bit have been updated to not allow for nulls
+
+When the Customer pipeline is run within the PegaDataMart (incremental or Initial)
+
+Then the following fields will only return a 1 or 0:
+
+isValidPhone
+isValidEmail
+isValidMobile
+digitalContactToday
+isDeleted
+ 
+
+And if the data at source is null/empty
+
+Then this will be converted to a 0 when syncing the data to the Customer table
+
+And when the Customer.json is generated
+
+Then any of the above fields = 1 will be converted to “True”
+
+And any of the above fields = 0 will be converted to “False”
+
+And this will be ingested into Pega accordingly
+
+ 
+
+
