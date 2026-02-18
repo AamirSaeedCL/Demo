@@ -1,1 +1,19 @@
 
+Hi Team,
+
+FYI, the issue observed in the CustomerTags pipeline has now been resolved. There was no defect in the pipeline logic itself.
+
+The failure was caused by a data completeness issue in the Customer Master table. Specifically, the pipeline was failing due to a NOT NULL constraint violation on legacyId. Upon investigation, it was identified that the Customer Master table contained approximately 1 million records, whereas the expected volume is around 2.8 million records. As a result, a significant portion of customer data was missing.
+
+For the missing records, the pipeline was unable to retrieve a corresponding legacyId, which led to the NOT NULL constraint error during the CustomerTags processing.
+
+To resolve this:
+
+I re-executed the Customer Master initial ingestion to fully reload all customer records.
+
+Once the master data was complete, I re-ran the CustomerTags pipeline, which executed successfully.
+
+The pipeline is now working as expected and ready for testing.
+
+Key takeaway:
+Please inform the development team that if the Customer Master initial ingestion needs to be re-run in the future, the date tag must be reset to allow a full data reload. The Customer table is the primary source of truth, and downstream pipelines depend on its completeness.
