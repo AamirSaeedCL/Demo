@@ -1,14 +1,1 @@
-WITH Duplicates AS (
-    SELECT *,
-           ROW_NUMBER() OVER (
-               PARTITION BY legacyId
-               ORDER BY Id ASC
-           ) AS rn
-    FROM dbo.CustomerTags
-)
-DELETE FROM Duplicates
-WHERE rn > 1;
 
-heelooo
-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
-hhhhg
