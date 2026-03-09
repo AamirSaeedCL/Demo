@@ -1,16 +1,1 @@
-SELECT 
-    u.name AS UserName,
-    s.name AS SchemaName,
-    o.name AS TableName,
-    p.permission_name,
-    p.state_desc
-FROM sys.database_permissions p
-JOIN sys.database_principals u 
-    ON p.grantee_principal_id = u.principal_id
-JOIN sys.objects o 
-    ON p.major_id = o.object_id
-JOIN sys.schemas s 
-    ON o.schema_id = s.schema_id
-WHERE u.name = 'CFSI\svcAgtPrtlUnisrchStg'
-AND o.type = 'U'
-ORDER BY s.name, o.name;
+
