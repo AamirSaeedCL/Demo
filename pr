@@ -1,7 +1,3 @@
-PC - Cell charges & tax columns
-	
-
-Freight Charge (SICHG) , Tax Amount (SITAX)
-Invocie Total (SITOT)
-----> SIH table available, we have columns available, can we go against two columns
-two examples.
+    SELECT * FROM sys.database_permissions p
+    JOIN sys.database_principals u ON p.grantee_principal_id = u.principal_id
+    WHERE u.name = 'CFSI\svcAgtPrtlUnisrchStg' 
