@@ -1,61 +1,9 @@
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-
-WITH tableA
-AS (SELECT DISTINCT
-           a.AccountID,
-           a.DebtorNo
-    FROM MarlinDW.dbo.ACCOUNT AS a),
-     Digital_EI_CF
-AS (SELECT a.AccountID,
-           a.DebtorNo,
-           MAX(b.CreatedDateTime) AS Digital_EI
-    FROM tableA a
-        INNER JOIN MarlinDW..SFS_MASTER b WITH (NOLOCK)
-            ON a.AccountID = b.AccountID
-    WHERE b.CreatedBy IN ( 'CustomerWeb', 'Digital' )
-    GROUP BY a.AccountID,
-             a.DebtorNo),
-     SF_CF
-AS (SELECT a.AccountID,
-           a.DebtorNo,
-           MAX(b.Open_Date) AS SF
-    FROM tableA a
-        INNER JOIN DiallerOperation.dbo.Salesforce_Interactions_Master b
-            ON a.DebtorNo = TRY_CAST(b.DebtorNo AS INT)
-    GROUP BY a.AccountID,
-             a.DebtorNo),
-     CubeDate_CF
-AS (SELECT a.AccountID,
-           a.DebtorNo,
-           MAX(b.Documentdate) AS CubeDate
-    FROM tableA a
-        INNER JOIN DiallerOperation.dbo.CUBE_Transactions b
-            ON a.DebtorNo = TRY_CAST(b.Debtorno AS INT)
-    WHERE b.Channel IN ( 'Post', 'Email' )
-          AND b.Documentdate != '1900-01-01 00:00:00.000'
-    GROUP BY a.AccountID,
-             a.DebtorNo),
-     Digital_Contact_Today
-AS (SELECT a.DebtorNo,
-           CASE
-               WHEN CAST(ei.Digital_EI AS DATE) >= CAST(GETDATE() - 1 AS DATE)
-                    OR CAST(sf.SF AS DATE) >= CAST(GETDATE() - 1 AS DATE)
-                    OR CAST(cf.CubeDate AS DATE) >= CAST(GETDATE() - 1 AS DATE) THEN
-                   1
-               ELSE
-                   0
-           END AS DigitalContactToday
-    FROM tableA a
-        LEFT JOIN Digital_EI_CF ei
-            ON a.AccountID = ei.AccountID
-        LEFT JOIN SF_CF sf
-            ON a.AccountID = sf.AccountID
-        LEFT JOIN CubeDate_CF cf
-            ON a.AccountID = cf.AccountID)
-SELECT DebtorNo,
-       DigitalContactToday
-FROM Digital_Contact_Today
-WHERE DigitalContactToday = 1;
-
-
-
+CAST(
+    CASE
+        WHEN CAST(ei.Digital_EI AS DATE) >= CAST(GETDATE() - 1 AS DATE)
+          OR CAST(sf.SF AS DATE) >= CAST(GETDATE() - 1 AS DATE)
+          OR CAST(cf.CubeDate AS DATE) >= CAST(GETDATE() - 1 AS DATE)
+        THEN 1
+        ELSE 0
+    END AS BIT
+) AS DigitalContactToday
